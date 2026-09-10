@@ -123,7 +123,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .back .oval svg{width:62%;height:auto;filter:drop-shadow(0 0 3cqw rgba(243,217,142,.7))}
 .back .pips{position:absolute;top:7%;display:flex;gap:2.2cqw}
 .back .pips i{width:6cqw;height:6cqw;border-radius:50%;box-shadow:0 0 0 .5cqw #000,inset 0 -.8cqw 0 rgba(0,0,0,.3)}
-.pw{background:#f7f0d8}.pu{background:#3f8fd6}.pb{background:#4a3a56}.pr{background:#d6503a}.pg{background:#4f9a3c}
+.pips i.pw{background:#f7f0d8}.pips i.pu{background:#3f8fd6}.pips i.pb{background:#4a3a56}.pips i.pr{background:#d6503a}.pips i.pg{background:#4f9a3c}
 .back .bw{position:absolute;bottom:6.5%;font-family:var(--deco);font-weight:900;font-size:8.5cqw;letter-spacing:.14em;color:#e9c86c;text-shadow:0 .5cqw 0 #000}
 
 /* ============ menu ============ */
@@ -344,6 +344,81 @@ b.t0,b.t1,.who{color:var(--tc)}
   .zoomov .card.big{--cw:min(78vw,300px)}
   .log{max-height:220px}
 }
+/* ============ accounts, packs, collection, decks, lobby ============ */
+.pg{max-width:900px;margin:0 auto;padding-top:6px}
+.panel-pg{max-width:640px;margin:0 auto;background:linear-gradient(180deg,#1d1c22,#101014);border-radius:18px;box-shadow:inset 0 0 0 1px var(--gold-d),0 0 0 1px #000,0 20px 60px rgba(0,0,0,.6);padding:20px 22px 26px}
+.panel-pg.narrow{max-width:400px}
+.panel-pg.wide{max-width:900px}
+.acct{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:14px 0 6px;padding:12px 16px;border-radius:14px;background:rgba(214,178,90,.06);box-shadow:inset 0 0 0 1px rgba(214,178,90,.25)}
+.acct p{margin:0;flex:1 1 220px;color:var(--ink-soft);font-size:15px}
+.acct.in{justify-content:space-between}
+.who-am-i{display:flex;flex-direction:column;line-height:1.25}
+.who-am-i b{font-family:var(--title);font-size:17px;color:var(--gold-2)}
+.who-am-i span{font-size:13px;color:var(--ink-soft)}
+.acct-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-radius:12px;background:rgba(0,0,0,.3);padding:4px}
+.tab{flex:1;padding:9px;border-radius:9px;font-family:var(--title);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.tab.on{background:linear-gradient(180deg,#2b2a2f,#141318);color:var(--gold-2);box-shadow:0 0 0 1px var(--gold-d)}
+.field{display:block;margin-bottom:12px;text-align:left}
+.field span{display:block;font-family:var(--title);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:5px}
+.field input{width:100%;padding:10px 12px;border-radius:9px;background:rgba(0,0,0,.35);border:1px solid rgba(214,178,90,.3);color:var(--ink);font:inherit;font-size:16px}
+.field input:focus{outline:none;border-color:var(--gold)}
+.hint{font-size:14px;color:var(--ink-soft);margin:8px 0}
+.err-msg{color:#ffb3a8;background:rgba(224,72,58,.12);border:1px solid rgba(224,72,58,.4);border-radius:10px;padding:8px 12px;font-size:14.5px;margin:10px 0}
+.ok-msg{color:#c8f0b0;background:rgba(111,207,74,.12);border:1px solid rgba(111,207,74,.4);border-radius:10px;padding:8px 12px;font-size:14.5px;margin:10px 0}
+.btn.wide{width:100%}
+.statline{display:flex;flex-wrap:wrap;gap:8px 20px;justify-content:center;margin-bottom:14px;font-size:15px;color:var(--ink-soft)}
+.statline b{color:var(--gold-2);font-family:var(--title)}
+.sec{font-family:var(--title);font-weight:700;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);border-top:1px solid rgba(214,178,90,.25);padding-top:14px;margin:18px 0 10px}
+.sec:first-of-type{border-top:0;margin-top:0}
+.sec .count{margin-left:8px;font-size:13px;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+.sec .count.ok{color:#8ff06a}
+/* packs */
+.packstack{display:flex;justify-content:center;margin:14px 0}
+.packstack .card.pack{--cw:150px;box-shadow:1px 1px 0 #000,3px 3px 0 #3a230e,5px 5px 0 #000,7px 7px 0 #3a230e,0 16px 26px rgba(0,0,0,.6);position:relative}
+.packstack.empty .card.pack{opacity:.3;filter:grayscale(.6)}
+.packn{position:absolute;right:-8px;top:-8px;min-width:26px;height:26px;padding:0 6px;border-radius:14px;display:grid;place-items:center;font-family:var(--title);font-weight:900;font-size:13px;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a);box-shadow:0 0 0 2px #000}
+.reveal{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;margin:16px 0}
+.rslot{display:flex;flex-direction:column;align-items:center;gap:8px}
+.card.rcard{--cw:150px}
+.card.rcard.shine{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 30px rgba(214,178,90,.75)}
+.rtag{font-family:var(--title);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px}
+.rtag.new{color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a)}
+.rtag.dupe{color:var(--ink-soft);background:rgba(255,255,255,.08)}
+.reward{font-family:var(--title);font-weight:700;color:var(--gold-2);font-size:16px}
+.reward.dim{color:var(--ink-soft);font-weight:400;font-family:var(--body);font-style:italic}
+/* collection & deck-builder grids */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:14px 10px;margin-bottom:6px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:6px}
+.card.coll{--cw:112px}
+.card.coll.locked{filter:grayscale(1) brightness(.5);opacity:.7}
+.card.coll.shine{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 20px rgba(214,178,90,.6)}
+.card.coll.pickable{cursor:pointer;transition:transform .15s,box-shadow .15s}
+.card.coll.pickable:hover{transform:translateY(-4px)}
+.card.coll.pickable.sel{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 22px rgba(214,178,90,.8)}
+.tl-lbl{font-size:12px;color:var(--ink-soft);text-align:center}
+.deckrow{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:12px 4px;border-top:1px solid rgba(214,178,90,.18)}
+.deckrow:first-of-type{border-top:0}
+.dinfo{display:flex;flex-direction:column;gap:3px;min-width:0}
+.dinfo b{font-family:var(--title);font-size:16px;color:var(--ink)}
+.dinfo span{font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.actlist{display:flex;flex-direction:column;gap:8px}
+.actrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.03)}
+.aname{text-align:left;display:flex;flex-direction:column;gap:1px;min-width:0}
+.aname b{font-family:var(--title);font-size:14px;color:var(--gold-2)}
+.aname span{font-size:12.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stepper{display:flex;align-items:center;gap:10px;flex:none}
+.stepper b{font-family:var(--title);font-size:16px;min-width:1.2em;text-align:center}
+.sticky-save{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(0deg,#101014 60%,transparent)}
+.pickzone{margin:14px 0}
+/* lobby */
+.lobby-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:14px 0}
+.lobby-card{padding:16px;border-radius:14px;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(214,178,90,.25);display:flex;flex-direction:column;gap:10px}
+.lobby-card h3{margin:0;font-family:var(--title);font-size:16px;color:var(--gold-2)}
+.lobby-card p{margin:0;font-size:14px;color:var(--ink-soft)}
+.codebox{display:flex;flex-direction:column;align-items:center;gap:4px;margin:18px 0;padding:16px;border-radius:14px;background:rgba(214,178,90,.08);box-shadow:inset 0 0 0 1px rgba(214,178,90,.3)}
+.codebox b{font-family:var(--title);font-weight:900;font-size:34px;letter-spacing:.1em;color:var(--gold-2)}
+
 @media (max-width:600px){
   #app{padding-inline:10px}
   .mat{padding:8px 8px 12px;border-radius:16px}
@@ -372,7 +447,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 </head>
 <body>
 <div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="cards.js"></script>
+<script src="account.js"></script>
 <script src="play.js"></script>
 <script>TravisGame.mount(document.getElementById('app'));</script>
 </body>

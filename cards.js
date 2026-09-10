@@ -34,7 +34,10 @@ gala:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" s
 terr:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="16" width="40" height="40" rx="3"/><path d="M12 16l8-8h24l8 8"/><path d="M32 48V34M32 34c-6 0-8-6-8-6s7-1 8 6zM32 34c6-2 6-8 6-8s-6 1-6 8z"/></svg>',
 snow:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 8v48M11 20l42 24M53 20L11 44"/><path d="M26 14l6 6 6-6M26 50l6-6 6 6"/></svg>',
 photo:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="18" width="52" height="34" rx="3"/><path d="M22 18l4-6h12l4 6"/><circle cx="32" cy="35" r="10"/></svg>',
-bus:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="48" height="30" rx="4"/><path d="M8 26h48M22 14v12M40 14v12"/><circle cx="20" cy="50" r="4"/><circle cx="44" cy="50" r="4"/></svg>'
+bus:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="48" height="30" rx="4"/><path d="M8 26h48M22 14v12M40 14v12"/><circle cx="20" cy="50" r="4"/><circle cx="44" cy="50" r="4"/></svg>',
+hseal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 42c0-13 6-24 14-24s14 11 14 24"/><circle cx="26" cy="28" r="1.9" fill="#0B2545" stroke="none"/><circle cx="38" cy="28" r="1.9" fill="#0B2545" stroke="none"/><path d="M29 34c2 2 4 2 6 0"/><path d="M24 33l-9-2M24 36l-9 1M40 33l9-2M40 36l9 1"/><path d="M4 44c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/><path d="M4 54c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/></svg>',
+pool:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="10" width="48" height="44" rx="3"/><path d="M8 25h48M8 39h48" stroke-dasharray="3 4"/><path d="M14 18c4-3 8 3 12 0s8 3 12 0"/><circle cx="44" cy="17" r="3"/><path d="M14 47c4-3 8 3 12 0s8 3 12 0 8 3 12 0"/></svg>',
+lectern:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 24h32l-5 9H21z"/><path d="M27 33v21M37 33v21M20 56h24"/><path d="M40 24v-9"/><rect x="37" y="7" width="6" height="9" rx="3"/><path d="M8 14l5 3M8 24h5M56 14l-5 3"/></svg>'
 };
 
 /* an = Power name, a = Power text (once per game). */
@@ -54,7 +57,14 @@ var chars=[
  {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
  {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap this character&rsquo;s HP with one enemy&rsquo;s HP.",f:"Ten-minute slots. Forty-minute conversations."},
  {n:"Tadpole Knox",r:"Heir to Beer Frog",i:"tad",hp:10,atk:2,spd:10,an:"Metamorphosis",a:"Bring back one knocked-out character on your team with 8 HP.",f:"Small now. Destined for legend."},
- {n:"Emeritus Knox",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"Deal 10 damage to one enemy. This character takes 4 damage.",f:"Retired. Not finished."}
+ {n:"Emeritus Knox",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"Deal 10 damage to one enemy. This character takes 4 damage.",f:"Retired. Not finished."},
+ /* Pack cards (set x1). Not in the printed base deck. */
+ {n:"Harbour Seal Knox",r:"Haul-Out Regular",i:"hseal",hp:18,atk:4,spd:5,an:"Haul Out",a:"This character gets a Shield and heals 3 HP.",f:"Found on the same rock every morning at 7:40.",set:"x1"},
+ {n:"Sports Carnival Knox",r:"House Captain",i:"flag",hp:19,atk:4,spd:6,an:"House Captain",a:"Choose another ready character on your team. It attacks an enemy now, then it&rsquo;s done for the round.",f:"Has never once lost the tug of war.",set:"x1"},
+ {n:"Conference Knox",r:"Keynote Speaker",i:"lectern",hp:21,atk:4,spd:4,an:"Keynote",a:"Reveal every face-down enemy, then deal 1 damage to every enemy.",f:"Forty slides. Thirty-nine about seals.",set:"x1"},
+ {n:"Yard Duty Knox",r:"Lunchtime Patrol",i:"whistle",hp:24,atk:3,spd:4,an:"Whistle",a:"Remove the Shield from every enemy, then deal 2 damage to one enemy.",f:"Sees the handball court. Sees everything.",set:"x1"},
+ {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"x1"},
+ {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"x1"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -63,5 +73,16 @@ var acts=[
  {n:"Canteen",i:"gala",t:"Instant",a:"Heal one character on your team 6 HP.",x:4},
  {n:"Excursion",i:"bus",t:"Instant",a:"One character on your team gets +2 ATK for the rest of the game.",x:3},
  {n:"DLC",i:"bldg",t:"Instant",a:"Give one character on your team a Shield. (It blocks all damage from the next hit.)",x:3},
- {n:"Detention",i:"clipg",t:"Instant",a:"Choose an enemy. It skips its next turn.",x:2}
+ {n:"Detention",i:"clipg",t:"Instant",a:"Choose an enemy. It skips its next turn.",x:2},
+ /* Pack cards (set x1). */
+ {n:"Reports",i:"pass",t:"Instant",a:"Look at your opponent&rsquo;s hand and choose one card for them to discard.",x:0,set:"x1"},
+ {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player.",x:0,set:"x1"},
+ {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every ATK boost from one enemy.",x:0,set:"x1"},
+ {n:"Assembly",i:"mic",t:"Instant",a:"Heal every character on your team 2 HP.",x:0,set:"x1"},
+ {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"x1"}
 ];
+
+/* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
+function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
+chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; });
+acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; });
