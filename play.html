@@ -14,7 +14,7 @@
   --cw:clamp(76px,13vw,148px); --hw:clamp(84px,11vw,128px);
 }
 *{box-sizing:border-box}
-html,body{margin:0}
+html,body{margin:0;overflow-x:hidden}
 body{
   background:var(--bg); color:var(--ink); font-family:var(--body); font-size:16px; line-height:1.4; min-height:100vh;
   background-image:
@@ -305,6 +305,14 @@ b.t0,b.t1,.who{color:var(--tc)}
   background:linear-gradient(180deg,#fff6cf,#f0cf76 45%,#a67c28);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #000)}
 .panel.over.lose .vt{background:linear-gradient(180deg,#ffd0c4,#e0483a 50%,#6a130b);-webkit-background-clip:text;background-clip:text}
 .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.panel.rules{text-align:left;max-width:560px}
+.panel.rules ol{margin:0 0 12px;padding-left:1.3em;font-size:17px;line-height:1.45}
+.panel.rules li{margin-bottom:10px}
+.panel.rules b{color:var(--gold-2)}
+.panel.rules .kw{font-size:15px;border-top:1px solid rgba(214,178,90,.3);padding-top:10px}
+.panel.rules .btn{width:100%}
+.how+.btn{margin-top:10px}
+.foot .lnk{margin:0 12px 0 0}
 .zoomov{display:none}
 .err{white-space:pre-wrap;background:#300;border:1px solid var(--red);padding:10px;font-size:12px;overflow-x:auto;color:#fcc}
 

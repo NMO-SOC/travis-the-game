@@ -37,39 +37,31 @@ photo:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" 
 bus:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="48" height="30" rx="4"/><path d="M8 26h48M22 14v12M40 14v12"/><circle cx="20" cy="50" r="4"/><circle cx="44" cy="50" r="4"/></svg>'
 };
 
+/* an = Power name, a = Power text (once per game). */
 var chars=[
- {n:"Dr. Travis Knox",r:"Ph.D., Pinniped Sciences",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"Choose an enemy character. Its ability is cancelled for the rest of the game &mdash; and if already used, it cannot be copied.",f:"&ldquo;I have four hundred pages on seals and I will use them.&rdquo;"},
- {n:"Director of Students",r:"Middle School Command",i:"clip",hp:26,atk:4,spd:3,an:"See Me After Class",a:"Target enemy character skips its next turn. It may still play action cards.",f:"The hallway goes quiet on its own."},
- {n:"The Blue Suit",r:"Formalwear Alignment",i:"suit",hp:15,atk:6,spd:6,an:"Cut of the Cloth",a:"<b>Passive:</b> the first damage this character would take is 0. <b>Ability:</b> +2 ATK for the rest of the game.",f:"Nobody has ever seen it wrinkled."},
- {n:"Beer Frog",r:"Beloved Household Amphibian",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"Deal 2 damage to <i>every</i> enemy character, then heal this character 2 HP.",f:"Legend. Menace. Frog."},
- {n:"Family Man Knox",r:"Dad to Huddy &amp; Charlotte",i:"family",hp:20,atk:4,spd:6,an:"Huddy &amp; Charlotte",a:"Choose one. <b>Huddy:</b> every character on your team gains +1 ATK for the rest of the game. <b>Charlotte:</b> heal one friendly character 8 HP.",f:"Outnumbered at home. Undefeated anyway."},
- {n:"The Seal Whisperer",r:"Haul-Out Field Contact",i:"wave",hp:23,atk:4,spd:5,an:"Blubber Layer",a:"For the rest of the game, every character on your team takes 1 less damage from each source (minimum 1).",f:"Counted 212 harbor seals before breakfast."},
- {n:"The Mixtape",r:"Gift of the Co-Workers",i:"cd",hp:22,atk:3,spd:6,an:"Track Seven",a:"Copy any ability already used this game, by either player, and resolve it now as your own.",f:"Burned with love. Track 7 is the one."},
- {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Six Inches of Daylight",a:"No character on either team may use an ability for the remainder of this round.",f:"Leave room for the Journal of Marine Biology."},
- {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy character. That character skips its next turn while it is &ldquo;processed.&rdquo;",f:"Tag 041 has been recaptured four times. Rude."},
- {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"End the round immediately. Characters that have not acted this round do not act. Then begin the next round.",f:"Line up. Outside voices outside."},
- {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Territorial",a:"For the rest of the game, enemy Strikes must target this character while it is alive.",f:"Two tonnes of disapproval. Mostly nose."},
- {n:"Leopard Seal Knox",r:"Apex Predator",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"Strike one enemy character that has not yet acted this round for <b>double</b> ATK.",f:"Smiles like that for a reason."},
- {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"For the next 2 rounds, every enemy character takes 1 damage at the start of each of its turns.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
- {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap the current HP of one friendly and one enemy character. HP can exceed printed maximum this way.",f:"Ten-minute slots. Forty-minute conversations."},
- {n:"Tadpole",r:"Heir to Beer Frog",i:"tad",hp:10,atk:2,spd:10,an:"Metamorphosis",a:"<b>Passive:</b> when this character is knocked out, bring back one knocked-out friendly character with 8 HP.",f:"Small now. Destined for legend."},
- {n:"Knox Emeritus",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"<b>Passive:</b> when this character is knocked out, deal 6 damage to the character that knocked it out.",f:"Retired. Not finished."}
+ {n:"Doctor Knox",r:"Ph.D., Pinniped Sciences",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"Choose an enemy. It can&rsquo;t use its Power for the rest of the game.",f:"&ldquo;I have four hundred pages on seals and I will use them.&rdquo;"},
+ {n:"Director Knox",r:"Middle School Command",i:"clip",hp:26,atk:4,spd:3,an:"See Me After Class",a:"Choose an enemy. It skips its next turn.",f:"The hallway goes quiet on its own."},
+ {n:"Blue Suit Knox",r:"Formalwear Alignment",i:"suit",hp:15,atk:6,spd:6,an:"Cut of the Cloth",a:"This character gets +3 ATK for the rest of the game.",f:"Nobody has ever seen it wrinkled."},
+ {n:"Beer Frog Knox",r:"Beloved Household Amphibian",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"Deal 2 damage to every enemy.",f:"Legend. Menace. Frog."},
+ {n:"Family Man Knox",r:"Dad to Huddy &amp; Charlotte",i:"family",hp:20,atk:4,spd:6,an:"Huddy &amp; Charlotte",a:"Heal every character on your team 4 HP.",f:"Outnumbered at home. Undefeated anyway."},
+ {n:"Seal Whisperer Knox",r:"Haul-Out Field Contact",i:"wave",hp:23,atk:4,spd:5,an:"Blubber Layer",a:"Give every character on your team a Shield.",f:"Counted 212 harbor seals before breakfast."},
+ {n:"Mixtape Knox",r:"Gift of the Co-Workers",i:"cd",hp:22,atk:3,spd:6,an:"Track Seven",a:"Deal 5 damage to one enemy.",f:"Burned with love. Track 7 is the one."},
+ {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Six Inches of Daylight",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Leave room for the Journal of Marine Biology."},
+ {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy. It skips its next turn.",f:"Tag 041 has been recaptured four times. Rude."},
+ {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"Draw 2 action cards.",f:"Line up. Outside voices outside."},
+ {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"Heal this character back to full HP.",f:"Two tonnes of disapproval. Mostly nose."},
+ {n:"Leopard Seal Knox",r:"Apex Predator",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"Attack one enemy for double damage.",f:"Smiles like that for a reason."},
+ {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
+ {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap this character&rsquo;s HP with one enemy&rsquo;s HP.",f:"Ten-minute slots. Forty-minute conversations."},
+ {n:"Tadpole Knox",r:"Heir to Beer Frog",i:"tad",hp:10,atk:2,spd:10,an:"Metamorphosis",a:"Bring back one knocked-out character on your team with 8 HP.",f:"Small now. Destined for legend."},
+ {n:"Emeritus Knox",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"Deal 10 damage to one enemy. This character takes 4 damage.",f:"Retired. Not finished."}
 ];
 
+/* Action cards. A Shield blocks all damage from the next hit. */
 var acts=[
- {n:"CAT",i:"quiz",t:"Instant",a:"Deal 3 damage to any one enemy character.",x:2},
- {n:"Toilet Break (Diary Approved)",i:"pass",t:"Instant",a:"One of your characters acts immediately, out of order. It does not act again this round.",x:2},
- {n:"Canteen",i:"gala",t:"Instant",a:"Heal one friendly character 6 HP.",x:2},
- {n:"Low Tide",i:"tide",t:"Round",a:"Every character on both teams has &minus;2 ATK for the rest of this round (minimum 1).",x:2},
- {n:"Detention",i:"clipg",t:"Instant",a:"Target enemy character cannot play action cards until the end of its next turn.",x:1},
- {n:"Excursion",i:"bus",t:"Round",a:"Your entire team has +2 ATK for the rest of this round.",x:1},
- {n:"DLC",i:"bldg",t:"Round",a:"One friendly character shelters in the DLC and takes no damage for the rest of this round.",x:1},
- {n:"The Great Flood",i:"flood",t:"Instant",a:"End the round immediately. Play this at any time, even on your opponent&rsquo;s turn.",x:1},
- {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player and resolve it now.",x:1},
- {n:"Reports",i:"clipg",t:"Instant",a:"Look at your opponent&rsquo;s hand and choose one card for them to discard.",x:1},
- {n:"CRT",i:"crt",t:"Instant",a:"Replace one of your knocked-out characters with an unused character from the box. It enters at half its printed HP (round down).",x:1},
- {n:"Sports Carnival",i:"flag",t:"Round",a:"Every character on both teams has +3 SPD this round. Re-sort turn order for characters yet to act.",x:1},
- {n:"Assembly",i:"mic",t:"Round",a:"No character may Strike for the rest of this round &mdash; only abilities and Brace.",x:1},
- {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every &ldquo;rest of the game&rdquo; buff from one enemy character.",x:1},
- {n:"Yard Duty",i:"whistle",t:"Instant",a:"Draw two action cards, then give one of them to your opponent.",x:1}
+ {n:"CAT",i:"quiz",t:"Instant",a:"Deal 3 damage to one enemy.",x:4},
+ {n:"Canteen",i:"gala",t:"Instant",a:"Heal one character on your team 6 HP.",x:4},
+ {n:"Excursion",i:"bus",t:"Instant",a:"One character on your team gets +2 ATK for the rest of the game.",x:3},
+ {n:"DLC",i:"bldg",t:"Instant",a:"Give one character on your team a Shield. (It blocks all damage from the next hit.)",x:3},
+ {n:"Detention",i:"clipg",t:"Instant",a:"Choose an enemy. It skips its next turn.",x:2}
 ];
