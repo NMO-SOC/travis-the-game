@@ -26,6 +26,8 @@ h1,h2,h3{font-family:"Archivo Black",Impact,sans-serif;text-wrap:balance;margin:
 .dek{max-width:62ch;color:var(--ink-soft);font-size:17px}
 .specs{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:18px;font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 .specs b{color:var(--ink);font-weight:600}
+.play{display:inline-block;margin-top:20px;font-family:"Archivo Black",Impact,sans-serif;font-size:17px;background:var(--abyss);color:var(--paper);padding:12px 20px;text-decoration:none}
+.play:hover{background:var(--suit)}
 
 /* ---------- rules ---------- */
 .rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:34px 46px;margin-bottom:46px}
@@ -113,6 +115,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
     <span><b>36</b> cards</span><span><b>2</b> players</span><span><b>20&ndash;30</b> min</span>
     <span>needs <b>two d6</b> &amp; <b>coins</b> for HP</span><span>print on <b>cardstock</b>, 4 pages + backs</span>
   </div>
+  <a class="noprint play" href="play.html">Play in your browser &rarr;</a>
 </header>
 
 <div class="rules">
@@ -160,81 +163,8 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 <div id="sheets"></div>
 </div>
 
+<script src="cards.js"></script>
 <script>
-const S = {
-eseal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 50c4-14 12-24 24-26 8-1 16 2 20 8 3 5 2 10-2 12"/><path d="M44 30c4 0 8 3 8 8 0 3-2 5-4 5-2 0-3-2-3-4"/><circle cx="42" cy="30" r="1.9" fill="#0B2545" stroke="none"/><path d="M6 50c8 5 20 7 32 5 6-1 10-3 12-6"/><path d="M4 58h56"/></svg>',
-lseal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 40c10-8 22-12 34-12 10 0 18 4 22 10-6 4-14 6-22 6-12 0-24-2-34-4z"/><path d="M42 38l3 4 3-4 3 4 3-4"/><circle cx="48" cy="33" r="1.9" fill="#0B2545" stroke="none"/><path d="M18 34c2 2 2 4 0 6M26 32c2 2 2 5 0 7"/></svg>',
-agenda:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="8" width="40" height="50" rx="2"/><path d="M20 20h4M28 20h16M20 30h4M28 30h16M20 40h4M28 40h16M20 50h4M28 50h8"/></svg>',
-chat:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h32v20H18l-8 7v-7H6z"/><path d="M26 36v8h20l8 7v-7h4V24H42"/></svg>',
-tad:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="22" cy="32" r="12"/><circle cx="18" cy="28" r="1.9" fill="#0B2545" stroke="none"/><path d="M34 32c6-8 12 8 18 0s6-4 8-2"/><path d="M8 50c4-2 8-2 12 0s8 2 12 0"/></svg>',
-crt:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="18" r="8"/><path d="M16 56V42c0-8 7-14 16-14s16 6 16 14v14"/><path d="M50 10l8 8M58 10l-8 8"/></svg>',
-flag:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 58V6"/><path d="M14 8h36l-8 10 8 10H14"/><path d="M26 8v20M38 8v20"/></svg>',
-mic:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="24" y="6" width="16" height="28" rx="8"/><path d="M16 28c0 9 7 16 16 16s16-7 16-16"/><path d="M32 44v12M22 56h20"/></svg>',
-shirt:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8l10 6 10-6 16 10-6 10-6-3v31H18V25l-6 3-6-10z"/><path d="M26 10c2 4 10 4 12 0"/><path d="M40 30h6v6h-6z"/></svg>',
-family:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="14" r="6"/><path d="M22 58V34c0-6 4-10 10-10s10 4 10 10v24"/><circle cx="12" cy="32" r="4"/><path d="M6 58V46c0-4 3-7 6-7s6 3 6 7v12"/><circle cx="52" cy="32" r="4"/><path d="M46 58V46c0-4 3-7 6-7s6 3 6 7v12"/></svg>',
-bldg:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 56h52"/><rect x="12" y="20" width="40" height="36"/><path d="M8 22L32 8l24 14"/><path d="M20 30h6M38 30h6M20 40h6M38 40h6"/><path d="M28 56V44h8v12"/></svg>',
-flood:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8c-4 7-6 10-6 13a6 6 0 0 0 12 0c0-3-2-6-6-13zM42 6c-4 7-6 10-6 13a6 6 0 0 0 12 0c0-3-2-6-6-13z"/><path d="M4 40c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/><path d="M4 52c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/></svg>',
-whistle:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M28 26h30v10H42"/><circle cx="24" cy="38" r="14"/><circle cx="24" cy="38" r="4"/><path d="M14 24L8 10"/><path d="M50 18l4-6M44 16l1-7"/></svg>',
-seal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 44c6-2 10-8 14-14 4-7 10-12 18-12 9 0 16 6 16 14 0 7-5 11-11 12"/><path d="M8 44c4 6 14 9 24 9 8 0 14-2 19-6"/><path d="M45 50c4 2 8 2 12 0"/><circle cx="48" cy="30" r="1.9" fill="#0B2545" stroke="none"/><path d="M53 34c3 0 5-1 6-2"/><path d="M53 36c3 1 5 1 7 0"/></svg>',
-frog:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="23" cy="22" r="6"/><circle cx="41" cy="22" r="6"/><circle cx="23" cy="22" r="1.9" fill="#5F8F35" stroke="none"/><circle cx="41" cy="22" r="1.9" fill="#5F8F35" stroke="none"/><path d="M14 30c0 10 8 17 18 17s18-7 18-17"/><path d="M24 38c5 3 11 3 16 0"/><path d="M12 34c-4 4-5 10-2 14M52 34c4 4 5 10 2 14"/></svg>',
-suit:'<svg viewBox="0 0 64 64" fill="none" stroke="#1D4E89" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 8l10 8 10-8 12 6v42H10V14z"/><path d="M22 8l4 16 6-8M42 8l-4 16-6-8"/><path d="M32 24l-3 8 3 20 3-20z" fill="#1D4E89"/></svg>',
-cap:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 12L6 24l26 12 26-12z"/><path d="M16 30v14c0 4 7 8 16 8s16-4 16-8V30"/><path d="M56 24v14"/></svg>',
-kite:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 6L52 26 32 46 12 26z"/><path d="M32 6v40M12 26h40"/><path d="M32 46c-4 5 4 8 0 13"/></svg>',
-star:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 6l7 16 17 2-13 11 4 17-15-9-15 9 4-17L8 24l17-2z"/><circle cx="32" cy="32" r="4"/></svg>',
-wave:'<svg viewBox="0 0 64 64" fill="none" stroke="#1D4E89" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 40c6-14 16-22 28-22 10 0 18 6 18 14 0 6-4 10-9 10-4 0-7-3-7-7 0-3 2-5 5-5"/><path d="M6 50c5 3 11 4 17 2s12-6 19-6c5 0 9 2 12 4"/></svg>',
-cd:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="32" cy="32" r="24"/><circle cx="32" cy="32" r="6"/><path d="M32 8a24 24 0 0 1 21 12M11 44a24 24 0 0 0 21 12"/></svg>',
-clip:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="13" y="12" width="38" height="44" rx="3"/><path d="M25 12V8h14v4z"/><path d="M22 28h20M22 36h20M22 44h12"/></svg>',
-clipg:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="13" y="12" width="38" height="44" rx="3"/><path d="M25 12V8h14v4z"/><path d="M22 28h20M22 36h20M22 44h12"/></svg>',
-dart:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 56l14-14"/><path d="M22 42l20-20 8 8-20 20z"/><path d="M42 22l6-12 8 8-12 6"/><path d="M28 36l8 8"/></svg>',
-exit:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="10" width="26" height="44" rx="2"/><circle cx="29" cy="32" r="2" fill="#0B2545" stroke="none"/><path d="M42 32h16M50 24l8 8-8 8"/></svg>',
-laurel:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 54C12 48 8 34 14 18M40 54c12-6 16-20 10-36"/><path d="M16 26c-5-1-7-4-7-4s4-2 8 0M18 36c-5 0-8-3-8-3s4-2 8 0M48 26c5-1 7-4 7-4s-4-2-8 0M46 36c5 0 8-3 8-3s-4-2-8 0"/><path d="M32 10v8"/></svg>',
-quiz:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="8" width="44" height="48" rx="3"/><path d="M24 26c0-5 4-8 8-8s8 3 8 8c0 6-8 6-8 12"/><circle cx="32" cy="46" r="2.4" fill="#5F8F35" stroke="none"/></svg>',
-pass:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="18" width="48" height="30" rx="3"/><path d="M18 30h12M18 38h20"/><circle cx="44" cy="30" r="4"/></svg>',
-snack:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22h44l-5 24H17z"/><path d="M12 22l-3-8H3"/><circle cx="24" cy="54" r="4"/><circle cx="46" cy="54" r="4"/></svg>',
-tide:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 30c6 4 12 4 18 0s12-4 18 0 12 4 16 0"/><path d="M6 44c6 4 12 4 18 0s12-4 18 0 12 4 16 0"/><path d="M32 6v14M26 14l6 6 6-6"/></svg>',
-gala:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h28l-3 14a11 11 0 0 1-22 0z"/><path d="M32 38v12M22 54h20"/><path d="M46 14h6a6 6 0 0 1-6 8"/></svg>',
-terr:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="16" width="40" height="40" rx="3"/><path d="M12 16l8-8h24l8 8"/><path d="M32 48V34M32 34c-6 0-8-6-8-6s7-1 8 6zM32 34c6-2 6-8 6-8s-6 1-6 8z"/></svg>',
-snow:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 8v48M11 20l42 24M53 20L11 44"/><path d="M26 14l6 6 6-6M26 50l6-6 6 6"/></svg>',
-photo:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="18" width="52" height="34" rx="3"/><path d="M22 18l4-6h12l4 6"/><circle cx="32" cy="35" r="10"/></svg>',
-bus:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="48" height="30" rx="4"/><path d="M8 26h48M22 14v12M40 14v12"/><circle cx="20" cy="50" r="4"/><circle cx="44" cy="50" r="4"/></svg>'
-};
-
-const chars=[
- {n:"Dr. Travis Knox",r:"Ph.D., Pinniped Sciences",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"Choose an enemy character. Its ability is cancelled for the rest of the game &mdash; and if already used, it cannot be copied.",f:"&ldquo;I have four hundred pages on seals and I will use them.&rdquo;"},
- {n:"Director of Students",r:"Middle School Command",i:"clip",hp:26,atk:4,spd:3,an:"See Me After Class",a:"Target enemy character skips its next turn. It may still play action cards.",f:"The hallway goes quiet on its own."},
- {n:"The Blue Suit",r:"Formalwear Alignment",i:"suit",hp:15,atk:6,spd:6,an:"Cut of the Cloth",a:"<b>Passive:</b> the first damage this character would take is 0. <b>Ability:</b> +2 ATK for the rest of the game.",f:"Nobody has ever seen it wrinkled."},
- {n:"Beer Frog",r:"Beloved Household Amphibian",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"Deal 2 damage to <i>every</i> enemy character, then heal this character 2 HP.",f:"Legend. Menace. Frog."},
- {n:"Family Man Knox",r:"Dad to Huddy &amp; Charlotte",i:"family",hp:20,atk:4,spd:6,an:"Huddy &amp; Charlotte",a:"Choose one. <b>Huddy:</b> every character on your team gains +1 ATK for the rest of the game. <b>Charlotte:</b> heal one friendly character 8 HP.",f:"Outnumbered at home. Undefeated anyway."},
- {n:"The Seal Whisperer",r:"Haul-Out Field Contact",i:"wave",hp:23,atk:4,spd:5,an:"Blubber Layer",a:"For the rest of the game, every character on your team takes 1 less damage from each source (minimum 1).",f:"Counted 212 harbor seals before breakfast."},
- {n:"The Mixtape",r:"Gift of the Co-Workers",i:"cd",hp:22,atk:3,spd:6,an:"Track Seven",a:"Copy any ability already used this game, by either player, and resolve it now as your own.",f:"Burned with love. Track 7 is the one."},
- {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Six Inches of Daylight",a:"No character on either team may use an ability for the remainder of this round.",f:"Leave room for the Journal of Marine Biology."},
- {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy character. That character skips its next turn while it is &ldquo;processed.&rdquo;",f:"Tag 041 has been recaptured four times. Rude."},
- {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"End the round immediately. Characters that have not acted this round do not act. Then begin the next round.",f:"Line up. Outside voices outside."},
- {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Territorial",a:"For the rest of the game, enemy Strikes must target this character while it is alive.",f:"Two tonnes of disapproval. Mostly nose."},
- {n:"Leopard Seal Knox",r:"Apex Predator",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"Strike one enemy character that has not yet acted this round for <b>double</b> ATK.",f:"Smiles like that for a reason."},
- {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"For the next 2 rounds, every enemy character takes 1 damage at the start of each of its turns.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
- {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap the current HP of one friendly and one enemy character. HP can exceed printed maximum this way.",f:"Ten-minute slots. Forty-minute conversations."},
- {n:"Tadpole",r:"Heir to Beer Frog",i:"tad",hp:10,atk:2,spd:10,an:"Metamorphosis",a:"<b>Passive:</b> when this character is knocked out, bring back one knocked-out friendly character with 8 HP.",f:"Small now. Destined for legend."},
- {n:"Knox Emeritus",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"<b>Passive:</b> when this character is knocked out, deal 6 damage to the character that knocked it out.",f:"Retired. Not finished."}
-];
-
-const acts=[
- {n:"CAT",i:"quiz",t:"Instant",a:"Deal 3 damage to any one enemy character.",x:2},
- {n:"Toilet Break (Diary Approved)",i:"pass",t:"Instant",a:"One of your characters acts immediately, out of order. It does not act again this round.",x:2},
- {n:"Canteen",i:"gala",t:"Instant",a:"Heal one friendly character 6 HP.",x:2},
- {n:"Low Tide",i:"tide",t:"Round",a:"Every character on both teams has &minus;2 ATK for the rest of this round (minimum 1).",x:2},
- {n:"Detention",i:"clipg",t:"Instant",a:"Target enemy character cannot play action cards until the end of its next turn.",x:1},
- {n:"Excursion",i:"bus",t:"Round",a:"Your entire team has +2 ATK for the rest of this round.",x:1},
- {n:"DLC",i:"bldg",t:"Round",a:"One friendly character shelters in the DLC and takes no damage for the rest of this round.",x:1},
- {n:"The Great Flood",i:"flood",t:"Instant",a:"End the round immediately. Play this at any time, even on your opponent&rsquo;s turn.",x:1},
- {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player and resolve it now.",x:1},
- {n:"Reports",i:"clipg",t:"Instant",a:"Look at your opponent&rsquo;s hand and choose one card for them to discard.",x:1},
- {n:"CRT",i:"crt",t:"Instant",a:"Replace one of your knocked-out characters with an unused character from the box. It enters at half its printed HP (round down).",x:1},
- {n:"Sports Carnival",i:"flag",t:"Round",a:"Every character on both teams has +3 SPD this round. Re-sort turn order for characters yet to act.",x:1},
- {n:"Assembly",i:"mic",t:"Round",a:"No character may Strike for the rest of this round &mdash; only abilities and Brace.",x:1},
- {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every &ldquo;rest of the game&rdquo; buff from one enemy character.",x:1},
- {n:"Yard Duty",i:"whistle",t:"Instant",a:"Draw two action cards, then give one of them to your opponent.",x:1}
-];
 
 function charCard(c,idx){
  return '<div class="card"><div class="inner"><div class="tag">Specimen</div>'

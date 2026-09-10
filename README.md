@@ -1,5 +1,9 @@
 # Travis: The Game
 
-A printable turn-based card game starring sixteen versions of Travis Knox.
+A turn-based card game starring sixteen versions of Travis Knox.
 
-Open `index.html` (or the GitHub Pages site) and print on Letter cardstock at 100% scale with background graphics on. Rules are on the page.
+**Play in the browser:** open `play.html` (or `play.html` on the GitHub Pages site). Draft a team, then battle the computer or a friend on the same screen. 3v3 or 4v4.
+
+**Print it:** open `index.html` and print on Letter cardstock at 100% scale with background graphics on. Full rules are on that page.
+
+Files: `cards.js` holds the shared card data, `index.html` is the printable deck, and `play.html` + `play.js` are the browser game.
