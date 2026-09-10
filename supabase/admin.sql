@@ -13,3 +13,7 @@ where id = (select id from public.profiles where username = lower('their_usernam
 
 -- Delete a player completely (their login, collection and decks).
 -- delete from auth.users where id = (select id from public.profiles where username = lower('their_username'));
+
+-- Make someone an admin: same access as everyone else, plus an Admin screen in the app showing every
+-- player's username, last sign-in and deck count, and everyone's saved decks.
+-- update public.profiles set is_admin = true where username = lower('their_username');

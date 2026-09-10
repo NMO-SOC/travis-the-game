@@ -92,7 +92,6 @@ A.canBuy = function(c, foil){
 };
 
 /* ---------------- packs ---------------- */
-A.claimDaily = async function(){ await call(client().rpc('claim_daily')); await A.refresh(); };
 A.openPack = async function(){
   var cards = await call(client().rpc('open_pack'));
   await A.refresh();
@@ -109,6 +108,10 @@ A.saveDeck = async function(d){
   await A.refresh();
 };
 A.deleteDeck = async function(id){ await call(client().from('decks').delete().eq('id', id)); await A.refresh(); };
+
+/* ---------------- admin ---------------- */
+A.adminOverview = function(){ return call(client().rpc('admin_overview')); };
+A.adminDecks = function(){ return call(client().rpc('admin_decks')); };
 
 /* ---------------- live matches ----------------
    Both players' browsers run the same game with the same random seed. Each move is broadcast on a

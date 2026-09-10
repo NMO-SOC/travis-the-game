@@ -12,6 +12,8 @@ drop function if exists public.record_win() cascade;
 drop function if exists public.open_pack() cascade;
 drop function if exists public.buy_card(text, boolean) cascade;
 drop function if exists public.check_deck() cascade;
+drop function if exists public.admin_overview() cascade;
+drop function if exists public.admin_decks() cascade;
 drop table if exists public.decks cascade;
 drop table if exists public.collection cascade;
 drop table if exists public.profiles cascade;
@@ -43,9 +45,9 @@ create table public.profiles (
   username     text not null unique check (username ~ '^[a-z0-9_]{3,20}$'),
   packs        int  not null default 1 check (packs >= 0),          -- unopened packs; starts with the welcome pack
   grant_points int  not null default 0 check (grant_points >= 0),
-  last_daily   date,
   wins_day     date,
   wins_today   int  not null default 0,
+  is_admin     boolean not null default false,
   created_at   timestamptz not null default now()
 );
 
@@ -135,20 +137,7 @@ create trigger check_deck before insert or update on public.decks
   for each row execute function public.check_deck();
 
 -- ---------------------------------------------------------------- packs
--- School days run on Sydney time.
-create function public.claim_daily() returns int
-language plpgsql security definer set search_path = public as $$
-declare today date := (now() at time zone 'Australia/Sydney')::date; left_packs int;
-begin
-  if exists (select 1 from profiles where id = auth.uid() and last_daily = today) then
-    raise exception 'You''ve already claimed today''s pack. Come back tomorrow.';
-  end if;
-  update profiles set packs = packs + 1, last_daily = today where id = auth.uid() returning packs into left_packs;
-  if left_packs is null then raise exception 'Not signed in'; end if;
-  return left_packs;
-end $$;
-
--- One pack per win, up to five a day.
+-- School days run on Sydney time. Packs come only from wins, up to five a day.
 create function public.record_win() returns boolean
 language plpgsql security definer set search_path = public as $$
 declare today date := (now() at time zone 'Australia/Sydney')::date; p profiles;
@@ -216,15 +205,39 @@ begin
   return left_pts;
 end $$;
 
+-- ---------------------------------------------------------------- admin
+-- Everyone else's usernames, sign-in activity and decks, for players with profiles.is_admin = true.
+-- Promote someone with: update public.profiles set is_admin = true where username = 'their_username';
+create function public.admin_overview() returns table(
+  username text, created_at timestamptz, last_login timestamptz, packs int, grant_points int, deck_count int
+) language sql security definer set search_path = public stable as $$
+  select p.username, p.created_at, u.last_sign_in_at, p.packs, p.grant_points,
+    (select count(*) from decks d where d.user_id = p.id)::int
+  from profiles p join auth.users u on u.id = p.id
+  where exists (select 1 from profiles me where me.id = auth.uid() and me.is_admin)
+  order by u.last_sign_in_at desc nulls last;
+$$;
+
+create function public.admin_decks() returns table(
+  username text, deck_name text, characters text[], actions text[], foils text[], updated_at timestamptz
+) language sql security definer set search_path = public stable as $$
+  select p.username, d.name, d.characters, d.actions, d.foils, d.updated_at
+  from decks d join profiles p on p.id = d.user_id
+  where exists (select 1 from profiles me where me.id = auth.uid() and me.is_admin)
+  order by p.username, d.updated_at desc;
+$$;
+
 -- ---------------------------------------------------------------- who may call what
 revoke all on function public.handle_new_user()           from public, anon, authenticated;
 revoke all on function public.check_deck()                from public, anon, authenticated;
-revoke all on function public.claim_daily()               from public, anon;
 revoke all on function public.record_win()                from public, anon;
 revoke all on function public.open_pack()                 from public, anon;
 revoke all on function public.buy_card(text, boolean)     from public, anon;
+revoke all on function public.admin_overview()             from public, anon;
+revoke all on function public.admin_decks()                from public, anon;
 grant execute on function public.username_available(text) to anon, authenticated;
-grant execute on function public.claim_daily()             to authenticated;
 grant execute on function public.record_win()              to authenticated;
 grant execute on function public.open_pack()               to authenticated;
 grant execute on function public.buy_card(text, boolean)   to authenticated;
+grant execute on function public.admin_overview()          to authenticated;
+grant execute on function public.admin_decks()             to authenticated;

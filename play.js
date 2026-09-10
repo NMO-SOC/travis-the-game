@@ -1030,7 +1030,6 @@ try{ M.deckSel = localStorage.getItem('travis.deck') || 'random'; }catch(e){}
 var L = {stage:'choose'};   // online lobby state
 
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(ch){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]; }); }
-function sydneyToday(){ try{ return new Intl.DateTimeFormat('en-CA', {timeZone:'Australia/Sydney'}).format(new Date()); }catch(e){ return ''; } }
 function field(name, label, type, auto){
   return '<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+(type||'text')+'" autocomplete="'+(auto||'off')+'" autocapitalize="off" spellcheck="false" value="'+esc(M.form[name]||'')+'"></label>';
 }
@@ -1052,7 +1051,9 @@ function accountStrip(){
   if(!ACC.user || !ACC.profile) return '<div class="acct"><p>Sign in to open packs, build your own decks and play colleagues online.</p><button class="btn" data-a="go" data-v="auth">Sign in or create an account</button></div>';
   var p = ACC.profile;
   return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+p.packs+' pack'+(p.packs===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
-    +'<div class="acct-btns"><button class="btn sm'+(p.packs?' gold':'')+'" data-a="go" data-v="packs">Packs'+(p.packs?' ('+p.packs+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button><button class="lnk" data-a="signout">Sign out</button></div></div>';
+    +'<div class="acct-btns"><button class="btn sm'+(p.packs?' gold':'')+'" data-a="go" data-v="packs">Packs'+(p.packs?' ('+p.packs+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button>'
+    +(p.is_admin ? '<button class="btn sm" data-a="go" data-v="admin">Admin</button>' : '')
+    +'<button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
 
 /* ---- sign in ---- */
@@ -1082,7 +1083,7 @@ function submitAuth(){
 /* ---- packs ---- */
 function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil}) : actFace(x.card.n); }
 function renderPacks(){
-  var p = ACC.profile, claimed = p.last_daily===sydneyToday(), r = M.reveal, body = '';
+  var p = ACC.profile, r = M.reveal, body = '';
   if(r){
     body = '<div class="reveal">'+r.cards.map(function(x,i){
       var up = r.shown[i], f = fxFor('rv'+i);
@@ -1093,13 +1094,12 @@ function renderPacks(){
     +'<div class="row">'+(r.shown.every(Boolean) ? '<button class="btn gold" data-a="rvdone">Done</button>' : '<button class="btn" data-a="rvall">Reveal all</button>')+'</div>';
   } else {
     body = '<div class="packstack'+(p.packs?'':' empty')+'"><div class="card pack">'+backFace()+'<span class="packn">'+p.packs+'</span></div></div>'
-      +'<div class="row"><button class="btn gold big" data-a="packopen"'+(p.packs&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open a pack')+'</button>'
-      +'<button class="btn" data-a="daily"'+(claimed||M.busy?' disabled':'')+'>'+(claimed?'Today&rsquo;s pack claimed':'Claim today&rsquo;s free pack')+'</button></div>';
+      +'<div class="row"><button class="btn gold big" data-a="packopen"'+(p.packs&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open a pack')+'</button></div>';
   }
   return pageTop('Packs')+'<div class="panel-pg">'
     +'<div class="statline"><span><b>'+p.packs+'</b> unopened</span><span><b>'+p.grant_points+'</b> Grant Points</span></div>'
     + msgs() + body
-    +'<ul class="how small"><li>Each pack holds three cards: two action cards and one new character or foil.</li><li>Win a game against the CPU or online for a pack (up to five a day), plus one free pack every day.</li><li>Cards you can&rsquo;t use more of become Grant Points. Spend them in your <button class="lnk" data-a="go" data-v="collection">Collection</button>.</li></ul>'
+    +'<ul class="how small"><li>Each pack holds three cards: two action cards and one new character or foil.</li><li>Win a game against the CPU or online for a pack (up to five a day).</li><li>Cards you can&rsquo;t use more of become Grant Points. Spend them in your <button class="lnk" data-a="go" data-v="collection">Collection</button>.</li></ul>'
     +'</div></div>';
 }
 function openPack(){
@@ -1307,12 +1307,38 @@ function renderLobby(){
 }
 function normCode(s){ s = String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); return s.length>4 ? s.slice(0,4)+'-'+s.slice(4) : s; }
 
+/* ---- admin ---- */
+function renderAdmin(){
+  if(!ACC.profile.is_admin) return renderMenuBlocked();
+  var d = M.admin;
+  if(!d) { loadAdmin(); return pageTop('Admin')+'<div class="panel-pg wide"><p class="muted">Loading&hellip;</p></div></div>'; }
+  var rows = d.overview.map(function(u){
+    return '<div class="deckrow"><div class="dinfo"><b>'+esc(u.username)+'</b><span>'+u.packs+' packs &middot; '+u.grant_points+' GP &middot; '+u.deck_count+' deck'+(u.deck_count===1?'':'s')+'</span></div>'
+      +'<div class="dinfo"><span>Last login</span><b class="small">'+(u.last_login ? new Date(u.last_login).toLocaleString() : 'never')+'</b></div></div>';
+  }).join('');
+  var decks = d.decks.map(function(dk){
+    return '<div class="deckrow"><div class="dinfo"><b>'+esc(dk.username)+'</b><span>'+esc(dk.deck_name)+' &middot; '+dk.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(', ')+'</span></div></div>';
+  }).join('');
+  return pageTop('Admin')+'<div class="panel-pg wide">'
+    +'<h3 class="sec">Players ('+d.overview.length+')</h3>'+(rows || '<p class="muted">No players yet.</p>')
+    +'<h3 class="sec">Decks</h3>'+(decks || '<p class="muted">No decks yet.</p>')
+    +'</div></div>';
+}
+function renderMenuBlocked(){ return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>'; }
+function loadAdmin(){
+  busy(async function(){
+    var r = await Promise.all([ACC.adminOverview(), ACC.adminDecks()]);
+    M.admin = {overview:r[0]||[], decks:r[1]||[]};
+  });
+}
+
 function renderMeta(){
   var signedIn = ACC && ACC.user && ACC.profile;
-  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1};
+  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1};
   if(needs[G.phase] && !signedIn) return renderAuth();
   var html = G.phase==='auth' ? renderAuth() : G.phase==='packs' ? renderPacks() : G.phase==='collection' ? renderCollection()
-    : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby() : renderPick();
+    : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby()
+    : G.phase==='admin' ? renderAdmin() : renderPick();
   if(G.zoomOpen) html += '<div class="ov zoomov always" data-a="unzoom">'+zoomBlock()+'</div>';
   return html;
 }
@@ -1360,7 +1386,6 @@ function onClick(e){
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; }); break;
     case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
     case 'packopen': openPack(); break;
-    case 'daily': busy(async function(){ await ACC.claimDaily(); M.note = 'Free pack claimed.'; }); break;
     case 'rv': flipReveal(+v); break;
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;
