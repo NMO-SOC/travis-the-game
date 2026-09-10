@@ -5,7 +5,7 @@
 var HAND_LIMIT = 3;
 var ABORT_ROUND = {abort:'round'}, ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
 var CFG = {mode:'cpu', size:3, speed:1};
-var G = {phase:'menu', log:[]};
+var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
 var ACTD = {}; acts.forEach(function(a){ ACTD[a.n] = a; });
@@ -27,7 +27,19 @@ function pname(t){
   if(CFG.mode==='sim') return 'CPU '+(t+1);
   return 'Player '+(t+1);
 }
-function nm(u){ return '<b class="t'+u.team+'">'+u.c.n+'</b>'; }
+function viewer(){
+  if(CFG.mode!=='hot') return 0;
+  if(G.phase==='deal') return G.deal.turn;
+  return handTeam();
+}
+function hidden(u){ return !u.revealed && u.team!==viewer(); }
+function nm(u){ return '<b class="t'+u.team+'">'+(hidden(u) ? 'a face-down card' : u.c.n)+'</b>'; }
+function reveal(u){
+  if(u.revealed) return;
+  var was = hidden(u);
+  u.revealed = true;
+  if(was){ fxc('u'+u.id, 'flip', 700); log(pn(u.team)+' reveals '+nm(u)+'!', 'reveal'); }
+}
 function pn(t){ return '<b class="t'+t+'">'+pname(t)+'</b>'; }
 function possessive(t){ return pname(t)==='You' ? 'Your' : pname(t)+'&rsquo;s'; }
 function card(n){ return '<i>'+n+'</i>'; }
@@ -44,12 +56,12 @@ function queue(){
 }
 function unacted(t){ return living(t).filter(function(u){ return !u.acted; }); }
 function maxMissing(t){ return living(t).reduce(function(m,u){ return Math.max(m, u.max-u.hp); }, 0); }
-function box(){ return chars.map(function(_,i){ return i; }).filter(function(i){ return !G.drafted[i]; }); }
+function now(){ return Date.now(); }
 
 function newUnit(ci, team, hp){
   var c = chars[ci];
   return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:hp==null?c.hp:hp, atk:c.atk, spd:c.spd,
-    ko:false, used:false, cancelled:false, shield:c.n==='The Blue Suit', braced:false, reduce1:false,
+    ko:false, used:false, cancelled:false, revealed:false, shield:c.n==='The Blue Suit', braced:false, reduce1:false,
     atkGame:0, atkRound:0, spdRound:0, skip:0, detained:false, dlc:false, territorial:false, acted:false, tie:Math.random()};
 }
 
@@ -92,7 +104,23 @@ function log(h, cls){
   if(G.log.length>250) G.log.pop();
   render();
 }
-function fx(u, text, kind){ (G.fx=G.fx||[]).push({id:u.id, text:text, kind:kind}); }
+/* One-shot visual effects. Each lives for `dur` ms; re-renders resume the animation via a negative delay. */
+function fxc(key, cls, dur, wait){ (G.fx=G.fx||[]).push({key:key, cls:cls, t0:now()+(wait||0), dur:dur+(wait||0)}); }
+function fx(u, text, kind){
+  (G.fx=G.fx||[]).push({key:'u'+u.id, float:text, kind:kind, t0:now(), dur:1200});
+  if(kind==='dmg') fxc('u'+u.id, 'hit', 450);
+  if(kind==='heal') fxc('u'+u.id, 'healed', 800);
+}
+function fxFor(key){
+  var t = now(), cls = '', fl = '', d = null;
+  (G.fx||[]).forEach(function(f){
+    if(f.key!==key || t-f.t0>f.dur) return;
+    var el = t-f.t0;
+    if(f.cls){ cls += ' '+f.cls; d = -el; }
+    if(f.float) fl += '<span class="float '+f.kind+'" style="animation-delay:'+(-el)+'ms">'+f.float+'</span>';
+  });
+  return {cls:cls, style:d==null ? '' : '--d:'+d+'ms', fl:fl};
+}
 
 /* ---------------- core combat ---------------- */
 function damage(t, amt, src){
@@ -121,7 +149,9 @@ function clearBuffs(u){
   u.territorial=false; u.skip=0; u.detained=false; u.dlc=false; u.shield=false;
 }
 async function knockOut(t, src){
+  reveal(t);
   t.ko=true; t.hp=0; clearBuffs(t);
+  fxc('u'+t.id, 'die', 900);
   log(nm(t)+' is <b>knocked out</b>.', 'ko');
   var passive = !t.cancelled;
   if(passive && t.c.n==='Knox Emeritus' && src && !src.ko){
@@ -153,6 +183,7 @@ function strikeTargets(u){
   return terr.length ? terr : f;
 }
 function strike(u, e){
+  fxc('u'+u.id, 'lunge', 450);
   log(nm(u)+' strikes '+nm(e)+'.');
   return damage(e, effAtk(u), u);
 }
@@ -315,6 +346,7 @@ function abilReason(u){
 }
 async function useAbility(u){
   u.used = true;
+  fxc('u'+u.id, 'cast', 900);
   var ok;
   try{ ok = await AB[u.c.n].run(u); }
   catch(e){ recordUse(u); throw e; }
@@ -327,7 +359,7 @@ function recordUse(u){ if(u.c.n!=='The Mixtape') G.usedLog.push({ci:u.ci, owner:
 /* ---------------- action cards ---------------- */
 var CARDVAL = {'CAT':5,'Toilet Break (Diary Approved)':3,'Canteen':4,'Low Tide':2,'Detention':1.5,'Excursion':3.5,'DLC':3,'The Great Flood':1.5,
   'Photo Day':2,'Reports':2.5,'CRT':5,'Sports Carnival':1,'Assembly':1.5,'Uniform Check':2,'Yard Duty':3};
-function cardOpt(c){ return {label:c.n, sub:ACTD[c.n].a, icon:ACTD[c.n].i}; }
+function cardOpt(c){ return {label:c.n, sub:ACTD[c.n].a, act:c.n}; }
 function buffed(e){ return e.atkGame>0 || e.reduce1 || e.territorial; }
 
 var ACT = {
@@ -407,18 +439,16 @@ var ACT = {
    log(pn(t)+' plays '+card('Reports')+': '+pn(1-t)+' discards '+card(c.n)+'.'); return true;
   }},
  'CRT':{
-  can:function(t){ return G.teams[t].some(function(u){ return u.ko; }) && box().length>0; },
+  can:function(t){ return G.teams[t].some(function(u){ return u.ko; }) && G.charDeck.length>0; },
   ai:function(){ return 7; },
   run:async function(t){
-   var k = await pickUnit(t, 'CRT &mdash; replace which knocked-out character?', G.teams[t].filter(function(u){ return u.ko; }), null, true);
+   var k = await pickUnit(t, 'CRT &mdash; replace which knocked-out character? A random specimen comes off the top of the deck.', G.teams[t].filter(function(u){ return u.ko; }), null, true);
    if(!k) return false;
-   var b = box();
-   var i = await pickOpt(t, 'CRT &mdash; who comes in from the box at half HP?', b.map(function(ci){ var c=chars[ci]; return {label:c.n, sub:'HP '+Math.floor(c.hp/2)+' &middot; ATK '+c.atk+' &middot; SPD '+c.spd+' &mdash; <b>'+c.an+'</b>: '+c.a, icon:c.i}; }),
-     function(o,i){ var c=chars[b[i]]; return c.hp*0.3+c.atk*2+c.spd*0.5; }, true);
-   if(i<0) return false;
-   var nu = newUnit(b[i], t, Math.floor(chars[b[i]].hp/2)); nu.acted = true;
-   G.teams[t][G.teams[t].indexOf(k)] = nu; G.drafted[b[i]] = true;
-   log(pn(t)+' plays '+card('CRT')+': '+nm(nu)+' replaces '+nm(k)+' with '+nu.hp+' HP.'); return true;
+   var ci = G.charDeck.shift();
+   var nu = newUnit(ci, t, Math.floor(chars[ci].hp/2)); nu.acted = true;
+   G.teams[t][G.teams[t].indexOf(k)] = nu;
+   fxc('u'+nu.id, 'dealt', 700);
+   log(pn(t)+' plays '+card('CRT')+': '+nm(k)+' is replaced by '+nm(nu)+', face-down, with half HP.'); return true;
   }},
  'Sports Carnival':{
   can:function(){ return true; },
@@ -519,7 +549,8 @@ async function cpuAct(u){
     var a = effAtk(u), kill = tg.some(function(e){ return e.hp<=a && !e.dlc; });
     opts.push({k:'st', s:a+(kill?6:0)});
   }
-  opts.push({k:'br', s:(u.hp<=6 && u.hp<u.max && !u.braced) ? 4 : (G.noStrike ? 2 : 0.5)});
+  // Late in the game the CPU stops bracing, so two tanky survivors can't stall forever.
+  if(G.round<12 || G.noStrike || !tg.length) opts.push({k:'br', s:(u.hp<=6 && u.hp<u.max && !u.braced) ? 4 : (G.noStrike ? 2 : 0.5)});
   opts.forEach(function(o){ o.s += Math.random()*1.5; });
   opts.sort(function(a,b){ return b.s-a.s; });
   for(var i=0;i<opts.length;i++){
@@ -538,6 +569,7 @@ async function cpuTurn(u){
 async function subTurn(f){
   var s = {cur:G.cur, acted:G.acted, card:G.cardPlayed};
   G.cur=f; G.acted=false; G.cardPlayed=true; G.sub=true;
+  reveal(f);
   try{
     if(f.skip>0){ f.skip--; log(nm(f)+' was due to skip, so it does nothing.'); }
     else if(isCPU(f.team)) await cpuAct(f);
@@ -558,12 +590,19 @@ async function passScreen(t){
   G.lastHuman = t;
   await wait('pass', {team:t});
 }
-function draw(t){ if(G.deck.length){ G.hands[t].push(G.deck.pop()); render(); } }
+function draw(t){
+  if(!G.deck.length) return;
+  var c = G.deck.pop();
+  G.hands[t].push(c); fxc('c'+c.uid, 'drawn', 650);
+  render();
+}
 
 async function takeTurn(u){
-  G.cur=u; G.acted=false; G.cardPlayed=false; u.acted=true; G.inspect=u.id;
+  G.cur=u; G.acted=false; G.cardPlayed=false; u.acted=true; G.sel=null;
   if(!isCPU(u.team)) await passScreen(u.team);
   checkInt();
+  reveal(u);
+  if(!hidden(u)) G.zoom = {k:'u', id:u.id};
   log(pn(u.team)+' &middot; '+nm(u)+' is up.', 'turn');
   var ag = G.agenda[u.team];
   if(ag && G.round>=ag.from && G.round<=ag.to){ log('<i>Agenda Item 14</i> drags on&hellip;'); await damage(u, 1, null); }
@@ -574,10 +613,11 @@ async function takeTurn(u){
   }
   await cleanup(u);
   G.cur = null;
+  if(!u.ko) fxc('u'+u.id, 'tapanim', 450);
 }
 function startRound(){
   G.round++;
-  allUnits().forEach(function(u){ u.acted=false; u.tie=Math.random(); });
+  allUnits().forEach(function(u){ if(u.acted && !u.ko) fxc('u'+u.id, 'untap', 450); u.acted=false; u.tie=Math.random(); });
   log('Round '+G.round, 'round');
 }
 function endRound(){
@@ -612,134 +652,168 @@ async function gameLoop(){
   }
 }
 
-/* ---------------- setup & draft ---------------- */
-function charVal(ci){ var c=chars[ci]; return c.hp*0.6 + c.atk*2.2 + c.spd*0.6 + Math.random()*4; }
-function startDraft(){
-  var r0, r1; do { r0=d6(); r1=d6(); } while(r0===r1);
-  G = {phase:'draft', log:[], uid:0,
-       draft:{pool:chars.map(function(_,i){ return i; }), picks:[[],[]], turn:r0>r1?0:1, rolls:[r0,r1]}};
-  render(); cpuDraft();
+/* ---------------- setup: shuffle & deal ---------------- */
+function startGame(){
+  G = {phase:'deal', log:[], fx:[], uid:0, zoom:null,
+       charDeck:shuffle(chars.map(function(_,i){ return i; })),
+       deal:{turn:0, picks:[[],[]], shown:[{},{}], mull:[1,1], pass:CFG.mode==='hot'}};
+  for(var t=0;t<2;t++) dealTeam(t);
+  if(CFG.mode==='sim') return beginBattle();
+  render();
 }
-function cpuDraft(){
-  var g = G, d = G.draft;
-  if(!d || !isCPU(d.turn)) return;
-  setTimeout(function(){ if(g===G && G.phase==='draft') draftPick(best(d.pool, charVal)); }, 650*CFG.speed);
+function dealTeam(t){
+  var d = G.deal;
+  d.picks[t] = G.charDeck.splice(0, CFG.size);
+  d.shown[t] = {};
+  d.picks[t].forEach(function(_,i){ fxc('d'+t+'_'+i, 'dealt', 650, i*160 + (t===d.turn?0:500)); });
 }
-function draftPick(ci){
-  var d = G.draft;
-  if(d.pool.indexOf(ci)<0) return;
-  d.pool = d.pool.filter(function(x){ return x!==ci; });
-  d.picks[d.turn].push(ci);
-  if(d.picks[0].length>=CFG.size && d.picks[1].length>=CFG.size) return beginBattle();
-  d.turn = 1-d.turn;
-  if(d.picks[d.turn].length>=CFG.size) d.turn = 1-d.turn;
-  render(); cpuDraft();
+function mulligan(){
+  var d = G.deal, t = d.turn;
+  if(d.mull[t]<1) return;
+  d.mull[t]--;
+  G.charDeck = shuffle(G.charDeck.concat(d.picks[t]));
+  dealTeam(t);
+  G.zoom = null;
+  render();
+}
+function flipDealt(i){
+  var d = G.deal, t = d.turn;
+  if(d.shown[t][i]) { G.zoom = {k:'ci', ci:d.picks[t][i]}; G.zoomOpen = true; render(); return; }
+  d.shown[t][i] = true;
+  fxc('d'+t+'_'+i, 'flip', 700);
+  G.zoom = {k:'ci', ci:d.picks[t][i]};
+  render();
+}
+function revealAll(){
+  var d = G.deal, t = d.turn;
+  d.picks[t].forEach(function(_,i){ if(!d.shown[t][i]){ d.shown[t][i]=true; fxc('d'+t+'_'+i, 'flip', 700, i*120); } });
+  render();
+}
+function dealDone(){
+  var d = G.deal;
+  if(CFG.mode==='hot' && d.turn===0){ d.turn = 1; d.pass = true; G.zoom = null; render(); return; }
+  beginBattle();
 }
 function beginBattle(){
-  var d = G.draft;
-  G.phase='battle'; G.round=0; G.over=false; G.winner=null;
+  var d = G.deal;
+  G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
   G.teams = d.picks.map(function(p,t){ return p.map(function(ci){ return newUnit(ci,t); }); });
-  G.drafted = {}; d.picks[0].concat(d.picks[1]).forEach(function(ci){ G.drafted[ci]=true; });
   G.deck = []; acts.forEach(function(a){ for(var k=0;k<a.x;k++) G.deck.push({uid:G.deck.length, n:a.n}); });
   shuffle(G.deck);
   G.discard=[]; G.hands=[[],[]]; G.usedLog=[]; G.agenda=[null,null]; G.lastCard=null;
   G.lowTide=0; G.noAbil=false; G.noStrike=false; G.roundEnding=false; G.interrupt=false; G.lastHuman=null;
-  var deal = CFG.size===4 ? 3 : 2;
-  for(var k=0;k<deal;k++){ G.hands[0].push(G.deck.pop()); G.hands[1].push(G.deck.pop()); }
-  log('The specimens take the field. Fastest acts first.');
+  var n = CFG.size===4 ? 3 : 2;
+  for(var k=0;k<n;k++){ for(var t=0;t<2;t++){ var c=G.deck.pop(); G.hands[t].push(c); fxc('c'+c.uid, 'drawn', 650, k*200); } }
+  log('The specimens take the field, face-down. Each is revealed when it first acts.');
   gameLoop();
 }
 
-/* ---------------- rendering ---------------- */
+/* ---------------- card faces ---------------- */
+var COLOR = {
+  'Dr. Travis Knox':'blue','The Seal Whisperer':'blue','Field Researcher Knox':'blue','Elephant Seal Knox':'blue',
+  'Director of Students':'white','Chaperone Knox':'white','Staff Meeting Knox':'white','Parent-Teacher Knox':'white',
+  'The Blue Suit':'black','Leopard Seal Knox':'black','Knox Emeritus':'black',
+  'Family Man Knox':'red','The Mixtape':'red','Fire Drill Knox':'red',
+  'Beer Frog':'green','Tadpole':'green'
+};
 var root = null;
-function h(s){ return s; }
-function icon(k){ return S[k] || ''; }
-
-function renderMenu(){
-  var o = function(k,v,label,sub){ return '<button class="choice'+(CFG[k]===v?' on':'')+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
-  return '<div class="menu">'
-   +'<div class="eyebrow">Field Deck No. 1 &middot; Browser Edition</div>'
-   +'<h1>Travis:<br><em>The Game</em></h1>'
-   +'<p class="dek">Sixteen documented specimens of Travis Knox square off in turn-based combat. Draft a team, then knock out every one of your opponent&rsquo;s Knoxes to win the grant.</p>'
-   +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
-   + o('mode','cpu','Computer','Play against the CPU') + o('mode','hot','Two players','Pass-and-play on one screen')
-   +'</div></div>'
-   +'<div class="group"><div class="gl">Team size</div><div class="choices">'
-   + o('size','3','3 v 3','20&ndash;30 minutes') + o('size','4','4 v 4','The longer game')
-   +'</div></div>'
-   +'<button class="go" data-a="start">Begin the draft &rarr;</button>'
-   +'<div class="quick"><div class="gl">How a turn works</div><ul>'
-   +'<li>Every living character acts once per round, <b>highest SPD first</b>.</li>'
-   +'<li>On a turn you draw an action card, then <b>Strike</b> (deal ATK), <b>Brace</b> (heal 2, next hit &minus;3) or use the character&rsquo;s <b>Ability</b> (once per game).</li>'
-   +'<li>You may also play <b>one action card</b> per turn, before or after acting. Hand limit 3.</li>'
-   +'<li>Click a character any time to read its card.</li></ul>'
-   +'<p><a href="index.html" target="_blank" rel="noopener">Full rules &amp; printable deck &rarr;</a></p></div>'
+function art(k){ return (S[k]||'').replace(/#(0B2545|5F8F35|1D4E89)/g, 'currentColor'); }
+function charFace(c, o){
+  o = o || {};
+  var col = COLOR[c.n] || 'blue';
+  return '<div class="face f-'+col+'">'
+   +'<div class="tl"><span class="tn">'+c.n+'</span><span class="gem spd'+(o.spdCls||'')+'" title="Speed">'+(o.spd!=null?o.spd:c.spd)+'</span></div>'
+   +'<div class="art a-'+col+'">'+art(c.i)+'</div>'
+   +(o.bar||'')
+   +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
+   +'<div class="tx"><p><b>'+c.an+'.</b> '+c.a+'</p><p class="fl">'+c.f+'</p></div>'
+   +'<div class="gem atk'+(o.atkCls||'')+'" title="Attack">'+(o.atk!=null?o.atk:c.atk)+'</div>'
+   +'<div class="gem hp'+(o.hpCls||'')+'" title="Health">'+(o.hp!=null?o.hp:c.hp)+'</div>'
    +'</div>';
 }
-function charTile(ci, extra){
-  var c = chars[ci];
-  return '<div class="plate">'+icon(c.i)+'</div>'
-   +'<div class="ct"><div class="cn">'+c.n+'</div><div class="cr">'+c.r+'</div></div>'
-   +'<div class="cs"><span>HP <b class="hpv">'+c.hp+'</b></span><span>ATK <b>'+c.atk+'</b></span><span>SPD <b>'+c.spd+'</b></span></div>'
-   +'<div class="ca"><b>'+c.an+'</b> '+c.a+'</div>'+(extra||'');
+function actFace(n){
+  var a = ACTD[n], inst = a.t==='Instant';
+  return '<div class="face f-gold">'
+   +'<div class="tl"><span class="tn">'+n+'</span><span class="gem spd" title="'+a.t+'">'+(inst?'&#9889;':'&#8635;')+'</span></div>'
+   +'<div class="art a-gold">'+art(a.i)+'</div>'
+   +'<div class="ty">'+(inst?'Instant':'Round Effect')+' &mdash; Action</div>'
+   +'<div class="tx"><p>'+a.a+'</p><p class="fl">One action card per turn.</p></div>'
+   +'</div>';
 }
-function renderDraft(){
-  var d = G.draft, human = !isCPU(d.turn);
-  var picks = function(t){
-    return '<div class="dp t'+t+(d.turn===t?' now':'')+'"><div class="dpn">'+pname(t)+' <span>rolled '+d.rolls[t]+'</span></div><div class="dpl">'
-      + (d.picks[t].map(function(ci){ return '<span class="pill">'+chars[ci].n+'</span>'; }).join('') || '<span class="muted">No picks yet</span>')
-      + '</div></div>';
-  };
-  var owner = function(ci){ return d.picks[0].indexOf(ci)>=0 ? 0 : d.picks[1].indexOf(ci)>=0 ? 1 : -1; };
-  var tiles = chars.map(function(c,ci){
-    var o = owner(ci), free = o<0;
-    return '<button class="dt'+(free?'':' taken t'+o)+'" '+(free&&human?'data-a="draft" data-v="'+ci+'"':'disabled')+'>'
-      + charTile(ci, free?'':'<div class="own">'+pname(o)+'</div>') + '</button>';
-  }).join('');
-  return '<div class="draft"><header class="bar"><div class="brand">Travis: <em>The Game</em></div><div class="meta">The Draft</div>'
-   +'<div class="btns"><button data-a="menu">Menu</button></div></header>'
-   +'<div class="dhead">'+picks(0)+'<div class="dmsg">'+(human ? '<b>'+pname(d.turn)+'</b>, pick a specimen ('+(d.picks[d.turn].length+1)+' of '+CFG.size+')' : 'CPU is choosing&hellip;')+'</div>'+picks(1)+'</div>'
-   +'<div class="dgrid">'+tiles+'</div></div>';
+function backFace(){
+  return '<div class="back"><div class="pips"><i class="pw"></i><i class="pu"></i><i class="pb"></i><i class="pr"></i><i class="pg"></i></div>'
+   +'<div class="oval">'+art('seal')+'</div><div class="bw">Travis</div></div>';
 }
+
+/* ---------------- rendering ---------------- */
 function chips(u){
   var c = [];
   if(u.ko) return '';
-  if(u.shield && !u.cancelled) c.push(['Suit intact','g']);
-  if(u.braced) c.push(['Braced &minus;3','g']);
-  if(u.reduce1) c.push(['Blubber &minus;1','g']);
+  if(u.shield && !u.cancelled && !hidden(u)) c.push(['Suit intact','g']);
+  if(u.braced) c.push(['Braced','g']);
+  if(u.reduce1) c.push(['Blubber','g']);
   if(u.dlc) c.push(['In the DLC','g']);
   if(u.territorial) c.push(['Territorial','b']);
-  if(u.atkGame>0) c.push(['+'+u.atkGame+' ATK','b']);
-  if(u.skip>0) c.push(['Skips next turn','r']);
+  if(u.skip>0) c.push(['Skips turn','r']);
   if(u.detained) c.push(['Detention','r']);
   if(u.cancelled) c.push(['Peer-reviewed','r']);
-  else if(u.used) c.push(['Ability used','m']);
   return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
 }
-function unitHtml(u){
+function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
+function unitCard(u){
   var w = G.wait, pick = w && w.kind==='unit' && w.ids.indexOf(u.id)>=0;
   var dim = w && w.kind==='unit' && !pick;
-  var a = effAtk(u), am = a>u.atk ? ' bu' : a<u.atk ? ' bd' : '';
-  var pct = Math.max(0, Math.min(100, u.hp/u.max*100));
-  var cls = 'u t'+u.team+(u.ko?' ko':'')+(G.cur===u?' cur':'')+(pick?' pick':'')+(dim?' dim':'')+(u.acted&&!u.ko&&G.cur!==u?' done':'')+(G.inspect===u.id?' insp':'');
-  return '<button class="'+cls+'" data-a="unit" data-v="'+u.id+'" data-id="'+u.id+'">'
-   +'<div class="uh">'+u.c.n+'</div>'
-   +'<div class="up">'+icon(u.c.i)+'</div>'
-   +'<div class="hpb'+(u.hp>u.max?' over':'')+'"><i style="width:'+pct+'%"></i><b>'+u.hp+' / '+u.max+'</b></div>'
-   +'<div class="us"><span>ATK <b class="'+am+'">'+a+'</b></span><span>SPD <b'+(u.spdRound?' class="bu"':'')+'>'+effSpd(u)+'</b></span></div>'
-   +'<div class="chips">'+chips(u)+'</div>'
-   +(u.ko?'<div class="kotag">Knocked out</div>':'')
-   +'</button>';
+  var hid = hidden(u), f = fxFor('u'+u.id), body;
+  var cls = 'card mini unit t'+u.team+(u.ko?' ko':'')+(G.cur===u?' cur':'')+(pick?' pick':'')+(dim?' dim':'')
+    +(u.acted && !u.ko && G.cur!==u ? ' tapped' : '')+(isZoom('u',u.id)?' zoomed':'')+f.cls;
+  if(hid){
+    var dmg = u.max-u.hp;
+    body = backFace() + (dmg>0 && !u.ko ? '<span class="dmgb">&minus;'+dmg+'</span>' : '');
+  } else {
+    var a = effAtk(u), pct = Math.max(0, Math.min(100, u.hp/u.max*100));
+    body = charFace(u.c, {atk:a, hp:u.hp, spd:effSpd(u), atkCls:a>u.atk?' bu':a<u.atk?' bd':'', spdCls:u.spdRound?' bu':'',
+      hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb"><i style="width:'+pct+'%"></i></div>'});
+  }
+  return '<button class="'+cls+'" style="'+f.style+'" data-a="unit" data-v="'+u.id+'" aria-label="'+(hid?'Face-down card':u.c.n)+'">'
+   + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '') + f.fl + '</button>';
 }
-function teamRow(t){
-  var flood = canFlood(t) ? '<button class="flood" data-a="flood" data-v="'+t+'">Play The Great Flood now</button>' : '';
-  var ag = G.agenda[t] && G.round<=G.agenda[t].to ? '<span class="chip r">Agenda Item 14: rounds '+G.agenda[t].from+'&ndash;'+G.agenda[t].to+'</span>' : '';
-  return '<section class="team t'+t+'"><div class="th"><span class="pn">'+pname(t)+'</span><span class="hc">'+G.hands[t].length+' card'+(G.hands[t].length===1?'':'s')+' in hand</span>'+ag+flood+'</div>'
-   +'<div class="units">'+G.teams[t].map(unitHtml).join('')+'</div></section>';
+function handTeam(){
+  if(CFG.mode!=='hot') return 0;
+  if(G.cur && !isCPU(G.cur.team)) return G.cur.team;
+  return G.lastHuman==null ? 0 : G.lastHuman;
+}
+function canPlayNow(c){
+  var w = G.wait, u = G.cur, t = viewer();
+  return !!(w && w.kind==='cmd' && u && u.team===t && !G.sub && canPlayCards(u) && playable(t, c, u));
+}
+function fanStyle(i, n, spread){
+  var off = i-(n-1)/2;
+  return '--r:'+(off*spread)+'deg;--y:'+(Math.abs(off)*Math.abs(off)*4)+'px;z-index:'+(i+1);
+}
+function handHtml(t){
+  var h = G.hands[t];
+  if(!h.length) return '<div class="hand empty"><span>No cards in hand</span></div>';
+  return '<div class="hand">'+h.map(function(c,i){
+    var f = fxFor('c'+c.uid), ok = canPlayNow(c);
+    return '<button class="card hc'+(ok?' ok':'')+(G.sel===c.uid?' sel':'')+f.cls+'" style="'+fanStyle(i,h.length,6)+';'+f.style+'" data-a="hand" data-v="'+c.uid+'" aria-label="'+c.n+'">'+actFace(c.n)+'</button>';
+  }).join('')+'</div>';
+}
+function oppHand(t){
+  var n = G.hands[t].length;
+  var backs = ''; for(var i=0;i<n;i++) backs += '<div class="card ob" style="'+fanStyle(i,n,9)+'">'+backFace()+'</div>';
+  return '<div class="ohand" title="'+n+' cards in hand">'+backs+'<span class="ocount">'+n+'</span></div>';
+}
+function plate(t, side){
+  var alive = living(t).length, act = G.cur && G.cur.team===t && !G.over;
+  var flood = canFlood(t) ? '<button class="btn flood" data-a="flood" data-v="'+t+'">&#127754; Play The Great Flood</button>' : '';
+  var ag = G.agenda[t] && G.round<=G.agenda[t].to ? '<span class="chip r">Agenda Item 14 &middot; rounds '+G.agenda[t].from+'&ndash;'+G.agenda[t].to+'</span>' : '';
+  return '<div class="plate '+side+' t'+t+(act?' active':'')+'"><span class="av">'+art(t?'lseal':'seal')+'</span>'
+   +'<span class="pinfo"><b>'+pname(t)+'</b><small>'+alive+' of '+G.teams[t].length+' standing</small></span>'
+   + ag + flood + (side==='top' ? oppHand(t) : '') + '</div>';
 }
 function flags(){
   var f = [];
-  if(G.lowTide) f.push('Low Tide: &minus;'+(2*G.lowTide)+' ATK');
+  if(G.lowTide) f.push('Low Tide &minus;'+(2*G.lowTide)+' ATK');
   if(G.noStrike) f.push('Assembly: no Strikes');
   if(G.noAbil) f.push('Chaperoned: no abilities');
   return f.map(function(x){ return '<span class="flag">'+x+'</span>'; }).join('');
@@ -747,114 +821,175 @@ function flags(){
 function statusLine(){
   var w = G.wait;
   if(G.over) return G.winner<0 ? 'A draw.' : pname(G.winner)+(CFG.mode==='cpu'&&G.winner===0?' win!':' wins!');
-  if(w && w.kind==='unit') return '<span class="who t'+w.team+'">'+pname(w.team)+'</span> '+w.prompt+(w.cancel?' <button class="lnk" data-a="cancel">Cancel</button>':'');
+  if(w && w.kind==='unit') return '<span class="who t'+w.team+'">'+pname(w.team)+':</span> '+w.prompt+(w.cancel?' <button class="lnk" data-a="cancel">Cancel</button>':'');
   if(w && w.kind==='opt') return '<span class="who t'+w.team+'">'+pname(w.team)+'</span> is choosing&hellip;';
   if(G.cur && w && w.kind==='cmd'){
     var u = G.cur;
-    if(G.sub) return nm(u)+' acts out of order &mdash; choose its action.';
-    if(!G.acted) return '<span class="who t'+u.team+'">'+pname(u.team)+'</span> &mdash; '+nm(u)+'&rsquo;s turn. Choose an action'+(canPlayCards(u)?', and optionally play a card.':'.');
+    if(G.sub) return nm(u)+' acts out of order. Choose its action.';
+    if(!G.acted) return nm(u)+' is ready. Choose an action'+(canPlayCards(u)?' and play up to one card.':'.');
     return 'Action done. Play a card or end the turn.';
   }
-  if(G.cur && isCPU(G.cur.team)) return nm(G.cur)+' <span class="muted">&mdash; CPU is thinking&hellip;</span>';
+  if(G.cur && isCPU(G.cur.team)) return nm(G.cur)+' <span class="muted">&mdash; the CPU is thinking&hellip;</span>';
   return '&nbsp;';
 }
-function actionPanel(){
-  var w = G.wait;
-  if(!(w && w.kind==='cmd' && G.cur)) return '';
-  var u = G.cur, ab = AB[u.c.n];
+function pile(kind){
+  if(kind==='deck'){
+    var n = G.deck.length;
+    return '<div class="pile deck'+(n?'':' gone')+'" title="Action deck"><div class="card">'+backFace()+'</div><span class="pc">'+n+'</span><small>Deck</small></div>';
+  }
+  var top = G.discard[G.discard.length-1];
+  return '<div class="pile disc" title="Discard pile">'+(top ? '<div class="card">'+actFace(top.n)+'</div>' : '<div class="slot"></div>')+'<span class="pc">'+G.discard.length+'</span><small>Discard</small></div>';
+}
+function actionBar(){
+  var w = G.wait, u = G.cur;
+  if(!(w && w.kind==='cmd' && u && u.team===viewer())) return '<div class="actions idle"></div>';
   var dis = function(b){ return b ? ' disabled' : ''; };
-  var noTg = !strikeTargets(u).length;
   var r = abilReason(u);
   return '<div class="actions">'
-   +'<button class="ab strike"'+dis(G.acted||G.noStrike||noTg)+' data-a="cmd" data-v="strike"><b>Strike</b><span>'+(G.noStrike?'Assembly &mdash; no Strikes':'Deal '+effAtk(u)+' to one enemy')+'</span></button>'
-   +'<button class="ab"'+dis(G.acted)+' data-a="cmd" data-v="brace"><b>Brace</b><span>Heal 2 &middot; next hit &minus;3</span></button>'
-   +'<button class="ab ability"'+dis(G.acted||!canAbil(u))+' data-a="cmd" data-v="ability"><b>'+u.c.an+'</b><span>'+(r || 'Ability &middot; once per game')+'</span></button>'
-   +'<button class="ab end" data-a="cmd" data-v="end"><b>'+(G.acted?'End turn':'Pass')+'</b><span>'+(G.acted?'Next character':'Skip the action')+'</span></button>'
-   +'</div>'
-   +(ab||u.c.n==='Tadpole'||u.c.n==='Knox Emeritus' ? '<p class="abtext"><b>'+u.c.an+':</b> '+u.c.a+'</p>' : '');
+   +'<button class="btn act"'+dis(G.acted||G.noStrike||!strikeTargets(u).length)+' data-a="cmd" data-v="strike"><i>&#9876;</i><b>Strike</b><small>'+(G.noStrike?'Assembly':'Deal '+effAtk(u))+'</small></button>'
+   +'<button class="btn act"'+dis(G.acted)+' data-a="cmd" data-v="brace"><i>&#128737;</i><b>Brace</b><small>Heal 2 &middot; &minus;3 next hit</small></button>'
+   +'<button class="btn act abil"'+dis(G.acted||!canAbil(u))+' data-a="cmd" data-v="ability"><i>&#10022;</i><b>'+u.c.an+'</b><small>'+(r||'Once per game')+'</small></button>'
+   +'<button class="btn end" data-a="cmd" data-v="end"><b>'+(G.acted?'End Turn':'Pass')+'</b></button>'
+   +'</div>';
 }
-function handTeam(){
-  if(CFG.mode==='cpu') return 0;
-  if(CFG.mode==='sim') return 0;
-  if(G.cur && !isCPU(G.cur.team)) return G.cur.team;
-  return G.lastHuman==null ? 0 : G.lastHuman;
-}
-function handHtml(){
-  var t = handTeam(), w = G.wait, u = G.cur;
-  var canNow = w && w.kind==='cmd' && u && u.team===t && !G.sub && canPlayCards(u);
-  var note = !u || u.team!==t ? 'Your cards (playable on your turn)' : G.sub ? 'Cards can&rsquo;t be played during a Toilet Break action' : u.detained ? 'Detention &mdash; no cards this turn' : G.cardPlayed ? 'Card already played this turn' : 'Play one card per turn';
-  var cards = G.hands[t].map(function(c,i){
-    var ok = canNow && playable(t,c,u), a = ACTD[c.n];
-    return '<button class="hc-card'+(ok?' ok':'')+'"'+(ok?' data-a="card" data-v="'+i+'"':' disabled')+'>'
-      +'<div class="hci">'+icon(a.i)+'</div><div class="hcn">'+c.n+'</div><div class="hct">'+a.t+'</div><div class="hca">'+a.a+'</div></button>';
-  }).join('') || '<div class="muted empty">No cards in hand.</div>';
-  return '<section class="hand"><div class="th"><span class="pn">'+possessive(t)+' hand</span><span class="hc">'+note+' &middot; deck '+G.deck.length+'</span></div><div class="cards">'+cards+'</div></section>';
-}
-function inspectHtml(){
-  var u = unitById(G.inspect) || G.cur;
-  if(!u) return '<div class="muted">Click a character to read its card.</div>';
-  var c = u.c;
-  return '<div class="insp-card t'+u.team+'"><div class="ih"><div class="ino">'+pname(u.team)+'</div><h3>'+c.n+'</h3><div class="ir">'+c.r+'</div></div>'
-   +'<div class="ip">'+icon(c.i)+'</div>'
-   +'<div class="is"><div><span>HP</span><b class="hpv">'+u.hp+'/'+u.max+'</b></div><div><span>ATK</span><b>'+effAtk(u)+'</b></div><div><span>SPD</span><b>'+effSpd(u)+'</b></div></div>'
-   +'<div class="ib"><div class="ian">'+c.an+(u.cancelled?' <em>&middot; cancelled</em>':u.used?' <em>&middot; used</em>':'')+'</div><p>'+c.a+'</p><p class="ifl">'+c.f+'</p></div></div>';
+function zoomBlock(){
+  var z = G.zoom, html = '', cap = '', btn = '';
+  if(z && z.k==='u'){
+    var u = unitById(z.id);
+    if(u && hidden(u)){ html = '<div class="card big">'+backFace()+'</div>'; cap = 'Face-down. Revealed when it first acts.'; }
+    else if(u){
+      var a = effAtk(u);
+      html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {atk:a, hp:u.hp, spd:effSpd(u), atkCls:a>u.atk?' bu':a<u.atk?' bd':'', hpCls:u.hp<u.max?' hurt':''})+'</div>';
+      cap = pname(u.team)+' &middot; HP '+u.hp+'/'+u.max+(u.ko?' &middot; knocked out':u.cancelled?' &middot; ability cancelled':u.used?' &middot; ability used':AB[u.c.n]?' &middot; ability ready':' &middot; passive');
+    }
+  } else if(z && z.k==='c'){
+    var c = G.hands[viewer()].filter(function(c){ return c.uid===z.uid; })[0];
+    if(c){
+      html = '<div class="card big">'+actFace(c.n)+'</div>';
+      btn = canPlayNow(c) ? '<button class="btn gold" data-a="play" data-v="'+c.uid+'">Play '+c.n+'</button>' : '';
+      cap = canPlayNow(c) ? '' : 'Playable on your turn, one card per turn.';
+    }
+  } else if(z && z.k==='ci'){
+    html = '<div class="card big">'+charFace(chars[z.ci])+'</div>';
+  }
+  if(!html) return '<div class="zoom empty"><div class="card big ghost">'+backFace()+'</div><p class="cap">Tap any card to inspect it.</p></div>';
+  return '<div class="zoom">'+html+(cap?'<p class="cap">'+cap+'</p>':'')+btn+'</div>';
 }
 function orderHtml(){
   var q = queue();
   var items = (G.cur && !G.cur.ko ? [G.cur] : []).concat(q.filter(function(u){ return u!==G.cur; }));
-  return items.map(function(u,i){
-    return '<li class="t'+u.team+(u===G.cur?' now':'')+'"><span>'+u.c.n+'</span><b>'+effSpd(u)+'</b></li>';
-  }).join('') || '<li class="muted">Round over</li>';
+  return items.map(function(u){
+    var hid = hidden(u);
+    return '<li class="t'+u.team+(u===G.cur?' now':'')+'"><span>'+(hid?'Face-down card':u.c.n)+'</span><b>'+(hid?'?':effSpd(u))+'</b></li>';
+  }).join('') || '<li class="muted">Round complete</li>';
 }
-function modalHtml(){
-  var w = G.wait;
+function overlays(){
+  var w = G.wait, o = '';
   if(w && w.kind==='pass'){
-    return '<div class="ov solid"><div class="panel pass"><div class="eyebrow">Pass the device</div><h2 class="t'+w.team+'">'+pname(w.team)+'</h2><p>It&rsquo;s your move. Your hand is hidden until you continue.</p><button class="go" data-a="pass">I&rsquo;m '+pname(w.team)+' &mdash; show my hand</button></div></div>';
-  }
-  if(w && w.kind==='opt'){
-    return '<div class="ov"><div class="panel"><div class="eyebrow t'+w.team+'">'+pname(w.team)+'</div><h2>'+w.prompt+'</h2><div class="opts">'
-      + w.opts.map(function(o,i){ return '<button class="opt" data-a="opt" data-v="'+i+'">'+(o.icon?'<span class="oi">'+icon(o.icon)+'</span>':'')+'<span><b>'+o.label+'</b><span>'+o.sub+'</span></span></button>'; }).join('')
+    o += '<div class="ov solid"><div class="panel pass"><div class="eyebrow">Pass the device</div><h2 class="t'+w.team+'">'+pname(w.team)+'</h2><p>Your turn. Nobody else looks.</p><button class="btn gold big" data-a="pass">Show my cards</button></div></div>';
+  } else if(w && w.kind==='opt'){
+    var cards = w.opts.some(function(x){ return x.act; });
+    o += '<div class="ov"><div class="panel"><div class="eyebrow t'+w.team+'">'+pname(w.team)+'</div><h2>'+w.prompt+'</h2><div class="opts'+(cards?' cardopts':'')+'">'
+      + w.opts.map(function(x,i){
+          return x.act ? '<button class="card optc" data-a="opt" data-v="'+i+'" aria-label="'+x.label+'">'+actFace(x.act)+'</button>'
+                       : '<button class="optb" data-a="opt" data-v="'+i+'"><b>'+x.label+'</b><span>'+x.sub+'</span></button>';
+        }).join('')
       + '</div>'+(w.cancel?'<button class="lnk" data-a="cancel">Cancel</button>':'')+'</div></div>';
+  } else if(G.over && !G.hideOver){
+    var you = CFG.mode==='cpu', title, sub;
+    if(G.winner<0){ title='Stalemate'; sub='Nobody claims the grant.'; }
+    else if(you){ title = G.winner===0 ? 'Victory' : 'Defeat'; sub = G.winner===0 ? 'The grant is yours.' : 'The CPU takes the grant.'; }
+    else { title = pname(G.winner)+' Wins'; sub = 'The grant is theirs.'; }
+    o += '<div class="ov soft"><div class="panel over'+(you&&G.winner===1?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'
+      +'<div class="row"><button class="btn gold big" data-a="start">Shuffle Up Again</button><button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
   }
-  if(G.over){
-    var you = CFG.mode==='cpu';
-    var title = G.winner<0 ? 'A draw' : you ? (G.winner===0 ? 'You win the grant' : 'The CPU wins the grant') : pname(G.winner)+' wins the grant';
-    return '<div class="ov soft"><div class="panel"><div class="eyebrow">Round '+G.round+' &middot; Final</div><h2>'+title+'</h2>'
-      +'<p>'+(G.winner<0?'Nobody is left standing.':G.teams[G.winner].filter(function(u){ return !u.ko; }).map(function(u){ return u.c.n; }).join(', ')+' '+(living(G.winner).length===1?'is':'are')+' still standing.')+'</p>'
-      +'<div class="row"><button class="go" data-a="start">Rematch</button><button class="lnk" data-a="menu">Menu</button><button class="lnk" data-a="close">View board</button></div></div></div>';
-  }
-  return '';
+  if(G.zoomOpen && !o) o += '<div class="ov zoomov" data-a="unzoom">'+zoomBlock()+'</div>';
+  return o;
+}
+function topbar(extra){
+  return '<header class="bar"><div class="brand">Travis <span>The Game</span></div><div class="meta">'+(extra||'')+'</div>'
+   +'<div class="btns"><a class="btn sm" href="index.html" target="_blank" rel="noopener">Rules</a><button class="btn sm" data-a="menu">Menu</button></div></header>';
 }
 function renderBattle(){
-  var top = CFG.mode==='hot' && handTeam()===1 ? 0 : 1;
-  return '<header class="bar"><div class="brand">Travis: <em>The Game</em></div>'
-   +'<div class="meta">Round <b>'+G.round+'</b> &middot; Deck <b>'+G.deck.length+'</b> &middot; Discard <b>'+G.discard.length+'</b>'+flags()+'</div>'
-   +'<div class="btns"><a href="index.html" target="_blank" rel="noopener">Rules</a><button data-a="menu">New game</button></div></header>'
-   +'<div class="layout"><main>'
-   + teamRow(top)
-   +'<div class="status">'+statusLine()+'</div>'
-   + teamRow(1-top)
-   + actionPanel()
-   + handHtml()
-   +'</main><aside>'
-   +'<div class="side"><div class="sl">Card</div>'+inspectHtml()+'</div>'
-   +'<div class="side"><div class="sl">Turn order &middot; SPD</div><ol class="order">'+orderHtml()+'</ol></div>'
-   +'<div class="side"><div class="sl">Field notes</div><div class="log">'+G.log.map(function(l){ return '<p class="'+l.cls+'">'+l.h+'</p>'; }).join('')+'</div></div>'
+  var me = viewer(), op = 1-me;
+  return topbar('Round <b>'+G.round+'</b>'+flags())
+   +'<div class="table"><div class="mat">'
+   + plate(op,'top')
+   +'<div class="zone top">'+G.teams[op].map(unitCard).join('')+'</div>'
+   +'<div class="mid"><div class="prompt">'+statusLine()+'</div><div class="piles">'+pile('deck')+pile('disc')+'</div></div>'
+   +'<div class="zone bottom">'+G.teams[me].map(unitCard).join('')+'</div>'
+   + plate(me,'bottom')
+   + actionBar()
+   + handHtml(me)
+   +'</div><aside class="rail">'
+   + zoomBlock()
+   +'<div class="side"><div class="sl">Turn order</div><ol class="order">'+orderHtml()+'</ol></div>'
+   +'<div class="side"><div class="sl">Battle log</div><div class="log">'+G.log.map(function(l){ return '<p class="'+l.cls+'">'+l.h+'</p>'; }).join('')+'</div></div>'
    +'</aside></div>'
    +(G.error?'<pre class="err">'+G.error+'</pre>':'')
-   +(G.hideOver && G.over && !G.wait ? '' : modalHtml());
+   + overlays();
 }
+function renderDeal(){
+  var d = G.deal, me = d.turn, op = 1-me;
+  var all = d.picks[me].every(function(_,i){ return d.shown[me][i]; });
+  var mine = d.picks[me].map(function(ci,i){
+    var f = fxFor('d'+me+'_'+i), up = d.shown[me][i];
+    return '<button class="card deal'+(up?' up':' down')+f.cls+(isZoom('ci',ci)&&up?' zoomed':'')+'" style="'+f.style+'" data-a="flip" data-v="'+i+'" aria-label="'+(up?chars[ci].n:'Face-down card')+'">'+(up?charFace(chars[ci]):backFace())+'</button>';
+  }).join('');
+  var theirs = d.picks[op].map(function(_,i){ var f = fxFor('d'+op+'_'+i); return '<div class="card mini'+f.cls+'" style="'+f.style+'">'+backFace()+'</div>'; }).join('');
+  var next = CFG.mode==='hot' && me===0 ? 'Done &mdash; pass to Player 2' : 'To battle &rarr;';
+  var o = '';
+  if(d.pass) o = '<div class="ov solid"><div class="panel pass"><div class="eyebrow">Pass the device</div><h2 class="t'+me+'">'+pname(me)+'</h2><p>Your specimens are dealt face-down. Nobody else looks.</p><button class="btn gold big" data-a="dealpass">Look at my cards</button></div></div>';
+  else if(G.zoomOpen) o = '<div class="ov zoomov" data-a="unzoom">'+zoomBlock()+'</div>';
+  return topbar('The Deal')
+   +'<div class="table"><div class="mat dealmat">'
+   +'<div class="plate top t'+op+'"><span class="av">'+art(op?'lseal':'seal')+'</span><span class="pinfo"><b>'+pname(op)+'</b><small>'+CFG.size+' face-down specimens</small></span></div>'
+   +'<div class="zone top">'+theirs+'</div>'
+   +'<div class="mid"><div class="prompt">'+(all ? 'This is your team. Keep it, or mulligan for a fresh hand.' : 'You&rsquo;ve been dealt '+CFG.size+' specimens. <b>Tap each card</b> to flip it over.')+'</div>'
+   +'<div class="piles"><div class="pile deck"><div class="card">'+backFace()+'</div><span class="pc">'+G.charDeck.length+'</span><small>Specimens</small></div></div></div>'
+   +'<div class="zone bottom dealzone">'+mine+'</div>'
+   +'<div class="actions deal">'
+   +(all ? '' : '<button class="btn" data-a="revealall">Reveal all</button>')
+   +'<button class="btn"'+(d.mull[me]<1?' disabled':'')+' data-a="mull">Mulligan <small>('+d.mull[me]+' left)</small></button>'
+   +'<button class="btn gold"'+(all?'':' disabled')+' data-a="dealdone">'+next+'</button></div>'
+   +'</div><aside class="rail">'+zoomBlock()
+   +'<div class="side"><div class="sl">How it works</div><ul class="how"><li>Specimens are shuffled and dealt at random.</li><li>Your opponent&rsquo;s cards stay face-down until each one first acts.</li><li>Each round, everyone acts once, fastest (the gem in the corner) first.</li><li>Knock out all of their specimens to win.</li></ul></div>'
+   +'</aside></div>' + o;
+}
+function renderMenu(){
+  var on = function(k,v){ return String(CFG[k])===String(v) ? ' on' : ''; };
+  var o = function(k,v,label,sub){ return '<button class="choice'+on(k,v)+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
+  var hero = ['Beer Frog','The Blue Suit','Dr. Travis Knox','Leopard Seal Knox','Family Man Knox'].map(function(n,i){
+    return '<div class="card hero" style="'+fanStyle(i,5,11)+'">'+charFace(chars[CHAR[n]])+'</div>';
+  }).join('');
+  return '<div class="menu"><div class="fan">'+hero+'</div>'
+   +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
+   +'<p class="tag">Sixteen specimens of Travis Knox. A shuffled deck. You never know who you&rsquo;ll get.</p>'
+   +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
+   + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
+   +'</div></div>'
+   +'<div class="group"><div class="gl">Format</div><div class="choices">'
+   + o('size','3','3 v 3','Standard') + o('size','4','4 v 4','Long game')
+   +'</div></div>'
+   +'<button class="btn gold big" data-a="start">Shuffle Up &amp; Deal</button>'
+   +'<p class="foot"><a href="index.html" target="_blank" rel="noopener">Rules &amp; printable deck</a></p>'
+   +'</div>';
+}
+
+function paint(){
+  var t = now();
+  G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
+  var y = typeof window!=='undefined' && window.scrollY;
+  root.innerHTML = G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : renderMenu();
+  root.className = 'ph-'+G.phase;
+}
+var queued = false;
 function render(){
   if(!root) return;
-  var html = G.phase==='draft' ? renderDraft() : G.phase==='battle' ? renderBattle() : renderMenu();
-  root.innerHTML = html;
-  if(G.fx && G.fx.length){
-    G.fx.forEach(function(f){
-      var el = root.querySelector('[data-id="'+f.id+'"]');
-      if(el){ var s=document.createElement('span'); s.className='float '+f.kind; s.innerHTML=f.text; el.appendChild(s); }
-    });
-    G.fx = [];
-  }
+  if(CFG.mode==='sim'){ paint(); return; }
+  if(queued) return;
+  queued = true;
+  setTimeout(function(){ queued = false; paint(); }, 0);
 }
 
 function onClick(e){
@@ -863,16 +998,32 @@ function onClick(e){
   var a = el.getAttribute('data-a'), v = el.getAttribute('data-v'), w = G.wait;
   switch(a){
     case 'cfg': CFG[el.getAttribute('data-k')] = el.getAttribute('data-k')==='size' ? +v : v; render(); break;
-    case 'start': startDraft(); break;
-    case 'menu': G = {phase:'menu', log:[]}; render(); break;
+    case 'start': startGame(); break;
+    case 'menu': G = {phase:'menu', log:[], fx:[]}; render(); break;
     case 'close': G.hideOver = true; render(); break;
-    case 'draft': if(G.draft && !isCPU(G.draft.turn)) draftPick(+v); break;
+    case 'unzoom': G.zoomOpen = false; render(); break;
+    case 'dealpass': G.deal.pass = false; G.deal.picks[G.deal.turn].forEach(function(_,i){ fxc('d'+G.deal.turn+'_'+i, 'dealt', 650, i*160); }); render(); break;
+    case 'flip': flipDealt(+v); break;
+    case 'revealall': revealAll(); break;
+    case 'mull': mulligan(); break;
+    case 'dealdone': dealDone(); break;
     case 'unit':
-      if(w && w.kind==='unit' && w.ids.indexOf(+v)>=0) w.res(unitById(+v));
-      else { G.inspect = +v; render(); }
+      if(w && w.kind==='unit' && w.ids.indexOf(+v)>=0){ G.zoomOpen = false; w.res(unitById(+v)); }
+      else { G.zoom = {k:'u', id:+v}; G.zoomOpen = true; render(); }
       break;
-    case 'cmd': if(w && w.kind==='cmd') w.res({t:v}); break;
-    case 'card': if(w && w.kind==='cmd') w.res({t:'card', i:+v}); break;
+    case 'hand': {
+      var uid = +v, h = G.hands[viewer()], i = h.map(function(c){ return c.uid; }).indexOf(uid);
+      if(i<0) break;
+      if(G.sel===uid && canPlayNow(h[i]) && w && w.kind==='cmd'){ G.sel=null; G.zoom=null; G.zoomOpen=false; w.res({t:'card', i:i}); }
+      else { G.sel = uid; G.zoom = {k:'c', uid:uid}; G.zoomOpen = true; render(); }
+      break;
+    }
+    case 'play': {
+      var h2 = G.hands[viewer()], j = h2.map(function(c){ return c.uid; }).indexOf(+v);
+      if(j>=0 && w && w.kind==='cmd' && canPlayNow(h2[j])){ G.sel=null; G.zoom=null; G.zoomOpen=false; w.res({t:'card', i:j}); }
+      break;
+    }
+    case 'cmd': if(w && w.kind==='cmd'){ G.zoomOpen = false; w.res({t:v}); } break;
     case 'opt': if(w && w.kind==='opt') w.res(+v); break;
     case 'cancel': if(w && w.cancel) w.res(w.kind==='opt' ? -1 : null); break;
     case 'pass': if(w && w.kind==='pass') w.res(); break;
@@ -880,7 +1031,7 @@ function onClick(e){
   }
 }
 
-var api = {CFG:CFG, state:function(){ return G; }, startDraft:startDraft,
+var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame,
   mount:function(el){ root = el; el.addEventListener('click', onClick); render(); }};
 if(typeof window!=='undefined') window.TravisGame = api;
 })();
