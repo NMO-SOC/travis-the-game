@@ -59,7 +59,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
   linear-gradient(90deg,rgba(29,78,137,.09) 1px,transparent 1px) 0 0/12px 12px,#F3F6F5;
   border-bottom:1px solid var(--rule)}
 .plate svg{width:.72in;height:.72in;display:block}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1.5px solid var(--abyss);flex:0 0 auto}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1.5px solid var(--abyss);flex:0 0 auto}
 .stats div{padding:3px 0 4px;text-align:center;border-right:1px solid var(--rule)}
 .stats div:last-child{border-right:0}
 .stats .k{font-family:"IBM Plex Mono",monospace;font-size:6.5px;letter-spacing:.16em;color:var(--ink-soft)}
@@ -132,9 +132,9 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 
   <section>
     <h2>The Round</h2>
-    <p>Every living character takes <b>one turn</b> per round, <b>fastest first</b> (highest <kbd>SPD</kbd>). Ties: roll a die.</p>
-    <h2 style="margin-top:22px">On Your Character&rsquo;s Turn</h2>
-    <p>Draw one action card (unless you already hold three). Then do <b>one</b> thing:</p>
+    <p>Players <b>take turns</b>, back and forth. A coin flip decides who starts.</p><p>On your turn, <b>choose one of your characters</b> that hasn&rsquo;t acted this round. After it acts, turn it sideways. When every character has acted, a new round starts and everyone turns back upright.</p>
+    <h2 style="margin-top:22px">On Your Turn</h2>
+    <p>Draw one action card (unless you already hold three). Your chosen character does <b>one</b> thing:</p>
     <ul>
       <li><b>Attack</b> &mdash; deal damage equal to its <kbd>ATK</kbd> to one enemy.</li>
       <li><b>Power</b> &mdash; do what the card says. Each character&rsquo;s Power works <b>once per game</b>.</li>
@@ -146,7 +146,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
     <h2>Damage &amp; Knockouts</h2>
     <p>At <b>0 HP</b> a character is knocked out: turn it face-down. Healing never goes above a character&rsquo;s starting HP.</p>
     <h2 style="margin-top:22px">Two Words to Know</h2>
-    <p><b>Shield</b> &mdash; blocks all damage from the next hit, then it&rsquo;s gone.<br><b>Skip</b> &mdash; that character misses its next turn.</p>
+    <p><b>Shield</b> &mdash; blocks all damage from the next hit, then it&rsquo;s gone.<br><b>Skip</b> &mdash; that character misses its next chance to act.</p>
     <h2 style="margin-top:22px">Shorter Games</h2>
     <p>Deal <b>three</b> or <b>four</b> characters each instead of six. Everything else stays the same.</p>
     <div class="note"><b>Gift note.</b> If a rule ever comes down to a coin flip, flip the coin. Travis will allow it.</div>
@@ -170,7 +170,7 @@ function charCard(c,idx){
  +'<div class="plate">'+S[c.i]+'</div>'
  +'<div class="stats"><div><div class="k">HP</div><div class="v hp">'+c.hp+'</div></div>'
  +'<div><div class="k">ATK</div><div class="v">'+c.atk+'</div></div>'
- +'<div><div class="k">SPD</div><div class="v">'+c.spd+'</div></div></div>'
+ +'</div>'
  +'<div class="body"><div><div class="ab-name">Power: '+c.an+'</div><p class="ab">'+c.a+'</p></div>'
  +'<div class="flavor">'+c.f+'</div></div></div></div>';
 }

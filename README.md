@@ -2,7 +2,7 @@
 
 A turn-based card game starring sixteen versions of Travis Knox.
 
-**Play in the browser:** open `play.html` (or on the GitHub Pages site). Each player is dealt six random Knoxes face-down. On each turn a character either **Attacks** or uses its **Power** (once per game), and you can play one action card. Knock out every enemy to win. Tap "How to play" in the game for the full rules.
+**Play in the browser:** open `play.html` (or on the GitHub Pages site). Each player is dealt six random Knoxes face-down. Players take turns: tap one of your characters, then tap an enemy to **Attack** or use its **Power** (once per game). Each character acts once per round. Tap a card in your hand to play it. Knock out every enemy to win.
 
 **Print it:** open `index.html` and print on Letter cardstock at 100% scale with background graphics on. Full rules are on that page.
 

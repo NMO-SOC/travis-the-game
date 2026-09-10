@@ -143,6 +143,8 @@ function checkOver(){
   throw ABORT_OVER;
 }
 function strikeTargets(u){ return foes(u); }
+/* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays tapped next round. */
+function stun(e){ if(!e.acted) e.acted = true; else e.skip = 1; }
 function attack(u, e, mult){
   fxc('u'+u.id, 'lunge', 450);
   log(nm(u)+' attacks '+nm(e)+'.');
@@ -169,7 +171,7 @@ var AB = {
   run:async function(u){
    var t = await pickUnit(u.team, 'See Me After Class: who skips their next turn?', foes(u), function(e){ return effAtk(e)*2+(e.acted?0:3)-(e.skip?30:0); }, true);
    if(!t) return false;
-   t.skip = 1;
+   stun(t);
    log(nm(u)+' uses '+pw(u)+': '+nm(t)+' skips its next turn.'); return true;
   }},
  'Blue Suit Knox':{
@@ -214,7 +216,7 @@ var AB = {
    if(!t) return false;
    log(nm(u)+' uses '+pw(u)+' on '+nm(t)+'.');
    await damage(t, 4);
-   if(!t.ko){ t.skip = 1; log(nm(t)+' skips its next turn.'); }
+   if(!t.ko){ stun(t); log(nm(t)+' misses its next turn.'); }
    return true;
   }},
  'Fire Drill Knox':{
@@ -335,7 +337,7 @@ var ACT = {
   run:async function(t){
    var e = await pickUnit(t, 'Detention: who skips their next turn?', living(1-t), function(e){ return effAtk(e)*2+(e.acted?0:3)-(e.skip?30:0); }, true);
    if(!e) return false;
-   e.skip = 1;
+   stun(e);
    log(pn(t)+' plays '+card('Detention')+': '+nm(e)+' skips its next turn.'); return true;
   }}
 };
@@ -357,88 +359,103 @@ function drawCard(t, force){
   render();
 }
 
-/* ---------------- turns ---------------- */
-async function humanTurn(u){
+/* ---------------- turns ----------------
+   Players alternate. On your turn you choose one of your ready (untapped) characters;
+   it Attacks or uses its Power, then taps. You may also play one action card per turn.
+   When every character has acted, a new round starts and everyone untaps. */
+function ready(t){ return living(t).filter(function(u){ return !u.acted; }); }
+function act(u){ u.acted = true; reveal(u); }
+
+async function humanTurn(t){
   while(true){
-    if(u.ko || G.over) return;
-    var cardsOk = canPlayCards(u) && G.hands[u.team].some(function(c){ return playable(u.team,c,u); });
+    if(G.over) return;
+    var cardsOk = !G.cardPlayed && G.hands[t].some(function(c){ return playable(t,c,G.cur); });
     if(G.acted && !cardsOk) return;
-    var cmd = await wait('cmd', {team:u.team});
-    if(cmd.t==='end') return;
-    if(cmd.t==='strike' && !G.acted){
+    var cmd = await wait('cmd', {team:t});
+    var u = G.cur;
+    if(cmd.t==='end'){ if(G.acted) return; continue; }
+    if(cmd.t==='strike' && u && !G.acted){
       var e = cmd.target ? foes(u).filter(function(x){ return x.id===cmd.target; })[0]
-        : await pickUnit(u.team, 'Attack with '+u.c.n+' for '+effAtk(u)+': tap an enemy', foes(u), null, true);
+        : await pickUnit(t, 'Attack with '+u.c.n+' for '+effAtk(u)+': tap an enemy', foes(u), null, true);
       if(!e) continue;
-      G.acted = true; await attack(u, e);
-    } else if(cmd.t==='ability' && !G.acted && canAbil(u)){
-      if(await useAbility(u)) G.acted = true;
-    } else if(cmd.t==='card' && cardsOk && playable(u.team, G.hands[u.team][cmd.i], u)){
-      if(await playCard(u.team, cmd.i, u)) G.cardPlayed = true;
+      G.acted = true; act(u); await attack(u, e);
+    } else if(cmd.t==='ability' && u && !G.acted && canAbil(u)){
+      if(await useAbility(u)){ G.acted = true; act(u); }
+    } else if(cmd.t==='card' && cardsOk && playable(t, G.hands[t][cmd.i], u)){
+      if(await playCard(t, cmd.i, u)) G.cardPlayed = true;
     }
   }
 }
-async function cpuCard(u, threshold){
-  if(!canPlayCards(u)) return;
-  var t = u.team, bi = -1, bs = threshold;
+async function cpuCard(t, threshold){
+  if(G.cardPlayed) return;
+  var bi = -1, bs = threshold;
   G.hands[t].forEach(function(c,i){
-    if(!playable(t,c,u)) return;
-    var s = ACT[c.n].ai(t,u) + Math.random()*0.6;
+    if(!playable(t,c,G.cur)) return;
+    var s = ACT[c.n].ai(t,G.cur) + Math.random()*0.6;
     if(s>bs){ bs=s; bi=i; }
   });
   if(bi<0) return;
   await sleep(450);
-  if(await playCard(t, bi, u)) G.cardPlayed = true;
+  if(await playCard(t, bi, G.cur)) G.cardPlayed = true;
 }
-async function cpuAct(u){
-  await sleep(450);
-  var a = effAtk(u), tg = foes(u);
-  var kill = tg.some(function(e){ return e.hp<=a && !e.shield; });
-  var atkScore = a + (kill?6:0) + Math.random()*1.5;
-  if(canAbil(u) && AB[u.c.n].ai(u)+Math.random()*1.5 > atkScore && await useAbility(u)) return;
-  await attack(u, best(tg, function(e){ return hitScore(a, e); }));
+function cpuPlan(u){
+  var a = effAtk(u), kill = foes(u).some(function(e){ return e.hp<=a && !e.shield; });
+  var atk = a + (kill?6:0);
+  var pow = canAbil(u) ? AB[u.c.n].ai(u) : -1;
+  return {u:u, pow:pow>atk, score:Math.max(atk, pow)+Math.random()*1.5};
 }
-async function cpuTurn(u){
+async function cpuTurn(t){
   await sleep(650);
-  await cpuCard(u, 3);
-  if(!G.acted && !u.ko){ G.acted = true; await cpuAct(u); }
-  await cpuCard(u, 2.6);
+  await cpuCard(t, 3);
+  var list = ready(t);
+  if(list.length && !G.over){
+    var plan = list.map(cpuPlan).sort(function(a,b){ return b.score-a.score; })[0], u = plan.u;
+    G.cur = u; act(u); G.acted = true; render();
+    await sleep(500);
+    if(!(plan.pow && canAbil(u) && await useAbility(u)))
+      await attack(u, best(foes(u), function(e){ return hitScore(effAtk(u), e); }));
+  }
+  await cpuCard(t, 2.6);
 }
 async function passScreen(t){
   if(CFG.mode!=='hot' || G.lastHuman===t) return;
   G.lastHuman = t;
   await wait('pass', {team:t});
 }
-async function takeTurn(u){
-  G.cur=u; G.acted=false; G.cardPlayed=false; u.acted=true; G.sel=null;
-  if(!isCPU(u.team)) await passScreen(u.team);
+async function takeTurn(t){
+  G.turnOf=t; G.cur=null; G.acted=false; G.cardPlayed=false; G.sel=null;
+  if(!isCPU(t)) await passScreen(t);
   checkInt();
-  reveal(u);
-  if(!hidden(u)) G.zoom = {k:'u', id:u.id};
-  log(pn(u.team)+' &middot; '+nm(u)+' is up.', 'turn');
-  if(u.skip>0){
-    u.skip = 0;
-    log(nm(u)+' skips this turn.');
-    await sleep(700);
-  } else {
-    drawCard(u.team);
-    if(isCPU(u.team)) await cpuTurn(u); else await humanTurn(u);
-  }
+  log(possessive(t)+' turn.', 'turn');
+  drawCard(t);
+  if(isCPU(t)) await cpuTurn(t); else await humanTurn(t);
+  if(G.cur && !G.cur.ko) fxc('u'+G.cur.id, 'tapanim', 450);
   G.cur = null;
-  if(!u.ko) fxc('u'+u.id, 'tapanim', 450);
 }
 function startRound(){
   G.round++;
-  allUnits().forEach(function(u){ if(u.acted && !u.ko) fxc('u'+u.id, 'untap', 450); u.acted=false; u.tie=Math.random(); });
-  log('Round '+G.round, 'round');
+  allUnits().forEach(function(u){
+    if(u.ko) return;
+    if(u.skip){ u.skip = 0; u.acted = true; log(nm(u)+' misses this round.'); return; }
+    if(u.acted) fxc('u'+u.id, 'untap', 450);
+    u.acted = false;
+  });
+  log('Round '+G.round+' &mdash; everyone untaps.', 'round');
 }
 async function gameLoop(){
   var g = G;
   try{
+    G.turnOf = Math.random()<0.5 ? 0 : 1;
+    log(pn(G.turnOf)+' '+(pname(G.turnOf)==='You'?'go':'goes')+' first.');
+    var next = G.turnOf;
     while(true){
       startRound();
       await delay(250);
-      var u;
-      while((u = queue()[0])) await takeTurn(u);
+      while(ready(0).length || ready(1).length){
+        var t = ready(next).length ? next : 1-next;
+        await takeTurn(t);
+        next = 1-t;
+      }
       if(G.round>=99){ G.over=true; G.winner=-1; log('Ninety-nine rounds. Everyone goes home.', 'win'); throw ABORT_OVER; }
     }
   } catch(e){
@@ -518,7 +535,7 @@ function charFace(c, o){
   o = o || {};
   var col = COLOR[c.n] || 'blue';
   return '<div class="face f-'+col+'">'
-   +'<div class="tl"><span class="tn">'+c.n+'</span><span class="gem spd'+(o.spdCls||'')+'" title="Speed">'+(o.spd!=null?o.spd:c.spd)+'</span></div>'
+   +'<div class="tl"><span class="tn">'+c.n+'</span></div>'
    +'<div class="art a-'+col+'">'+art(c.i)+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
@@ -553,32 +570,34 @@ function chips(u){
   return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
 }
 function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
+function myTurn(){ var w = G.wait; return !!(w && w.kind==='cmd' && G.turnOf===viewer() && !isCPU(G.turnOf)); }
+function selectable(u){ return myTurn() && !G.acted && u.team===G.turnOf && !u.ko && !u.acted; }
+function attackable(u){ return myTurn() && !G.acted && !!G.cur && u.team!==G.turnOf && !u.ko; }
 function unitCard(u){
   var w = G.wait, pick = w && w.kind==='unit' && w.ids.indexOf(u.id)>=0;
   var dim = w && w.kind==='unit' && !pick;
   var hid = hidden(u), f = fxFor('u'+u.id), body;
   var cls = 'card mini unit t'+u.team+(u.ko?' ko':'')+(G.cur===u?' cur':'')+(pick?' pick':'')+(dim?' dim':'')
+    +(selectable(u) && G.cur!==u ? ' ready' : '')+(attackable(u) ? ' target' : '')
     +(u.acted && !u.ko && G.cur!==u ? ' tapped' : '')+(isZoom('u',u.id)?' zoomed':'')+f.cls;
   if(hid){
     var dmg = u.max-u.hp;
     body = backFace() + (dmg>0 && !u.ko ? '<span class="dmgb">&minus;'+dmg+'</span>' : '');
   } else {
     var a = effAtk(u), pct = Math.max(0, Math.min(100, u.hp/u.max*100));
-    body = charFace(u.c, {atk:a, hp:u.hp, spd:effSpd(u), atkCls:a>u.atk?' bu':a<u.atk?' bd':'',
+    body = charFace(u.c, {atk:a, hp:u.hp, atkCls:a>u.atk?' bu':a<u.atk?' bd':'',
       hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb"><i style="width:'+pct+'%"></i></div>'});
   }
   return '<button class="'+cls+'" style="'+f.style+'" data-a="unit" data-v="'+u.id+'" aria-label="'+(hid?'Face-down card':u.c.n)+'">'
-   + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '') + f.fl + '</button>';
+   + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '')
+   + '<span class="info" data-a="info" data-v="'+u.id+'" aria-label="Card details">i</span>' + f.fl + '</button>';
 }
 function handTeam(){
   if(CFG.mode!=='hot') return 0;
-  if(G.cur && !isCPU(G.cur.team)) return G.cur.team;
+  if(G.turnOf!=null && !isCPU(G.turnOf)) return G.turnOf;
   return G.lastHuman==null ? 0 : G.lastHuman;
 }
-function canPlayNow(c){
-  var w = G.wait, u = G.cur, t = viewer();
-  return !!(w && w.kind==='cmd' && u && u.team===t && canPlayCards(u) && playable(t, c, u));
-}
+function canPlayNow(c){ return myTurn() && !G.cardPlayed && playable(viewer(), c, G.cur); }
 function fanStyle(i, n, spread){
   var off = i-(n-1)/2;
   return '--r:'+(off*spread)+'deg;--y:'+(Math.abs(off)*Math.abs(off)*4)+'px;z-index:'+(i+1);
@@ -588,7 +607,8 @@ function handHtml(t){
   if(!h.length) return '<div class="hand empty"><span>No cards in hand</span></div>';
   return '<div class="hand">'+h.map(function(c,i){
     var f = fxFor('c'+c.uid), ok = canPlayNow(c);
-    return '<button class="card hc'+(ok?' ok':'')+(G.sel===c.uid?' sel':'')+f.cls+'" style="'+fanStyle(i,h.length,6)+';'+f.style+'" data-a="hand" data-v="'+c.uid+'" aria-label="'+c.n+'">'+actFace(c.n)+'</button>';
+    return '<button class="card hc'+(ok?' ok':'')+(G.sel===c.uid?' sel':'')+f.cls+'" style="'+fanStyle(i,h.length,6)+';'+f.style+'" data-a="hand" data-v="'+c.uid+'" aria-label="'+c.n+'">'
+      +actFace(c.n)+'<span class="info" data-a="cinfo" data-v="'+c.uid+'" aria-label="Card details">i</span></button>';
   }).join('')+'</div>';
 }
 function oppHand(t){
@@ -597,22 +617,22 @@ function oppHand(t){
   return '<div class="ohand" title="'+n+' cards in hand">'+backs+'<span class="ocount">'+n+'</span></div>';
 }
 function plate(t, side){
-  var alive = living(t).length, act = G.cur && G.cur.team===t && !G.over;
+  var alive = living(t).length, act = G.turnOf===t && !G.over;
   return '<div class="plate '+side+' t'+t+(act?' active':'')+'"><span class="av">'+art(t?'lseal':'seal')+'</span>'
-   +'<span class="pinfo"><b>'+pname(t)+'</b><small>'+alive+' of '+G.teams[t].length+' standing</small></span>'
+   +'<span class="pinfo"><b>'+pname(t)+(act?' &middot; <em>'+(pname(t)==='You'?'your':'their')+' turn</em>':'')+'</b><small>'+alive+' of '+G.teams[t].length+' standing &middot; '+ready(t).length+' ready</small></span>'
    + (side==='top' ? oppHand(t) : '') + '</div>';
 }
 function statusLine(){
   var w = G.wait;
   if(G.over) return G.winner<0 ? 'A draw.' : pname(G.winner)+(CFG.mode==='cpu'&&G.winner===0?' win!':' wins!');
   if(w && w.kind==='unit') return '<span class="who t'+w.team+'">'+pname(w.team)+':</span> '+w.prompt+(w.cancel?' <button class="lnk" data-a="cancel">Cancel</button>':'');
-  if(w && w.kind==='opt') return '<span class="who t'+w.team+'">'+pname(w.team)+'</span> is choosing&hellip;';
-  if(G.cur && w && w.kind==='cmd'){
-    var u = G.cur;
-    if(!G.acted) return nm(u)+'&rsquo;s turn. <b>Tap an enemy</b> to attack it, or use its Power.'+(canPlayCards(u)?' You can also play one card.':'');
-    return 'Done! Play a card, or tap End Turn.';
+  if(myTurn()){
+    var u = G.cur, cards = !G.cardPlayed && G.hands[G.turnOf].some(function(c){ return canPlayNow(c); });
+    if(G.acted) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
+    if(!u) return '<b>Your turn.</b> Tap one of your <b>glowing characters</b> to choose who acts.'+(cards?' Or tap a card in your hand to play it.':'');
+    return nm(u)+' is chosen. <b>Tap an enemy</b> to attack ('+effAtk(u)+' damage)'+(canAbil(u)?', or use its <b>Power</b> below.':'.');
   }
-  if(G.cur && isCPU(G.cur.team)) return nm(G.cur)+' <span class="muted">&mdash; the CPU is thinking&hellip;</span>';
+  if(G.turnOf!=null && isCPU(G.turnOf)) return (G.cur ? nm(G.cur)+' acts' : pname(G.turnOf)+' is choosing')+' <span class="muted">&hellip;</span>';
   return '&nbsp;';
 }
 function pile(kind){
@@ -624,25 +644,26 @@ function pile(kind){
   return '<div class="pile disc" title="Discard pile">'+(top ? '<div class="card">'+actFace(top.n)+'</div>' : '<div class="slot"></div>')+'<span class="pc">'+G.discard.length+'</span><small>Discard</small></div>';
 }
 function actionBar(){
-  var w = G.wait, u = G.cur;
-  if(!(w && w.kind==='cmd' && u && u.team===viewer())) return '<div class="actions idle"></div>';
-  var dis = function(b){ return b ? ' disabled' : ''; };
+  if(!myTurn()) return '<div class="actions idle"></div>';
+  var u = G.cur;
+  if(G.acted) return '<div class="actions"><button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
+  if(!u) return '<div class="actions idle"></div>';
   var r = abilReason(u);
   return '<div class="actions">'
-   +'<button class="btn act"'+dis(G.acted||!strikeTargets(u).length)+' data-a="cmd" data-v="strike"><i>&#9876;</i><b>Attack</b><small>Deal '+effAtk(u)+' damage</small></button>'
-   +'<button class="btn act abil"'+dis(G.acted||!canAbil(u))+' data-a="cmd" data-v="ability"><i>&#10022;</i><b>Power: '+u.c.an+'</b><small>'+(r||'Once per game')+'</small></button>'
-   +'<button class="btn end" data-a="cmd" data-v="end"><b>'+(G.acted?'End Turn':'Pass')+'</b></button>'
+   +'<button class="btn act" data-a="cmd" data-v="strike"><i>&#9876;</i><b>Attack with '+u.c.n+'</b><small>'+effAtk(u)+' damage &middot; or just tap an enemy</small></button>'
+   +'<button class="btn act abil"'+(canAbil(u)?'':' disabled')+' data-a="cmd" data-v="ability"><i>&#10022;</i><b>Power: '+u.c.an+'</b><small>'+(r||u.c.a)+'</small></button>'
    +'</div>';
 }
-/* Buttons shown under an inspected character, so tapping a card is enough to act on it (mobile-friendly). */
+/* Buttons shown under an inspected card, so every action is reachable from the details view too. */
 function unitActions(u){
-  var w = G.wait, cur = G.cur, btn = '', cap = '';
-  if(!(w && w.kind==='cmd' && cur && cur.team===viewer()) || G.acted || u.ko) return {btn:btn, cap:cap};
-  if(u.team!==cur.team){
-    btn += '<button class="btn gold" data-a="strikeat" data-v="'+u.id+'">&#9876; Attack it with '+cur.c.n+' ('+effAtk(cur)+' damage)</button>';
-  } else if(u===cur){
-    cap = 'Tap an enemy card to attack it'+(canAbil(u)?', or:':'.');
-    if(canAbil(u)) btn += '<button class="btn abil" data-a="cmd" data-v="ability">&#10022; Use Power: '+u.c.an+'</button>';
+  var btn = '', cap = '';
+  if(selectable(u)){
+    btn += '<button class="btn gold" data-a="select" data-v="'+u.id+'">&#9876; Choose '+u.c.n+' to attack</button>';
+    if(canAbil(u)) btn += '<button class="btn abil" data-a="powerof" data-v="'+u.id+'">&#10022; Use Power: '+u.c.an+'</button>';
+  } else if(attackable(u)){
+    btn += '<button class="btn gold" data-a="strikeat" data-v="'+u.id+'">&#9876; Attack it with '+G.cur.c.n+' ('+effAtk(G.cur)+' damage)</button>';
+  } else if(myTurn() && u.team===G.turnOf && u.acted && !u.ko){
+    cap = 'This character already acted this round.';
   }
   return {btn:btn, cap:cap};
 }
@@ -653,8 +674,7 @@ function pickBar(){
   return '<div class="pickbar t'+w.team+'"><span>&#128073; '+w.prompt+'</span>'+(w.cancel?'<button class="btn sm" data-a="cancel">Cancel</button>':'')+'</div>';
 }
 function cardReason(c){
-  var w = G.wait, u = G.cur, t = viewer();
-  if(!u || u.team!==t || !w || w.kind!=='cmd') return 'Wait for your turn &mdash; you can play this when one of your characters is up.';
+  if(!myTurn()) return 'Wait for your turn.';
   if(G.cardPlayed) return 'You already played a card this turn. One card per turn.';
   if(c.n==='Canteen') return 'Everyone on your team is at full health, so there&rsquo;s nobody to heal yet.';
   if(c.n==='DLC') return 'Everyone on your team already has a Shield.';
@@ -667,7 +687,7 @@ function zoomBlock(){
     if(u && hidden(u)){ html = '<div class="card big">'+backFace()+'</div>'; cap = 'Face-down. Revealed when it first acts.'; }
     else if(u){
       var a = effAtk(u);
-      html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {atk:a, hp:u.hp, spd:effSpd(u), atkCls:a>u.atk?' bu':a<u.atk?' bd':'', hpCls:u.hp<u.max?' hurt':''})+'</div>';
+      html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {atk:a, hp:u.hp, atkCls:a>u.atk?' bu':a<u.atk?' bd':'', hpCls:u.hp<u.max?' hurt':''})+'</div>';
       cap = pname(u.team)+' &middot; HP '+u.hp+'/'+u.max+(u.ko?' &middot; knocked out':u.cancelled?' &middot; Power blocked':u.used?' &middot; Power used':' &middot; Power ready');
     }
     if(u){ var ua = unitActions(u); btn = ua.btn; if(ua.cap) cap = ua.cap; }
@@ -682,16 +702,14 @@ function zoomBlock(){
   } else if(z && z.k==='ci'){
     html = '<div class="card big">'+charFace(chars[z.ci])+'</div>';
   }
-  if(!html) return '<div class="zoom empty"><div class="card big ghost">'+backFace()+'</div><p class="cap">Tap any card to inspect it.</p></div>';
+  if(!html) return '<div class="zoom empty"><div class="card big ghost">'+backFace()+'</div><p class="cap">Tap the &#9432; on any card to read it.</p></div>';
   return '<div class="zoom">'+html+(cap?'<p class="cap">'+cap+'</p>':'')+btn+'</div>';
 }
 function orderHtml(){
-  var q = queue();
-  var items = (G.cur && !G.cur.ko ? [G.cur] : []).concat(q.filter(function(u){ return u!==G.cur; }));
+  var items = ready(0).concat(ready(1));
   return items.map(function(u){
-    var hid = hidden(u);
-    return '<li class="t'+u.team+(u===G.cur?' now':'')+'"><span>'+(hid?'Face-down card':u.c.n)+'</span><b>'+(hid?'?':effSpd(u))+'</b></li>';
-  }).join('') || '<li class="muted">Round complete</li>';
+    return '<li class="t'+u.team+(u===G.cur?' now':'')+'"><span>'+(hidden(u)?'Face-down card':u.c.n)+'</span><b>'+pname(u.team)+'</b></li>';
+  }).join('') || '<li class="muted">Everyone has acted</li>';
 }
 function overlays(){
   var w = G.wait, o = '';
@@ -721,11 +739,11 @@ function rulesHtml(){
   return '<div class="ov" data-a="rulesoff"><div class="panel rules" data-a="noop"><div class="eyebrow">How to play</div><h2>Travis: The Game</h2><ol>'
    +'<li><b>Goal:</b> knock out every one of your opponent&rsquo;s characters.</li>'
    +'<li><b>The deal:</b> each player gets '+CFG.size+' random characters, face-down. Flip yours over. Enemy cards flip when they take their first turn.</li>'
-   +'<li><b>Turns:</b> each round, every character takes one turn. The fastest go first (the number in the top corner).</li>'
-   +'<li><b>On a turn, do one thing:</b><br>&#9876; <b>Attack</b>: tap an enemy to deal damage equal to the red number.<br>&#10022; <b>Power</b>: use the special move written on the card. Each character can only use it once per game.</li>'
-   +'<li><b>Action cards:</b> you draw one each turn (you can hold 3). You may play one per turn, as well as attacking.</li>'
+   +'<li><b>Taking turns:</b> players go back and forth. On your turn, <b>tap one of your glowing characters</b> to choose it. Each character can act once per round; after it acts it turns sideways. When everyone has acted, a new round starts.</li>'
+   +'<li><b>Your chosen character does one thing:</b><br>&#9876; <b>Attack</b>: tap an enemy to deal damage equal to the red number.<br>&#10022; <b>Power</b>: use the special move written on the card. Each character can only use it once per game.</li>'
+   +'<li><b>Action cards:</b> you draw one each turn (you can hold 3). Tap one in your hand to play it &mdash; one per turn, as well as attacking.</li>'
    +'<li><b>Health:</b> the green number. At 0, that character is knocked out.</li></ol>'
-   +'<p class="kw"><b>Shield</b> blocks all damage from the next hit. <b>Skip</b> means that character misses its next turn.</p>'
+   +'<p class="kw"><b>Shield</b> blocks all damage from the next hit. <b>Skip</b> means that character misses its next chance to act. Tap the &#9432; on any card to read it.</p>'
    +'<button class="btn gold" data-a="rulesoff">Got it</button></div></div>';
 }
 function topbar(extra){
@@ -745,7 +763,7 @@ function renderBattle(){
    + handHtml(me)
    +'</div><aside class="rail">'
    + zoomBlock()
-   +'<div class="side"><div class="sl">Turn order</div><ol class="order">'+orderHtml()+'</ol></div>'
+   +'<div class="side"><div class="sl">Still to act this round</div><ol class="order">'+orderHtml()+'</ol></div>'
    +'<div class="side"><div class="sl">Battle log</div><div class="log">'+G.log.map(function(l){ return '<p class="'+l.cls+'">'+l.h+'</p>'; }).join('')+'</div></div>'
    +'</aside></div>'
    +(G.error?'<pre class="err">'+G.error+'</pre>':'')
@@ -776,7 +794,7 @@ function renderDeal(){
    +'<button class="btn"'+(d.mull[me]<1?' disabled':'')+' data-a="mull">Mulligan <small>('+d.mull[me]+' left)</small></button>'
    +'<button class="btn gold"'+(all?'':' disabled')+' data-a="dealdone">'+next+'</button></div>'
    +'</div><aside class="rail">'+zoomBlock()
-   +'<div class="side"><div class="sl">Quick rules</div><ul class="how"><li>On each turn a character <b>Attacks</b> (red number = damage) or uses its <b>Power</b> (once per game).</li><li>Fastest characters go first (top-corner number).</li><li>Green number is health. Knock out all enemies to win.</li><li>Enemy cards stay face-down until they act.</li></ul><button class="btn sm" data-a="rules">Full rules</button></div>'
+   +'<div class="side"><div class="sl">Quick rules</div><ul class="how"><li>Players take turns. On your turn, tap one of your characters, then tap an enemy to <b>Attack</b> (red number = damage) or use its <b>Power</b> (once per game).</li><li>Each character acts once per round.</li><li>Green number is health. Knock out all enemies to win.</li><li>Enemy cards stay face-down until they act.</li></ul><button class="btn sm" data-a="rules">Full rules</button></div>'
    +'</aside></div>' + o;
 }
 function renderMenu(){
@@ -836,14 +854,23 @@ function onClick(e){
     case 'revealall': revealAll(); break;
     case 'mull': mulligan(); break;
     case 'dealdone': dealDone(); break;
-    case 'unit':
-      if(w && w.kind==='unit' && w.ids.indexOf(+v)>=0){ G.zoomOpen = false; w.res(unitById(+v)); }
-      else { G.zoom = {k:'u', id:+v}; G.zoomOpen = true; render(); }
+    case 'unit': {
+      // Tapping a card acts on it: pick a target, choose your character, or attack an enemy.
+      var u = unitById(+v);
+      if(w && w.kind==='unit'){ if(w.ids.indexOf(+v)>=0){ G.zoomOpen = false; w.res(u); } break; }
+      if(u && selectable(u) && G.cur!==u){ G.cur = u; G.zoom = {k:'u', id:u.id}; render(); break; }
+      if(u && attackable(u)){ G.zoomOpen = false; w.res({t:'strike', target:u.id}); break; }
+      G.zoom = {k:'u', id:+v}; G.zoomOpen = true; render();
       break;
+    }
+    case 'info': G.zoom = {k:'u', id:+v}; G.zoomOpen = true; render(); break;
+    case 'cinfo': G.zoom = {k:'c', uid:+v}; G.zoomOpen = true; render(); break;
+    case 'select': { var s = unitById(+v); if(s && selectable(s)){ G.cur = s; G.zoom = {k:'u', id:s.id}; } G.zoomOpen = false; render(); break; }
+    case 'powerof': { var p = unitById(+v); if(p && selectable(p) && canAbil(p)){ G.cur = p; G.zoomOpen = false; w.res({t:'ability'}); } break; }
     case 'hand': {
       var uid = +v, h = G.hands[viewer()], i = h.map(function(c){ return c.uid; }).indexOf(uid);
       if(i<0) break;
-      if(G.sel===uid && canPlayNow(h[i]) && w && w.kind==='cmd'){ G.sel=null; G.zoom=null; G.zoomOpen=false; w.res({t:'card', i:i}); }
+      if(canPlayNow(h[i])){ G.sel=null; G.zoomOpen=false; w.res({t:'card', i:i}); }
       else { G.sel = uid; G.zoom = {k:'c', uid:uid}; G.zoomOpen = true; render(); }
       break;
     }

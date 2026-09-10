@@ -325,6 +325,14 @@ b.t0,b.t1,.who{color:var(--tc)}
 .why{display:block;color:#ffd9a0;font-size:15px;line-height:1.35;max-width:270px;margin:0 auto}
 .zoom .btn.big{font-size:17px;padding:12px 18px}
 .zoom .btn:disabled{opacity:.55}
+/* choose-your-character flow */
+.unit.ready{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 18px rgba(214,178,90,.75);animation:readyp 1.4s ease-in-out infinite}
+@keyframes readyp{50%{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold-2),0 0 30px rgba(243,220,151,.95)}}
+.unit.target{box-shadow:0 0 0 2px #000,0 0 0 4px #ff8a6a,0 0 22px #ff4a2a;cursor:crosshair;animation:pickp 1s ease-in-out infinite}
+.info{position:absolute;top:-7px;right:-7px;z-index:6;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font:italic 700 15px/1 Georgia,serif;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#c9a24a);box-shadow:0 0 0 2px #000,0 2px 6px rgba(0,0,0,.6);cursor:pointer}
+.info::after{content:'';position:absolute;inset:-9px}
+.pinfo em{font-style:normal;color:var(--gold-2);font-size:13px}
 .zoomov{display:none}
 .err{white-space:pre-wrap;background:#300;border:1px solid var(--red);padding:10px;font-size:12px;overflow-x:auto;color:#fcc}
 
