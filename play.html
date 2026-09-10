@@ -11,7 +11,7 @@
   --bg:#07090d; --ink:#efe6cf; --ink-soft:#a99f88; --gold:#d6b25a; --gold-2:#f3dc97; --gold-d:#8a6a22;
   --p0:#5aa8ff; --p1:#ff7a52; --red:#e0483a; --green:#6fcf4a;
   --title:"Cinzel","Trajan Pro",Georgia,serif; --deco:"Cinzel Decorative","Cinzel",Georgia,serif; --body:"Crimson Pro",Georgia,serif;
-  --cw:clamp(76px,13vw,148px); --hw:clamp(84px,11vw,128px);
+  --cw:clamp(64px,min(13vw,15vh),148px); --hw:clamp(64px,min(11vw,13vh),128px);
 }
 *{box-sizing:border-box}
 html,body{margin:0;overflow-x:clip}
@@ -23,7 +23,7 @@ body{
     radial-gradient(circle at 1px 1px, rgba(255,255,255,.035) 1px, transparent 0);
   background-size:auto,auto,6px 6px;
 }
-#app{max-width:1380px;margin:0 auto;padding-inline:16px;padding-block:10px 40px}
+#app{max-width:1380px;margin:0 auto;padding-inline:16px;padding-block:8px 20px}
 button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
 button:disabled{cursor:default}
 a{color:var(--gold-2)}
@@ -197,15 +197,15 @@ b.t0,b.t1,.who{color:var(--tc)}
 .card.ob{--cw:34px;margin-left:-14px;transform:rotate(calc(180deg + var(--r)));box-shadow:0 2px 6px rgba(0,0,0,.6)}
 .ocount{position:absolute;right:0;top:50%;transform:translateY(-50%);font-family:var(--title);font-weight:900;color:var(--gold-2)}
 
-.zone{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(6px,1.2vw,16px);padding:12px 6px;min-height:calc(var(--cw)*1.4 + 24px);
+.zone{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(6px,1.2vw,16px);padding:8px 6px;min-height:calc(var(--cw)*1.4 + 16px);
   border-radius:16px;background:rgba(0,0,0,.2);box-shadow:inset 0 0 0 1px rgba(214,178,90,.14),inset 0 0 30px rgba(0,0,0,.35);transition:box-shadow .4s}
 /* the side whose turn it is gets a faint glow in their own color, so momentum in the fight is always visible at a glance */
 .zone.spot{box-shadow:inset 0 0 0 1px var(--tc),inset 0 0 40px rgba(0,0,0,.3),0 0 26px -4px var(--tc)}
 /* six-a-side: shrink cards so a full squad fits on one row */
-.zone.n6{--cw:clamp(50px,11.5vw,124px);gap:clamp(4px,.8vw,12px)}
+.zone.n6{--cw:clamp(44px,min(11.5vw,12vh),124px);gap:clamp(4px,.8vw,12px)}
 .zone.n6 .card.deal{--cw:clamp(50px,11.5vw,138px)}
 .zone.n6 .unit .chip{font-size:9px;padding:0 4px}
-.mid{display:flex;align-items:center;gap:12px;margin:12px 0;flex-wrap:wrap}
+.mid{display:flex;align-items:center;gap:12px;margin:8px 0;flex-wrap:wrap}
 .prompt{flex:1 1 260px;min-height:48px;display:block;padding:10px 16px;border-radius:12px;font-size:17px;
   background:linear-gradient(90deg,rgba(214,178,90,.0),rgba(214,178,90,.12) 20%,rgba(214,178,90,.12) 80%,rgba(214,178,90,0));
   border-top:1px solid rgba(214,178,90,.35);border-bottom:1px solid rgba(214,178,90,.35);justify-content:center;text-align:center}
@@ -271,7 +271,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 @keyframes untap{from{transform:rotate(90deg) scale(.74)}}
 
 /* action bar */
-.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:14px 0 4px;min-height:10px}
+.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 4px;min-height:10px}
 .actions.idle{margin:6px 0}
 .btn.act{flex-direction:column;gap:0;min-width:112px;padding:8px 12px;line-height:1.1}
 .btn.act i{font-style:normal;font-size:18px;line-height:1}
@@ -281,7 +281,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .btn.end{min-width:120px;font-size:16px;border-radius:40px;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a 45%,#9c7626);border-color:#f7e2a1}
 
 /* hand */
-.hand{display:flex;justify-content:center;align-items:flex-end;padding:22px 0 6px;min-height:calc(var(--hw)*1.4 + 30px)}
+.hand{display:flex;justify-content:center;align-items:flex-end;padding:14px 0 6px;min-height:calc(var(--hw)*1.4 + 20px)}
 .hand.empty{align-items:center;color:var(--ink-soft);font-style:italic}
 .card.hc{--cw:var(--hw);margin:0 calc(var(--hw)*-.14);transform:translateY(var(--y)) rotate(var(--r));transform-origin:50% 140%;transition:transform .2s,box-shadow .2s;filter:brightness(.8)}
 .card.hc.ok{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #7fe0ff,0 0 18px #36b3ff}
