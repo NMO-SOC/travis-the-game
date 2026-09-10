@@ -14,6 +14,49 @@ var ACTID = {}; acts.forEach(function(a){ ACTID[a.id] = a; });
 var BASE_CHARS = chars.map(function(_,i){ return i; }).filter(function(i){ return chars[i].set==='base'; });
 var ACC = (typeof window!=='undefined' && window.TravisAccount) || null;
 
+/* ---------------- sound (synthesized, no audio files needed) ---------------- */
+var AUDIO = {ctx:null, muted:false};
+try{ AUDIO.muted = typeof localStorage!=='undefined' && localStorage.getItem('travis.mute')==='1'; }catch(e){}
+function actx(){
+  if(AUDIO.muted || typeof window==='undefined') return null;
+  var AC = window.AudioContext || window.webkitAudioContext;
+  if(!AC) return null;
+  if(!AUDIO.ctx){ try{ AUDIO.ctx = new AC(); }catch(e){ return null; } }
+  if(AUDIO.ctx.state==='suspended') AUDIO.ctx.resume();
+  return AUDIO.ctx;
+}
+function tone(freq, dur, type, gain, delay){
+  var c = actx(); if(!c) return;
+  var t0 = c.currentTime + (delay||0);
+  var osc = c.createOscillator(), g = c.createGain();
+  osc.type = type||'sine'; osc.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(gain||0.2, t0+0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0+dur);
+  osc.connect(g); g.connect(c.destination);
+  osc.start(t0); osc.stop(t0+dur+0.03);
+}
+function noiseBurst(dur, gain){
+  var c = actx(); if(!c) return;
+  var n = Math.max(1, Math.floor(c.sampleRate*dur)), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for(var i=0;i<n;i++) d[i] = (Math.random()*2-1) * (1-i/n);
+  var src = c.createBufferSource(); src.buffer = buf;
+  var g = c.createGain(); g.gain.setValueAtTime(gain||0.2, c.currentTime);
+  src.connect(g); g.connect(c.destination); src.start();
+}
+function sfx(kind){
+  switch(kind){
+    case 'hit': tone(130,0.12,'square',0.2); noiseBurst(0.07,0.16); break;
+    case 'heal': tone(660,0.18,'sine',0.14); tone(880,0.18,'sine',0.1,0.08); break;
+    case 'shield': tone(320,0.1,'triangle',0.16); tone(520,0.08,'triangle',0.1,0.05); break;
+    case 'ko': tone(190,0.3,'sawtooth',0.2); tone(90,0.35,'sawtooth',0.18,0.1); break;
+    case 'card': tone(520,0.07,'triangle',0.1); tone(720,0.06,'triangle',0.07,0.05); break;
+    case 'round': tone(220,0.22,'triangle',0.15); tone(330,0.26,'triangle',0.13,0.1); break;
+    case 'win': [523,659,784,1046].forEach(function(f,i){ tone(f,0.24,'triangle',0.14,i*0.11); }); break;
+    case 'lose': [400,340,280].forEach(function(f,i){ tone(f,0.32,'sawtooth',0.13,i*0.14); }); break;
+  }
+}
+
 /* ---------------- helpers ---------------- */
 /* Online games need both browsers to roll identical dice, so game logic draws from a seeded generator. */
 function seeded(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
@@ -161,7 +204,7 @@ async function damage(t, amt){
   if(t.shield){ t.shield=false; fx(t,'Blocked','blk'); log(nm(t)+'&rsquo;s Shield blocks the hit.'); return; }
   t.hp -= amt;
   fx(t, '&minus;'+amt, 'dmg');
-  log(nm(t)+' takes <b>'+amt+'</b> damage.');
+  log(nm(t)+' takes <b class="dmgnum">'+amt+'</b> damage.');
   if(amt >= Math.round(t.max*0.3)) fxc('mat', 'matshake', 350);
   if(t.hp<=0) knockOut(t);
 }
@@ -169,13 +212,14 @@ function heal(u, n){
   if(u.ko || u.hp>=u.max) return;
   var before = u.hp; u.hp = Math.min(u.max, u.hp+n);
   fx(u, '+'+(u.hp-before), 'heal');
-  log(nm(u)+' heals <b>'+(u.hp-before)+'</b> HP.');
+  log(nm(u)+' heals <b class="healnum">'+(u.hp-before)+'</b> HP.');
 }
 function knockOut(t){
   reveal(t);
   t.ko=true; t.hp=0; t.shield=false; t.atkGame=0; t.skip=0;
   fxc('u'+t.id, 'die', 900);
   fxc('mat', 'matshake', 450);
+  sfx('ko');
   log(nm(t)+' is <b>knocked out</b>.', 'ko');
   checkOver();
 }
@@ -184,6 +228,8 @@ function checkOver(){
   if(a && b) return;
   G.over = true; G.winner = a ? 0 : b ? 1 : -1;
   G.cur = null;
+  var me = CFG.mode==='online' ? CFG.me : 0;
+  sfx(G.winner<0 ? 'lose' : (CFG.mode==='hot' || G.winner===me) ? 'win' : 'lose');
   log(G.winner<0 ? 'Both teams are knocked out. It&rsquo;s a draw.' : pn(G.winner)+' '+(pname(G.winner)==='You'?'win':'wins')+'!', 'win');
   gameEnded();
   throw ABORT_OVER;
@@ -203,6 +249,8 @@ function stun(e){ if(!e.acted) e.acted = true; else e.skip = 1; }
 async function performAttack(u, e, mv){
   var dmg = moveDamage(u, mv);
   fxc('u'+u.id, 'lunge', 450);
+  fxc('mat', 'clash', 260, 190);
+  sfx(mv.fx==='heal' ? 'heal' : mv.fx==='shield' ? 'shield' : 'hit');
   log(nm(u)+' uses '+card(mv.n)+' on '+nm(e)+'.');
   if(mv.fx==='unshield' && e.shield){ e.shield = false; log(nm(e)+'&rsquo;s Shield is stripped.'); }
   await damage(e, dmg);
@@ -309,6 +357,7 @@ async function playCard(t, i, u){
   var c = G.hands[t][i];
   G.hands[t].splice(i,1);
   if(await ACT[c.n].run(t,u)===false){ G.hands[t].splice(i,0,c); render(); return false; }
+  sfx('card');
   G.discards[t].push(c);
   if(c.n!=='Photo Day') G.lastCard = c.n;
   render(); return true;
@@ -435,6 +484,7 @@ function startRound(){
   });
   log('Round '+G.round+' &mdash; everyone untaps.', 'round');
   fxc('round', 'bannerpop', 1500);
+  sfx('round');
 }
 async function gameLoop(){
   var g = G;
@@ -556,9 +606,8 @@ function charFace(c, o){
     return '<p class="mv"><b>'+mv.n+'</b><span class="mvdmg" title="Damage">'+mv.dmg+'</span><br><span class="fl">'+mv.a+'</span></p>';
   }).join('');
   return '<div class="face f-'+col+(o.foil?' foil':'')+'">'
-   +(c.set!=='base' ? '<span class="setmark" title="Pack card">&#10022;</span>' : '')
-   +'<div class="tl"><span class="tn">'+c.n+'</span></div>'
-   +'<div class="art a-'+col+'">'+art(c.i)+'</div>'
+   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set!=='base' ? '<span class="setmark" title="Rare &mdash; found in packs">Rare</span>' : '')+'</div>'
+   +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
    +'<div class="tx">'+moves+'</div>'
@@ -778,7 +827,8 @@ function rulesHtml(){
 }
 function topbar(extra){
   return '<header class="bar"><div class="brand">Travis <span>The Game</span></div><div class="meta">'+(extra||'')+'</div>'
-   +'<div class="btns"><button class="btn sm" data-a="rules">How to play</button><button class="btn sm" data-a="menu">Menu</button></div></header>';
+   +'<div class="btns"><button class="btn sm" data-a="mute" aria-label="'+(AUDIO.muted?'Unmute':'Mute')+' sound">'+(AUDIO.muted?'&#128264;':'&#128266;')+'</button>'
+   +'<button class="btn sm" data-a="rules">How to play</button><button class="btn sm" data-a="menu">Menu</button></div></header>';
 }
 function renderBattle(){
   var me = viewer(), op = 1-me;
@@ -1330,6 +1380,7 @@ function onClick(e){
     case 'opt': if(w && w.kind==='opt') w.res(+v); break;
     case 'cancel': if(w && w.cancel) w.res(w.kind==='opt' ? -1 : null); break;
     case 'pass': if(w && w.kind==='pass') w.res(); break;
+    case 'mute': AUDIO.muted = !AUDIO.muted; try{ localStorage.setItem('travis.mute', AUDIO.muted?'1':'0'); }catch(e){} render(); break;
     case 'rules': G.showRules = true; render(); break;
     case 'rulesoff': G.showRules = false; render(); break;
     case 'noop': break;

@@ -73,12 +73,25 @@ b.t0,b.t1,.who{color:var(--tc)}
 .f-gold{--fr:linear-gradient(160deg,#f0d57e,#b3882d 52%,#6d4c12);--bar:linear-gradient(180deg,#fff8e0,#e7d193);--box:linear-gradient(180deg,#fdf6e0,#eddcb0);--gc:#8a6516}
 .tl,.ty{background:var(--bar);border-radius:3cqw / 50%;box-shadow:0 0 0 .55cqw rgba(0,0,0,.6),inset 0 .6cqw 0 rgba(255,255,255,.7),inset 0 -.5cqw 0 rgba(0,0,0,.12);color:#151515;font-family:var(--title);font-weight:700}
 .tl{display:flex;align-items:center;justify-content:space-between;gap:1.5cqw;padding:1.3cqw 1.3cqw 1.3cqw 3.2cqw;font-size:6cqw;line-height:1.1;min-height:11.5cqw}
-.tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0}
 .ty{padding:1.1cqw 3cqw;font-size:4.3cqw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gem{display:grid;place-items:center;border-radius:50%;font-family:var(--title);font-weight:900;color:#fff;text-shadow:0 .4cqw 0 rgba(0,0,0,.6);line-height:1}
 .tl .gem{flex:none;width:9cqw;height:9cqw;font-size:5.4cqw;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),transparent 42%),var(--gc);box-shadow:0 0 0 .5cqw rgba(0,0,0,.7)}
 .art{position:relative;flex:0 0 43%;border-radius:1.2cqw;box-shadow:0 0 0 .6cqw rgba(0,0,0,.65);display:grid;place-items:center;overflow:hidden;color:rgba(255,255,255,.94)}
 .art svg{position:relative;z-index:1;width:56%;height:auto;filter:drop-shadow(0 0 1.6cqw rgba(255,255,255,.7)) drop-shadow(0 .8cqw 1cqw rgba(0,0,0,.5))}
+/* once real artwork is dropped into a character's `img` field, it fills the frame instead of the icon */
+.art img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;object-position:50% 30%}
+/* rare (pack) characters get a small badge next to their name */
+.setmark{flex:none;font-family:var(--title);font-weight:900;font-size:3.2cqw;letter-spacing:.1em;text-transform:uppercase;
+  color:#3a1a02;background:linear-gradient(100deg,#fff6cf,#e9c86c 45%,#b3862f);border-radius:1cqw;padding:.5cqw 2.2cqw;box-shadow:0 .25cqw 0 rgba(0,0,0,.4)}
+/* holographic foil: a shifting rainbow sheen over the whole card, plus extra-bright art */
+.face.foil{position:relative}
+.face.foil::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;mix-blend-mode:color-dodge;opacity:.55;border-radius:inherit;
+  background:repeating-linear-gradient(115deg,#ff5ecf 0%,#ffd65e 12%,#6dff9e 24%,#5ecbff 36%,#c95eff 48%,#ff5ecf 60%);
+  background-size:280% 280%;animation:holo 4.5s linear infinite}
+.face.foil .art{box-shadow:0 0 0 .6cqw rgba(0,0,0,.65),0 0 2cqw rgba(255,255,255,.4)}
+@keyframes holo{0%{background-position:0% 50%}100%{background-position:200% 50%}}
+@media (prefers-reduced-motion:reduce){.face.foil::after{animation:none}}
 .art::before{content:"";position:absolute;inset:0;background:
   radial-gradient(circle at 18% 22%,rgba(255,255,255,.55) 0 .4cqw,transparent .6cqw),
   radial-gradient(circle at 78% 30%,rgba(255,255,255,.45) 0 .35cqw,transparent .55cqw),
@@ -173,6 +186,11 @@ b.t0,b.t1,.who{color:var(--tc)}
     radial-gradient(2px 2px at 92% 84%,rgba(243,220,151,.65),transparent);
   animation:embers 9s linear infinite}
 @keyframes embers{0%{transform:translateY(0);opacity:.55}90%{opacity:.3}100%{transform:translateY(-115%);opacity:0}}
+/* a brief white flash across the arena at the instant an attack lands */
+.mat.clash::after{content:'';position:absolute;inset:0;z-index:7;pointer-events:none;border-radius:inherit;
+  background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.8),rgba(255,255,255,0) 62%);
+  opacity:0;animation:clashflash .26s ease-out;animation-delay:var(--d,0ms)}
+@keyframes clashflash{30%{opacity:.9}100%{opacity:0}}
 .mat.matshake{animation:matshake .35s ease-out}
 @keyframes matshake{0%,100%{transform:translate(0,0)}20%{transform:translate(-5px,3px)}40%{transform:translate(4px,-3px)}60%{transform:translate(-3px,2px)}80%{transform:translate(2px,-1px)}}
 /* one round, announced */
@@ -310,6 +328,8 @@ b.t0,b.t1,.who{color:var(--tc)}
 .log p.turn{color:var(--ink-soft)}
 .log p.reveal{color:#f3dc97}
 .log p.win{font-family:var(--title);font-weight:900;color:var(--gold-2)}
+.log .dmgnum{color:#ff8a76}
+.log .healnum{color:#a5f087}
 .how{margin:0;padding-left:1.1em;font-size:15px;color:var(--ink-soft)}.how li{margin-bottom:5px}
 
 /* deal */
@@ -335,9 +355,19 @@ b.t0,b.t1,.who{color:var(--tc)}
 .optb:hover{border-color:var(--gold);box-shadow:0 0 18px rgba(214,178,90,.3)}
 .optb b{display:block;font-family:var(--title);font-size:17px;color:var(--gold-2)}
 .optb span{font-size:15px;color:var(--ink-soft)}
+.panel.over{position:relative;overflow:hidden}
+.panel.over::before{content:"";position:absolute;inset:-40%;z-index:0;pointer-events:none;
+  background:conic-gradient(from 0deg,rgba(214,178,90,.28),transparent 20deg,transparent 340deg,rgba(214,178,90,.28));
+  animation:rays 14s linear infinite}
+.panel.over.lose::before{background:conic-gradient(from 0deg,rgba(224,72,58,.22),transparent 20deg,transparent 340deg,rgba(224,72,58,.22))}
+@keyframes rays{to{transform:rotate(360deg)}}
+.panel.over>*{position:relative;z-index:1}
 .panel.over .vt{font-family:var(--deco);font-weight:900;font-size:clamp(46px,11vw,84px);line-height:1;margin:10px 0;
-  background:linear-gradient(180deg,#fff6cf,#f0cf76 45%,#a67c28);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #000)}
+  background:linear-gradient(180deg,#fff6cf,#f0cf76 45%,#a67c28);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #000);
+  animation:vtpop .5s cubic-bezier(.2,.8,.2,1) both}
+@keyframes vtpop{0%{opacity:0;transform:scale(.7) translateY(10px)}100%{opacity:1;transform:none}}
 .panel.over.lose .vt{background:linear-gradient(180deg,#ffd0c4,#e0483a 50%,#6a130b);-webkit-background-clip:text;background-clip:text}
+.panel.over:not(.lose){box-shadow:inset 0 0 0 1px var(--gold-d),0 0 0 1px #000,0 0 70px rgba(214,178,90,.35)}
 .row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
 .panel.rules{text-align:left;max-width:560px}
 .panel.rules ol{margin:0 0 12px;padding-left:1.3em;font-size:17px;line-height:1.45}
