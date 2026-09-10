@@ -4,7 +4,7 @@
 
 var HAND_LIMIT = 3;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:6, speed:1};
+var CFG = {mode:'cpu', size:6, speed:1, diff:'medium'};
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -350,12 +350,17 @@ async function humanTurn(t){
     }
   }
 }
+/* Difficulty just tunes how sharp the CPU's decisions are: how much randomness gets mixed into its
+   scoring, how eager it is to spend action cards, and (on Easy) how often it ignores its plan and
+   fumbles a random move instead. */
+function diffNoise(){ return CFG.diff==='easy' ? 3.5 : CFG.diff==='hard' ? 0.3 : 1.5; }
+function cardThreshold(base){ return base + (CFG.diff==='easy' ? 1.6 : CFG.diff==='hard' ? -1.2 : 0); }
 async function cpuCard(t, threshold){
   if(G.cardPlayed) return;
-  var bi = -1, bs = threshold;
+  var bi = -1, bs = cardThreshold(threshold);
   G.hands[t].forEach(function(c,i){
     if(!playable(t,c,G.cur)) return;
-    var s = ACT[c.n].ai(t,G.cur) + rand()*0.6;
+    var s = ACT[c.n].ai(t,G.cur) + rand()*diffNoise()*0.4;
     if(s>bs){ bs=s; bi=i; }
   });
   if(bi<0) return;
@@ -383,7 +388,15 @@ function movePlan(u){
   });
   return top;
 }
-function cpuPlan(u){ var mp = movePlan(u); return {u:u, mv:mp, score:mp.score+rand()*1.5}; }
+/* On Easy, the CPU occasionally ignores its own plan and just swings with a random move at a random target. */
+function fumblePlan(u){
+  var mv = u.c.atks[Math.floor(rand()*u.c.atks.length)], list = foes(u);
+  return {i:0, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
+}
+function cpuPlan(u){
+  var mp = CFG.diff==='easy' && rand()<0.3 ? fumblePlan(u) : movePlan(u);
+  return {u:u, mv:mp, score:mp.score+rand()*diffNoise()};
+}
 async function cpuTurn(t){
   await sleep(650);
   await cpuCard(t, 3);
@@ -840,6 +853,9 @@ function renderMenu(){
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
    + o('mode','online','Online','A colleague, live')
    +'</div></div>'
+   +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
+     + o('diff','easy','Easy','Makes mistakes') + o('diff','medium','Medium','Plays it straight') + o('diff','hard','Hard','Rarely misplays')
+     +'</div></div>' : '')
    + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
    + o('size','6','6 v 6','Full squad') + o('size','4','4 v 4','Medium') + o('size','3','3 v 3','Quick game')
