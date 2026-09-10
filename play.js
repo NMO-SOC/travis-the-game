@@ -516,7 +516,8 @@ async function humanTurn(u, sub){
     var cmd = await wait('cmd', {team:u.team, sub:sub});
     if(cmd.t==='end') return;
     if(cmd.t==='strike' && !G.acted && !G.noStrike){
-      var e = await pickUnit(u.team, 'Strike with '+u.c.n+' for '+effAtk(u)+' &mdash; choose a target', strikeTargets(u), null, true);
+      var e = cmd.target ? strikeTargets(u).filter(function(x){ return x.id===cmd.target; })[0]
+        : await pickUnit(u.team, 'Strike with '+u.c.n+' for '+effAtk(u)+' &mdash; choose a target', strikeTargets(u), null, true);
       if(!e) continue;
       G.acted = true; await strike(u, e);
     } else if(cmd.t==='brace' && !G.acted){
@@ -826,7 +827,7 @@ function statusLine(){
   if(G.cur && w && w.kind==='cmd'){
     var u = G.cur;
     if(G.sub) return nm(u)+' acts out of order. Choose its action.';
-    if(!G.acted) return nm(u)+' is ready. Choose an action'+(canPlayCards(u)?' and play up to one card.':'.');
+    if(!G.acted) return nm(u)+'&rsquo;s turn. '+(G.noStrike ? 'Brace or use its ability below.' : '<b>Tap an enemy</b> to strike it, or choose an action below.')+(canPlayCards(u)?' You may also play one card.':'');
     return 'Action done. Play a card or end the turn.';
   }
   if(G.cur && isCPU(G.cur.team)) return nm(G.cur)+' <span class="muted">&mdash; the CPU is thinking&hellip;</span>';
@@ -852,6 +853,29 @@ function actionBar(){
    +'<button class="btn end" data-a="cmd" data-v="end"><b>'+(G.acted?'End Turn':'Pass')+'</b></button>'
    +'</div>';
 }
+/* Buttons shown under an inspected character, so tapping a card is enough to act on it (mobile-friendly). */
+function unitActions(u){
+  var w = G.wait, cur = G.cur, btn = '', cap = '';
+  if(!(w && w.kind==='cmd' && cur && cur.team===viewer()) || G.acted || u.ko) return {btn:btn, cap:cap};
+  if(u.team!==cur.team){
+    if(G.noStrike) cap = 'Assembly is in effect &mdash; no Strikes this round.';
+    else if(strikeTargets(cur).indexOf(u)>=0) btn += '<button class="btn gold" data-a="strikeat" data-v="'+u.id+'">&#9876; Strike it with '+cur.c.n+' ('+effAtk(cur)+' damage)</button>';
+    else cap = 'A Territorial enemy is in the way &mdash; Strikes must target it.';
+  } else if(u===cur){
+    if(!G.noStrike) cap = 'Tap an enemy card to strike it, or:';
+    btn += '<button class="btn" data-a="cmd" data-v="brace">&#128737; Brace (heal 2, &minus;3 next hit)</button>';
+    if(canAbil(u)) btn += '<button class="btn abil" data-a="cmd" data-v="ability">&#10022; Use '+u.c.an+'</button>';
+  }
+  return {btn:btn, cap:cap};
+}
+function cardReason(c){
+  var w = G.wait, u = G.cur, t = viewer();
+  if(!u || u.team!==t || !w || w.kind!=='cmd') return 'You can play this during one of your turns.';
+  if(G.sub) return 'Cards can&rsquo;t be played during a Toilet Break action.';
+  if(u.detained) return 'Detention &mdash; no cards this turn.';
+  if(G.cardPlayed) return 'You already played a card this turn (one per turn).';
+  return 'There&rsquo;s no valid target for this card right now.';
+}
 function zoomBlock(){
   var z = G.zoom, html = '', cap = '', btn = '';
   if(z && z.k==='u'){
@@ -862,12 +886,13 @@ function zoomBlock(){
       html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {atk:a, hp:u.hp, spd:effSpd(u), atkCls:a>u.atk?' bu':a<u.atk?' bd':'', hpCls:u.hp<u.max?' hurt':''})+'</div>';
       cap = pname(u.team)+' &middot; HP '+u.hp+'/'+u.max+(u.ko?' &middot; knocked out':u.cancelled?' &middot; ability cancelled':u.used?' &middot; ability used':AB[u.c.n]?' &middot; ability ready':' &middot; passive');
     }
+    if(u){ var ua = unitActions(u); btn = ua.btn; if(ua.cap) cap = ua.cap; }
   } else if(z && z.k==='c'){
     var c = G.hands[viewer()].filter(function(c){ return c.uid===z.uid; })[0];
     if(c){
       html = '<div class="card big">'+actFace(c.n)+'</div>';
-      btn = canPlayNow(c) ? '<button class="btn gold" data-a="play" data-v="'+c.uid+'">Play '+c.n+'</button>' : '';
-      cap = canPlayNow(c) ? '' : 'Playable on your turn, one card per turn.';
+      btn = canPlayNow(c) ? '<button class="btn gold" data-a="play" data-v="'+c.uid+'">Play this card</button>' : '';
+      cap = canPlayNow(c) ? '' : cardReason(c);
     }
   } else if(z && z.k==='ci'){
     html = '<div class="card big">'+charFace(chars[z.ci])+'</div>';
@@ -1024,6 +1049,7 @@ function onClick(e){
       break;
     }
     case 'cmd': if(w && w.kind==='cmd'){ G.zoomOpen = false; w.res({t:v}); } break;
+    case 'strikeat': if(w && w.kind==='cmd'){ G.zoomOpen = false; w.res({t:'strike', target:+v}); } break;
     case 'opt': if(w && w.kind==='opt') w.res(+v); break;
     case 'cancel': if(w && w.cancel) w.res(w.kind==='opt' ? -1 : null); break;
     case 'pass': if(w && w.kind==='pass') w.res(); break;
