@@ -59,7 +59,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
   linear-gradient(90deg,rgba(29,78,137,.09) 1px,transparent 1px) 0 0/12px 12px,#F3F6F5;
   border-bottom:1px solid var(--rule)}
 .plate svg{width:.72in;height:.72in;display:block}
-.stats{display:grid;grid-template-columns:repeat(2,1fr);border-bottom:1.5px solid var(--abyss);flex:0 0 auto}
+.stats{display:grid;grid-template-columns:1fr;border-bottom:1.5px solid var(--abyss);flex:0 0 auto}
 .stats div{padding:3px 0 4px;text-align:center;border-right:1px solid var(--rule)}
 .stats div:last-child{border-right:0}
 .stats .k{font-family:"IBM Plex Mono",monospace;font-size:6.5px;letter-spacing:.16em;color:var(--ink-soft)}
@@ -67,6 +67,10 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 .stats .v.hp{color:var(--frog)}
 .body{flex:1 1 auto;padding:6px 7px;display:flex;flex-direction:column;gap:4px;min-height:0}
 .ab-name{font-family:"IBM Plex Mono",monospace;font-size:8px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--suit)}
+.body{gap:2px}
+.mv{display:flex;flex-wrap:wrap;align-items:baseline;gap:0 6px}
+.mv .v{font-size:11px}
+.mv .ab{flex:1 1 100%;margin:0;font-size:8px;line-height:1.2}
 .ab{font-size:9.2px;line-height:1.32;margin:0}
 .flavor{margin-top:auto;font-size:8px;font-style:italic;color:var(--ink-soft);line-height:1.3;border-top:1px solid var(--rule);padding-top:4px}
 .tag{position:absolute;right:0;top:0;writing-mode:vertical-rl;font-family:"IBM Plex Mono",monospace;font-size:6.5px;letter-spacing:.2em;text-transform:uppercase;color:#8FB3D9;padding:4px 2px}
@@ -136,8 +140,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
     <h2 style="margin-top:22px">On Your Turn</h2>
     <p>Draw one action card (unless you already hold three). Your chosen character does <b>one</b> thing:</p>
     <ul>
-      <li><b>Attack</b> &mdash; deal damage equal to its <kbd>ATK</kbd> to one enemy.</li>
-      <li><b>Power</b> &mdash; do what the card says. Each character&rsquo;s Power works <b>once per game</b>.</li>
+      <li><b>Attack</b> &mdash; pick one of its <b>three attacks</b> (a light Jab, a named signature move, or a heavy Overdrive that costs it some of its own HP) and deal that damage to one enemy.</li>
     </ul>
     <p>You may also play <b>one action card</b> on each turn, before or after.</p>
   </section>
@@ -164,15 +167,13 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 <script>
 
 function charCard(c,idx){
+ var moves = c.atks.map(function(mv){ return '<div class="mv"><span class="ab-name">'+mv.n+'</span><span class="v hp">'+mv.dmg+'</span><p class="ab">'+mv.a+'</p></div>'; }).join('');
  return '<div class="card"><div class="inner"><div class="tag">Specimen</div>'
  +'<div class="hdr"><div class="no"><span>NO. '+String(idx+1).padStart(2,'0')+' / '+chars.length+'</span><span>KNOX</span></div>'
  +'<h3>'+c.n+'</h3><div class="role">'+c.r+'</div></div>'
  +'<div class="plate">'+S[c.i]+'</div>'
- +'<div class="stats"><div><div class="k">HP</div><div class="v hp">'+c.hp+'</div></div>'
- +'<div><div class="k">ATK</div><div class="v">'+c.atk+'</div></div>'
- +'</div>'
- +'<div class="body"><div><div class="ab-name">Power: '+c.an+'</div><p class="ab">'+c.a+'</p></div>'
- +'<div class="flavor">'+c.f+'</div></div></div></div>';
+ +'<div class="stats"><div><div class="k">HP</div><div class="v hp">'+c.hp+'</div></div></div>'
+ +'<div class="body">'+moves+'<div class="flavor">'+c.f+'</div></div></div></div>';
 }
 function actCard(a,n,tot){
  return '<div class="card act"><div class="inner"><div class="tag">Action</div>'

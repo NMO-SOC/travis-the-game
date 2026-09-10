@@ -86,3 +86,34 @@ var acts=[
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
 chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; });
 acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; });
+
+/* Each character has three attacks built from its base ATK: a plain Jab, its named signature move
+   (keeps the card's old Power name, plus an optional simple effect), and a harder Overdrive that
+   costs the attacker some HP. fx: 'heal'/'shield' (self), 'stun'/'unshield' (target), 'draw' (a card),
+   or nothing for a plain heavier hit. */
+var SIG_FX = {
+ 'Doctor Knox':'stun', 'Director Knox':'stun', 'Blue Suit Knox':'shield', 'Beer Frog Knox':undefined,
+ 'Family Man Knox':'heal', 'Seal Whisperer Knox':'shield', 'Mixtape Knox':undefined, 'Chaperone Knox':'stun',
+ 'Field Researcher Knox':'stun', 'Fire Drill Knox':'draw', 'Elephant Seal Knox':'heal', 'Leopard Seal Knox':undefined,
+ 'Staff Meeting Knox':'heal', 'Parent-Teacher Knox':'heal', 'Tadpole Knox':undefined, 'Emeritus Knox':'recoil',
+ 'Harbour Seal Knox':'shield', 'Sports Carnival Knox':undefined, 'Conference Knox':'stun', 'Yard Duty Knox':'unshield',
+ 'Swimming Carnival Knox':undefined, 'SOC&rsquo;s Got Talent Knox':undefined
+};
+var FX_TEXT = {
+ heal:function(n){ return 'Also heals this character '+n+' HP.'; },
+ shield:function(){ return 'Also gives this character a Shield.'; },
+ stun:function(){ return 'Also makes the target skip its next turn.'; },
+ unshield:function(){ return 'First strips the target&rsquo;s Shield, if it has one.'; },
+ draw:function(){ return 'Also draws an action card.'; },
+ recoil:function(n){ return 'This character takes '+n+' HP of recoil.'; },
+ plain:function(){ return 'A harder hit. No other effect.'; }
+};
+chars.forEach(function(c){
+  var jab = c.atk, sig = Math.round(c.atk*1.4), over = Math.round(c.atk*2);
+  var fx = SIG_FX[c.n], sigN = Math.round(sig*0.5), overN = Math.round(over*0.35);
+  c.atks = [
+    {n:'Jab', dmg:jab, a:'A quick, reliable strike.'},
+    {n:c.an, dmg:sig, fx:fx, a:FX_TEXT[fx||'plain'](sigN)},
+    {n:'Overdrive', dmg:over, fx:'recoil', a:FX_TEXT.recoil(overN)}
+  ];
+});
