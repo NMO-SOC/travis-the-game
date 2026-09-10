@@ -162,6 +162,7 @@ async function damage(t, amt){
   t.hp -= amt;
   fx(t, '&minus;'+amt, 'dmg');
   log(nm(t)+' takes <b>'+amt+'</b> damage.');
+  if(amt >= Math.round(t.max*0.3)) fxc('mat', 'matshake', 350);
   if(t.hp<=0) knockOut(t);
 }
 function heal(u, n){
@@ -174,6 +175,7 @@ function knockOut(t){
   reveal(t);
   t.ko=true; t.hp=0; t.shield=false; t.atkGame=0; t.skip=0;
   fxc('u'+t.id, 'die', 900);
+  fxc('mat', 'matshake', 450);
   log(nm(t)+' is <b>knocked out</b>.', 'ko');
   checkOver();
 }
@@ -419,6 +421,7 @@ function startRound(){
     u.acted = false;
   });
   log('Round '+G.round+' &mdash; everyone untaps.', 'round');
+  fxc('round', 'bannerpop', 1500);
 }
 async function gameLoop(){
   var g = G;
@@ -589,7 +592,7 @@ function unitCard(u){
     body = backFace() + (dmg>0 && !u.ko ? '<span class="dmgb">&minus;'+dmg+'</span>' : '');
   } else {
     var pct = Math.max(0, Math.min(100, u.hp/u.max*100));
-    body = charFace(u.c, {foil:u.foil, hp:u.hp, hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb"><i style="width:'+pct+'%"></i></div>'});
+    body = charFace(u.c, {foil:u.foil, hp:u.hp, hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb'+(pct<=30?' low':'')+'"><i style="width:'+pct+'%"></i></div>'});
   }
   return '<button class="'+cls+'" style="'+f.style+'" data-a="unit" data-v="'+u.id+'" aria-label="'+(hid?'Face-down card':u.c.n)+'">'
    + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '')
@@ -766,12 +769,14 @@ function topbar(extra){
 }
 function renderBattle(){
   var me = viewer(), op = 1-me;
+  var mf = fxFor('mat'), rb = fxFor('round');
   return topbar('Round <b>'+G.round+'</b>')
-   +'<div class="table"><div class="mat">'
+   +'<div class="table"><div class="mat'+mf.cls+'" style="'+mf.style+'">'
+   + (rb.cls ? '<div class="roundcard'+rb.cls+'" style="'+rb.style+'">Round '+G.round+'</div>' : '')
    + plate(op,'top')
-   +'<div class="zone top n'+CFG.size+'">'+G.teams[op].map(unitCard).join('')+'</div>'
+   +'<div class="zone top t'+op+' n'+CFG.size+(G.turnOf===op&&!G.over?' spot':'')+'">'+G.teams[op].map(unitCard).join('')+'</div>'
    +'<div class="mid"><div class="prompt">'+statusLine()+'</div><div class="piles">'+pile('deck')+pile('disc')+'</div></div>'
-   +'<div class="zone bottom n'+CFG.size+'">'+G.teams[me].map(unitCard).join('')+'</div>'
+   +'<div class="zone bottom t'+me+' n'+CFG.size+(G.turnOf===me&&!G.over?' spot':'')+'">'+G.teams[me].map(unitCard).join('')+'</div>'
    + plate(me,'bottom')
    + actionBar()
    + handHtml(me)

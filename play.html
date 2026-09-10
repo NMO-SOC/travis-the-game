@@ -107,7 +107,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 .mvdmg{font-family:var(--title);font-weight:900;color:#a3271c;background:rgba(210,55,42,.14);border-radius:1cqw;padding:.2cqw 1.2cqw}
 .mv .fl{border-top:0;padding-top:0;font-size:4.2cqw}
 .hpb{height:3.4cqw;border-radius:2cqw;background:rgba(0,0,0,.55);overflow:hidden;box-shadow:0 0 0 .45cqw rgba(0,0,0,.7);flex:none}
-.hpb i{display:block;height:100%;background:linear-gradient(180deg,#b8f58c,#3f962a);transition:width .35s}
+.hpb i{display:block;height:100%;background:linear-gradient(180deg,#c9ffa0,#3f962a);box-shadow:0 0 1.4cqw rgba(150,255,100,.55);transition:width .35s,background .35s}
+.hpb.low i{background:linear-gradient(180deg,#ffb2a0,#c22d1c);box-shadow:0 0 1.6cqw rgba(255,80,50,.7);animation:hpwarn 1.1s ease-in-out infinite}
+@keyframes hpwarn{50%{filter:brightness(1.4)}}
 
 /* mini (battlefield) cards: art-forward, no rules text */
 .card.mini .ty,.card.mini .tx{display:none}
@@ -161,6 +163,26 @@ b.t0,b.t1,.who{color:var(--tc)}
     repeating-conic-gradient(from 0deg at 50% 50%,rgba(255,255,255,.018) 0 6deg,transparent 6deg 12deg),
     linear-gradient(180deg,#16222f,#0c141d 50%,#16222f);
   box-shadow:inset 0 0 0 1px rgba(214,178,90,.35),inset 0 0 0 7px rgba(0,0,0,.35),inset 0 0 0 8px rgba(214,178,90,.12),inset 0 0 90px rgba(0,0,0,.8),0 24px 60px rgba(0,0,0,.6)}
+/* drifting embers give the arena a live, smouldering feel without any images */
+.mat::before{content:'';position:absolute;inset:-20% -10%;pointer-events:none;z-index:-1;opacity:.55;
+  background-image:
+    radial-gradient(2px 2px at 12% 85%,rgba(243,220,151,.8),transparent),
+    radial-gradient(1.5px 1.5px at 32% 92%,rgba(243,220,151,.6),transparent),
+    radial-gradient(2px 2px at 58% 88%,rgba(243,220,151,.7),transparent),
+    radial-gradient(1.5px 1.5px at 78% 95%,rgba(243,220,151,.5),transparent),
+    radial-gradient(2px 2px at 92% 84%,rgba(243,220,151,.65),transparent);
+  animation:embers 9s linear infinite}
+@keyframes embers{0%{transform:translateY(0);opacity:.55}90%{opacity:.3}100%{transform:translateY(-115%);opacity:0}}
+.mat.matshake{animation:matshake .35s ease-out}
+@keyframes matshake{0%,100%{transform:translate(0,0)}20%{transform:translate(-5px,3px)}40%{transform:translate(4px,-3px)}60%{transform:translate(-3px,2px)}80%{transform:translate(2px,-1px)}}
+/* one round, announced */
+.roundcard{position:absolute;top:38%;left:-15%;z-index:8;transform:rotate(-3deg);pointer-events:none;
+  font-family:var(--deco);font-weight:900;font-size:clamp(28px,5.4vw,52px);letter-spacing:.04em;color:#fff6cf;
+  background:linear-gradient(90deg,transparent,rgba(10,12,16,.92) 14%,rgba(10,12,16,.92) 86%,transparent);
+  padding:.25em 0;width:130%;text-align:center;text-shadow:0 3px 0 #000,0 0 30px rgba(214,178,90,.6);
+  box-shadow:0 0 0 1px rgba(214,178,90,.5),0 14px 40px rgba(0,0,0,.6)}
+.roundcard.bannerpop{animation:roundpop 1.5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
+@keyframes roundpop{0%{opacity:0;transform:rotate(-3deg) translateX(-8%) scale(.94)}12%{opacity:1;transform:rotate(-3deg) translateX(0) scale(1)}78%{opacity:1}100%{opacity:0;transform:rotate(-3deg) translateX(8%) scale(1.02)}}
 .plate{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:6px 4px}
 .plate .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.4),transparent 45%),var(--tc);box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold-d);flex:none}
 .plate .av svg{width:70%;height:auto}
@@ -176,7 +198,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 .ocount{position:absolute;right:0;top:50%;transform:translateY(-50%);font-family:var(--title);font-weight:900;color:var(--gold-2)}
 
 .zone{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:clamp(6px,1.2vw,16px);padding:12px 6px;min-height:calc(var(--cw)*1.4 + 24px);
-  border-radius:16px;background:rgba(0,0,0,.2);box-shadow:inset 0 0 0 1px rgba(214,178,90,.14),inset 0 0 30px rgba(0,0,0,.35)}
+  border-radius:16px;background:rgba(0,0,0,.2);box-shadow:inset 0 0 0 1px rgba(214,178,90,.14),inset 0 0 30px rgba(0,0,0,.35);transition:box-shadow .4s}
+/* the side whose turn it is gets a faint glow in their own color, so momentum in the fight is always visible at a glance */
+.zone.spot{box-shadow:inset 0 0 0 1px var(--tc),inset 0 0 40px rgba(0,0,0,.3),0 0 26px -4px var(--tc)}
 /* six-a-side: shrink cards so a full squad fits on one row */
 .zone.n6{--cw:clamp(50px,11.5vw,124px);gap:clamp(4px,.8vw,12px)}
 .zone.n6 .card.deal{--cw:clamp(50px,11.5vw,138px)}
@@ -218,7 +242,10 @@ b.t0,b.t1,.who{color:var(--tc)}
 
 /* one-shot animations (delay var lets re-renders resume mid-animation) */
 .hit{animation:hit .45s ease-out both;animation-delay:var(--d,0ms)}
-@keyframes hit{0%,100%{translate:0 0}20%{translate:-7px 0;filter:brightness(2) saturate(2)}40%{translate:7px 0}60%{translate:-4px 0}80%{translate:3px 0}}
+@keyframes hit{0%,100%{translate:0 0}20%{translate:-9px 0;filter:brightness(2.3) saturate(2.2)}40%{translate:8px 0}60%{translate:-5px 0}80%{translate:3px 0}}
+.hit::after{content:'';position:absolute;inset:-6%;border-radius:14%;border:3px solid rgba(255,110,80,.9);opacity:0;pointer-events:none;z-index:6;
+  animation:shock .5s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes shock{0%{opacity:.95;scale:.55}70%{opacity:.25}100%{opacity:0;scale:1.5}}
 .zone.bottom .lunge{animation:lungeUp .45s ease-in-out both;animation-delay:var(--d,0ms)}
 .zone.top .lunge{animation:lungeDown .45s ease-in-out both;animation-delay:var(--d,0ms)}
 @keyframes lungeUp{40%{translate:0 -34px;scale:1.08}}
@@ -234,7 +261,10 @@ b.t0,b.t1,.who{color:var(--tc)}
 .drawn{animation:drawn .65s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
 @keyframes drawn{0%{opacity:0;translate:30vw -40vh;scale:.5}100%{opacity:1}}
 .die{animation:die .9s ease-out both;animation-delay:var(--d,0ms)}
-@keyframes die{0%{filter:none;opacity:1}30%{filter:brightness(3) saturate(0);scale:1.08}100%{}}
+@keyframes die{0%{filter:none;opacity:1}22%{filter:brightness(3.4) saturate(0);scale:1.14}55%{scale:.96}100%{}}
+.die::after{content:'';position:absolute;inset:-14%;border-radius:14%;background:radial-gradient(circle,rgba(255,255,255,.9),rgba(255,255,255,0) 70%);opacity:0;pointer-events:none;z-index:6;
+  animation:koburst .7s ease-out both;animation-delay:var(--d,0ms)}
+@keyframes koburst{0%{opacity:0;scale:.4}22%{opacity:.95}100%{opacity:0;scale:1.7}}
 .tapanim{animation:tap .45s ease-out both;animation-delay:var(--d,0ms)}
 @keyframes tap{from{transform:rotate(0) scale(1)}}
 .untap{animation:untap .45s ease-out both;animation-delay:var(--d,0ms)}
