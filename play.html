@@ -177,7 +177,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .zone.n6 .card.deal{--cw:clamp(50px,11.5vw,138px)}
 .zone.n6 .unit .chip{font-size:9px;padding:0 4px}
 .mid{display:flex;align-items:center;gap:12px;margin:12px 0;flex-wrap:wrap}
-.prompt{flex:1 1 260px;min-height:48px;display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:10px 16px;border-radius:12px;font-size:17px;
+.prompt{flex:1 1 260px;min-height:48px;display:block;padding:10px 16px;border-radius:12px;font-size:17px;
   background:linear-gradient(90deg,rgba(214,178,90,.0),rgba(214,178,90,.12) 20%,rgba(214,178,90,.12) 80%,rgba(214,178,90,0));
   border-top:1px solid rgba(214,178,90,.35);border-bottom:1px solid rgba(214,178,90,.35);justify-content:center;text-align:center}
 .prompt .who{font-family:var(--title);font-weight:700}
@@ -327,11 +327,24 @@ b.t0,b.t1,.who{color:var(--tc)}
 @media (max-width:600px){
   #app{padding-inline:10px}
   .mat{padding:8px 8px 12px;border-radius:16px}
-  .zone{padding:10px 2px;gap:4px}
-  .unit.tapped{transform:rotate(90deg) scale(.7)}
+  /* phones: three cards per row so they stay big enough to read */
+  .zone,.zone.n6{--cw:min(28vw,128px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));justify-items:center;gap:12px 6px;padding:12px 4px}
+  .zone .card.deal,.zone.n6 .card.deal{--cw:min(28vw,128px)}
+  .zone .card.mini{aspect-ratio:5/6.4}
+  .zone.n6 .unit .chip,.unit .chip{font-size:10px;padding:1px 5px}
+  .unit.tapped{transform:rotate(90deg) scale(.72)}
+  .unit.tapped:hover{transform:rotate(90deg) scale(.72)}
+  .unit.cur{transform:translateY(-3px) scale(1.05)}
   .btn.act{min-width:0;flex:1 1 40%}
   .btn.end{flex:1 1 100%}
-  .card.hc{margin:0 calc(var(--hw)*-.2)}
+  :root{--hw:min(27vw,118px)}
+  .card.hc{margin:0 calc(var(--hw)*-.16)}
+  .hand{padding-top:28px}
+  .pile .card{--cw:44px}
+  .pile .pc{top:22px}
+  .mid{flex-wrap:nowrap;gap:8px}
+  .prompt{flex:1 1 0;min-width:0;padding:8px 10px}
+  .piles{gap:6px}
   .prompt{font-size:15px}
   .panel h2.t0,.panel h2.t1{font-size:34px}
   .brand span{display:none}
