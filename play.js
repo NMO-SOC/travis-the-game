@@ -646,10 +646,18 @@ function unitActions(u){
   }
   return {btn:btn, cap:cap};
 }
+/* While choosing a target, keep the prompt pinned to the screen (on phones the board is taller than the viewport). */
+function pickBar(){
+  var w = G.wait;
+  if(!(w && w.kind==='unit' && !isCPU(w.team))) return '';
+  return '<div class="pickbar t'+w.team+'"><span>&#128073; '+w.prompt+'</span>'+(w.cancel?'<button class="btn sm" data-a="cancel">Cancel</button>':'')+'</div>';
+}
 function cardReason(c){
   var w = G.wait, u = G.cur, t = viewer();
-  if(!u || u.team!==t || !w || w.kind!=='cmd') return 'You can play this during one of your turns.';
-  if(G.cardPlayed) return 'You already played a card this turn (one per turn).';
+  if(!u || u.team!==t || !w || w.kind!=='cmd') return 'Wait for your turn &mdash; you can play this when one of your characters is up.';
+  if(G.cardPlayed) return 'You already played a card this turn. One card per turn.';
+  if(c.n==='Canteen') return 'Everyone on your team is at full health, so there&rsquo;s nobody to heal yet.';
+  if(c.n==='DLC') return 'Everyone on your team already has a Shield.';
   return 'There&rsquo;s no valid target for this card right now.';
 }
 function zoomBlock(){
@@ -667,8 +675,9 @@ function zoomBlock(){
     var c = G.hands[viewer()].filter(function(c){ return c.uid===z.uid; })[0];
     if(c){
       html = '<div class="card big">'+actFace(c.n)+'</div>';
-      btn = canPlayNow(c) ? '<button class="btn gold" data-a="play" data-v="'+c.uid+'">Play this card</button>' : '';
-      cap = canPlayNow(c) ? '' : cardReason(c);
+      btn = canPlayNow(c) ? '<button class="btn gold big" data-a="play" data-v="'+c.uid+'">Play this card</button>'
+                          : '<button class="btn big" disabled>Can&rsquo;t play right now</button>';
+      cap = canPlayNow(c) ? '' : '<span class="why">'+cardReason(c)+'</span>';
     }
   } else if(z && z.k==='ci'){
     html = '<div class="card big">'+charFace(chars[z.ci])+'</div>';
@@ -740,6 +749,7 @@ function renderBattle(){
    +'<div class="side"><div class="sl">Battle log</div><div class="log">'+G.log.map(function(l){ return '<p class="'+l.cls+'">'+l.h+'</p>'; }).join('')+'</div></div>'
    +'</aside></div>'
    +(G.error?'<pre class="err">'+G.error+'</pre>':'')
+   + pickBar()
    + overlays();
 }
 function renderDeal(){
@@ -793,6 +803,13 @@ function paint(){
   var t = now();
   G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
   root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : renderMenu()) + rulesHtml();
+  // When a target choice starts, bring the first valid target into view.
+  var w = G.wait;
+  if(w && w.kind==='unit' && !w.scrolled){
+    w.scrolled = true;
+    var el = root.querySelector && root.querySelector('.unit.pick');
+    if(el && el.scrollIntoView) el.scrollIntoView({block:'center'});
+  }
   root.className = 'ph-'+G.phase;
 }
 var queued = false;

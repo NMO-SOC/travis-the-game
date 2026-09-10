@@ -192,13 +192,11 @@ b.t0,b.t1,.who{color:var(--tc)}
 
 /* battlefield card states */
 .unit{transition:transform .25s,box-shadow .25s,opacity .25s,filter .25s}
-.unit:hover{transform:translateY(-4px)}
 .unit.cur{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 26px rgba(214,178,90,.8);animation:glow 1.6s ease-in-out infinite;transform:translateY(-6px) scale(1.04);z-index:2}
 .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #7fe0ff,0 0 24px #36b3ff;cursor:crosshair;animation:pickp 1s ease-in-out infinite}
 .zone.top .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #ff8a6a,0 0 24px #ff4a2a}
 .unit.dim{opacity:.35;filter:saturate(.4)}
 .unit.tapped{transform:rotate(90deg) scale(.74);opacity:.82}
-.unit.tapped:hover{transform:rotate(90deg) scale(.78)}
 .unit.tapped.pick{opacity:1}
 .unit.zoomed:not(.cur):not(.pick){box-shadow:0 0 0 2px #000,0 0 0 3px rgba(243,220,151,.7)}
 .unit.ko{filter:grayscale(1) brightness(.55);opacity:.7}
@@ -252,7 +250,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .hand.empty{align-items:center;color:var(--ink-soft);font-style:italic}
 .card.hc{--cw:var(--hw);margin:0 calc(var(--hw)*-.14);transform:translateY(var(--y)) rotate(var(--r));transform-origin:50% 140%;transition:transform .2s,box-shadow .2s;filter:brightness(.8)}
 .card.hc.ok{filter:none;box-shadow:0 0 0 2px #000,0 0 0 3px #7fe0ff,0 0 18px #36b3ff}
-.card.hc:hover,.card.hc.sel{transform:translateY(-22%) rotate(0) scale(1.12);z-index:20!important}
+.card.hc.sel{transform:translateY(-22%) rotate(0) scale(1.12);z-index:20!important}
 .card.hc.sel{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 26px rgba(214,178,90,.9)}
 
 /* rail */
@@ -279,9 +277,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 /* deal */
 .dealzone .card.deal{--cw:clamp(96px,17vw,190px)}
 .card.deal.down{cursor:pointer}
-.card.deal.down:hover{transform:translateY(-6px) rotate(-1deg);box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 24px rgba(214,178,90,.7)}
 .card.deal.up{transition:transform .2s}
-.card.deal.up:hover{transform:translateY(-4px)}
 .actions.deal{margin-top:16px}
 
 /* overlays */
@@ -313,6 +309,22 @@ b.t0,b.t1,.who{color:var(--tc)}
 .panel.rules .btn{width:100%}
 .how+.btn{margin-top:10px}
 .foot .lnk{margin:0 12px 0 0}
+@media (hover:hover){
+  .unit:hover{transform:translateY(-4px)}
+  .unit.tapped:hover{transform:rotate(90deg) scale(.78)}
+  .card.deal.down:hover{transform:translateY(-6px) rotate(-1deg);box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 24px rgba(214,178,90,.7)}
+  .card.deal.up:hover{transform:translateY(-4px)}
+  .card.hc:hover{transform:translateY(-22%) rotate(0) scale(1.12);z-index:20!important}
+}
+/* pinned target prompt */
+.pickbar{position:fixed;left:10px;right:10px;bottom:10px;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
+  background:linear-gradient(180deg,#26303d,#131a22);border:1px solid #7fe0ff;box-shadow:0 0 0 1px #000,0 0 24px rgba(54,179,255,.45),0 12px 30px rgba(0,0,0,.7);font-size:16px;animation:pbIn .25s ease-out}
+.pickbar span{flex:1}
+@keyframes pbIn{from{transform:translateY(20px);opacity:0}}
+@media (min-width:981px){.pickbar{left:auto;right:24px;max-width:460px}}
+.why{display:block;color:#ffd9a0;font-size:15px;line-height:1.35;max-width:270px;margin:0 auto}
+.zoom .btn.big{font-size:17px;padding:12px 18px}
+.zoom .btn:disabled{opacity:.55}
 .zoomov{display:none}
 .err{white-space:pre-wrap;background:#300;border:1px solid var(--red);padding:10px;font-size:12px;overflow-x:auto;color:#fcc}
 
@@ -333,7 +345,6 @@ b.t0,b.t1,.who{color:var(--tc)}
   .zone .card.mini{aspect-ratio:5/6.4}
   .zone.n6 .unit .chip,.unit .chip{font-size:10px;padding:1px 5px}
   .unit.tapped{transform:rotate(90deg) scale(.72)}
-  .unit.tapped:hover{transform:rotate(90deg) scale(.72)}
   .unit.cur{transform:translateY(-3px) scale(1.05)}
   .btn.act{min-width:0;flex:1 1 40%}
   .btn.end{flex:1 1 100%}
