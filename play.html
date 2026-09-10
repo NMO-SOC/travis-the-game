@@ -183,7 +183,10 @@ b.t0,b.t1,.who{color:var(--tc)}
   box-shadow:0 0 0 1px rgba(214,178,90,.5),0 14px 40px rgba(0,0,0,.6)}
 .roundcard.bannerpop{animation:roundpop 1.5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0ms)}
 @keyframes roundpop{0%{opacity:0;transform:rotate(-3deg) translateX(-8%) scale(.94)}12%{opacity:1;transform:rotate(-3deg) translateX(0) scale(1)}78%{opacity:1}100%{opacity:0;transform:rotate(-3deg) translateX(8%) scale(1.02)}}
-.plate{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:6px 4px}
+.plate{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:6px 10px 6px 14px;
+  border-radius:10px;background:linear-gradient(90deg,color-mix(in srgb,var(--tc) 16%,transparent),transparent 65%);
+  box-shadow:inset 3px 0 0 var(--tc);transition:box-shadow .3s,background .3s}
+.plate.active{box-shadow:inset 4px 0 0 var(--tc),0 0 20px -6px var(--tc);background:linear-gradient(90deg,color-mix(in srgb,var(--tc) 30%,transparent),transparent 75%)}
 .plate .av{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.4),transparent 45%),var(--tc);box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold-d);flex:none}
 .plate .av svg{width:70%;height:auto}
 .plate.active .av{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 18px var(--tc);animation:glow 1.6s ease-in-out infinite}
@@ -371,6 +374,24 @@ b.t0,b.t1,.who{color:var(--tc)}
 .zoomov{display:none}
 .err{white-space:pre-wrap;background:#300;border:1px solid var(--red);padding:10px;font-size:12px;overflow-x:auto;color:#fcc}
 
+/* ============ desktop battle arena: fills the window, nothing scrolls ============
+   Card sizes here are set from JS (fitZones) against the real pixel box each zone/hand gets, because a
+   wide-but-short laptop window can't be predicted from viewport units alone. This just gives every panel
+   its slice of a fixed-height column so the browser never has to grow the page to fit the content. */
+@media (min-width:981px){
+  #app.ph-battle,#app.ph-deal{height:100dvh;max-width:none;margin:0;padding:6px 14px 8px;display:flex;flex-direction:column;overflow:hidden}
+  #app.ph-battle .bar,#app.ph-deal .bar{flex:0 0 auto;padding-block:2px 6px}
+  #app.ph-battle .table,#app.ph-deal .table{flex:1 1 auto;min-height:0;align-items:stretch}
+  #app.ph-battle .mat,#app.ph-deal .mat{display:flex;flex-direction:column;min-height:0;gap:2px;padding:6px 10px 8px}
+  #app.ph-battle .plate,#app.ph-deal .plate{flex:0 0 auto}
+  #app.ph-battle .zone,#app.ph-deal .zone{flex:1 1 0;min-height:0;overflow:hidden;align-content:center;padding:4px 6px}
+  #app.ph-battle .mid,#app.ph-deal .mid{flex:0 0 auto;margin:2px 0}
+  #app.ph-battle .actions,#app.ph-deal .actions{flex:0 0 auto;margin:4px 0 2px;min-height:0}
+  #app.ph-battle .hand,#app.ph-deal .hand{flex:0 0 auto;min-height:0;padding:8px 0 2px}
+  #app.ph-battle .rail,#app.ph-deal .rail{height:100%;min-height:0;overflow-y:auto;position:static;padding-right:2px}
+  #app.ph-battle .zoom,#app.ph-deal .zoom{flex:0 0 auto}
+  #app.ph-battle .card.big,#app.ph-deal .card.big{--cw:min(210px,22vh)}
+}
 @media (max-width:980px){
   .table{grid-template-columns:minmax(0,1fr)}
   .rail{position:static}

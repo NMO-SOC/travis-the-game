@@ -1186,6 +1186,38 @@ function renderMeta(){
   return html;
 }
 
+/* Desktop battle/deal screens are a fixed-height arena (see CSS): no page scroll, so card size must be
+   measured against the real pixel box each zone/hand actually got, not guessed from viewport units. */
+function fitZones(){
+  if(!root || typeof window==='undefined' || !window.getComputedStyle) return;
+  if(!window.matchMedia || !window.matchMedia('(min-width:981px)').matches) return;
+  var zones = root.querySelectorAll('.zone');
+  for(var i=0;i<zones.length;i++){
+    var z = zones[i], n = z.children.length;
+    if(!n) continue;
+    var r = z.getBoundingClientRect();
+    if(r.width<20 || r.height<20) continue;
+    var cs = window.getComputedStyle(z);
+    var padX = parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+    var padY = parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+    var gap = parseFloat(cs.columnGap)||8;
+    var byWidth = (r.width-padX-gap*(n-1))/n;
+    var byHeight = (r.height-padY)/1.42;
+    var cw = Math.floor(Math.min(byWidth, byHeight));
+    if(isFinite(cw)) z.style.setProperty('--cw', Math.max(42, cw)+'px');
+  }
+  var hands = root.querySelectorAll('.hand');
+  for(var j=0;j<hands.length;j++){
+    var h = hands[j], cards = h.querySelectorAll('.card').length;
+    if(!cards) continue;
+    var hr = h.getBoundingClientRect();
+    if(hr.width<20 || hr.height<20) continue;
+    var byW = hr.width / (1 + (cards-1)*0.72);
+    var byH = hr.height/1.5;
+    var hw = Math.floor(Math.min(byW, byH));
+    if(isFinite(hw)) h.style.setProperty('--hw', Math.max(46, hw)+'px');
+  }
+}
 function paint(){
   var t = now();
   G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
@@ -1201,6 +1233,7 @@ function paint(){
     if(el && el.scrollIntoView) el.scrollIntoView({block:'center'});
   }
   root.className = 'ph-'+G.phase;
+  if((G.phase==='battle' || G.phase==='deal') && typeof window!=='undefined' && window.requestAnimationFrame) requestAnimationFrame(fitZones);
 }
 var queued = false;
 function render(){
@@ -1316,6 +1349,7 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
     el.addEventListener('click', onClick);
     el.addEventListener('input', onInput);
     el.addEventListener('keydown', onKey);
+    if(typeof window!=='undefined') window.addEventListener('resize', function(){ requestAnimationFrame(fitZones); });
     render();
     if(ACC) ACC.init(function(){
       if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
