@@ -4,7 +4,7 @@
 
 var HAND_LIMIT = 3;
 var ABORT_ROUND = {abort:'round'}, ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:3, speed:1};
+var CFG = {mode:'cpu', size:6, speed:1};
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -702,7 +702,7 @@ function beginBattle(){
   shuffle(G.deck);
   G.discard=[]; G.hands=[[],[]]; G.usedLog=[]; G.agenda=[null,null]; G.lastCard=null;
   G.lowTide=0; G.noAbil=false; G.noStrike=false; G.roundEnding=false; G.interrupt=false; G.lastHuman=null;
-  var n = CFG.size===4 ? 3 : 2;
+  var n = CFG.size>=4 ? 3 : 2;
   for(var k=0;k<n;k++){ for(var t=0;t<2;t++){ var c=G.deck.pop(); G.hands[t].push(c); fxc('c'+c.uid, 'drawn', 650, k*200); } }
   log('The specimens take the field, face-down. Each is revealed when it first acts.');
   gameLoop();
@@ -915,9 +915,9 @@ function renderBattle(){
   return topbar('Round <b>'+G.round+'</b>'+flags())
    +'<div class="table"><div class="mat">'
    + plate(op,'top')
-   +'<div class="zone top">'+G.teams[op].map(unitCard).join('')+'</div>'
+   +'<div class="zone top n'+CFG.size+'">'+G.teams[op].map(unitCard).join('')+'</div>'
    +'<div class="mid"><div class="prompt">'+statusLine()+'</div><div class="piles">'+pile('deck')+pile('disc')+'</div></div>'
-   +'<div class="zone bottom">'+G.teams[me].map(unitCard).join('')+'</div>'
+   +'<div class="zone bottom n'+CFG.size+'">'+G.teams[me].map(unitCard).join('')+'</div>'
    + plate(me,'bottom')
    + actionBar()
    + handHtml(me)
@@ -944,10 +944,10 @@ function renderDeal(){
   return topbar('The Deal')
    +'<div class="table"><div class="mat dealmat">'
    +'<div class="plate top t'+op+'"><span class="av">'+art(op?'lseal':'seal')+'</span><span class="pinfo"><b>'+pname(op)+'</b><small>'+CFG.size+' face-down specimens</small></span></div>'
-   +'<div class="zone top">'+theirs+'</div>'
+   +'<div class="zone top n'+CFG.size+'">'+theirs+'</div>'
    +'<div class="mid"><div class="prompt">'+(all ? 'This is your team. Keep it, or mulligan for a fresh hand.' : 'You&rsquo;ve been dealt '+CFG.size+' specimens. <b>Tap each card</b> to flip it over.')+'</div>'
    +'<div class="piles"><div class="pile deck"><div class="card">'+backFace()+'</div><span class="pc">'+G.charDeck.length+'</span><small>Specimens</small></div></div></div>'
-   +'<div class="zone bottom dealzone">'+mine+'</div>'
+   +'<div class="zone bottom dealzone n'+CFG.size+'">'+mine+'</div>'
    +'<div class="actions deal">'
    +(all ? '' : '<button class="btn" data-a="revealall">Reveal all</button>')
    +'<button class="btn"'+(d.mull[me]<1?' disabled':'')+' data-a="mull">Mulligan <small>('+d.mull[me]+' left)</small></button>'
@@ -969,7 +969,7 @@ function renderMenu(){
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
    +'</div></div>'
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
-   + o('size','3','3 v 3','Standard') + o('size','4','4 v 4','Long game')
+   + o('size','6','6 v 6','Full squad') + o('size','4','4 v 4','Medium') + o('size','3','3 v 3','Quick game')
    +'</div></div>'
    +'<button class="btn gold big" data-a="start">Shuffle Up &amp; Deal</button>'
    +'<p class="foot"><a href="index.html" target="_blank" rel="noopener">Rules &amp; printable deck</a></p>'
