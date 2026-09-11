@@ -678,6 +678,7 @@ function unitCard(u){
   }
   return '<button class="'+cls+'" style="'+f.style+'" data-a="unit" data-v="'+u.id+'" aria-label="'+(hid?'Face-down card':u.c.n)+'">'
    + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '')
+   + (!hid && u.foil ? '<span class="foilbadge" title="Foil" aria-label="Foil"></span>' : '')
    + '<span class="info" data-a="info" data-v="'+u.id+'" aria-label="Card details">i</span>' + f.fl + '</button>';
 }
 function handTeam(){
@@ -823,7 +824,7 @@ function overlays(){
     else { title = pname(G.winner)+' Wins'; sub = 'The grant is theirs.'; }
     var reward = G.reward===null ? '<p class="reward dim">You&rsquo;ve had today&rsquo;s five packs from wins. More tomorrow.</p>'
                : G.reward==='any' ? '<p class="reward">&#10022; You earned a pack! Open it from the menu.</p>'
-               : G.reward ? '<p class="reward">&#10022; You earned a '+esc(packName(G.reward))+' pack! Open it from the menu.</p>' : '';
+               : G.reward ? '<p class="reward">&#10022; You earned a '+packName(G.reward)+' pack! Open it from the menu.</p>' : '';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
     o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward
       +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
@@ -1015,18 +1016,18 @@ function packOption(pk, p){
   var notice = expired ? '<p class="notice">This pack is no longer available.</p>'
     : pk.validUntil ? '<p class="hint">Available until '+new Date(pk.validUntil).toLocaleDateString()+'.</p>'
     : giftOnly && !have ? '<p class="hint">Given by the game admin &mdash; can&rsquo;t be opened with a regular pack.</p>' : '';
-  var btnLabel = expired ? 'No longer available' : M.busy ? 'Opening&hellip;' : 'Open '+esc(pk.name);
-  return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+esc(pk.name)+' '+badge+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
+  var btnLabel = expired ? 'No longer available' : M.busy ? 'Opening&hellip;' : 'Open '+pk.name;
+  return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+pk.name+' '+badge+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
     +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
     +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
     + notice
-    +(have ? '<p class="pkown">You have <b>'+have+'</b> '+esc(pk.name)+' pack'+(have===1?'':'s')+'. These open first.</p>' : '')
+    +(have ? '<p class="pkown">You have <b>'+have+'</b> '+pk.name+' pack'+(have===1?'':'s')+'. These open first.</p>' : '')
     +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button></div>';
 }
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, body = '';
   if(r){
-    body = '<p class="revealof">'+esc(r.pack)+'</p><div class="reveal">'+r.cards.map(function(x,i){
+    body = '<p class="revealof">'+r.pack+'</p><div class="reveal">'+r.cards.map(function(x,i){
       var up = r.shown[i], f = fxFor('rv'+i);
       var tag = !up ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
         : x.dupe ? '<span class="rtag dupe">Duplicate &middot; +'+x.points+' Grant Points</span>'
@@ -1072,7 +1073,7 @@ function collTile(c, foil){
     ? '<button class="btn sm sell" data-a="sell" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(M.busy?' disabled':'')+'>Sell &middot; +'+sellPrice+' GP</button>' : '';
   var face = isChar ? charFace(c, {foil:foil}) : actFace(c.n);
   var zv = isChar ? 'c:'+chars.indexOf(c)+(foil?':f':'') : 'a:'+c.n;
-  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+esc(c.n)+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
+  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+c.n+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
 }
 function renderCollection(){
   var baseChars = chars.filter(function(c){ return c.set==='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
@@ -1355,7 +1356,7 @@ function packPicker(name){
   var cur = M.form[name] || '';
   return '<select name="'+esc(name)+'" aria-label="Which pack">'
     +'<option value=""'+(cur===''?' selected':'')+'>any-type pack(s)</option>'
-    + ACC.packs.map(function(pk){ return '<option value="'+esc(pk.id)+'"'+(cur===pk.id?' selected':'')+'>'+esc(pk.name)+' pack(s)</option>'; }).join('')
+    + ACC.packs.map(function(pk){ return '<option value="'+esc(pk.id)+'"'+(cur===pk.id?' selected':'')+'>'+pk.name+' pack(s)</option>'; }).join('')
     +'</select>';
 }
 function giveCountInput(key){ return '<input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount(key))+'" aria-label="How many packs">'; }
@@ -1398,7 +1399,7 @@ function givePacks(target){
 /* "3 any-type packs, 2 SOC's Favourite" */
 function packSummary(anyPacks, typed){
   var parts = [anyPacks+' any-type pack'+(anyPacks===1?'':'s')];
-  ACC.packs.forEach(function(pk){ if(typed && typed[pk.id]) parts.push(typed[pk.id]+' '+esc(pk.name)); });
+  ACC.packs.forEach(function(pk){ if(typed && typed[pk.id]) parts.push(typed[pk.id]+' '+pk.name); });
   return parts.join(', ');
 }
 function kpi(label, value, sub){ return '<div class="kpi"><span class="kl">'+label+'</span><b class="kv">'+value+'</b><span class="ks">'+sub+'</span></div>'; }
@@ -1413,7 +1414,7 @@ function playerDetail(u, d){
   else {
     var games = p.games.length ? '<ul class="glist">'+p.games.map(function(g){ return '<li><span>'+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
       : '<p class="muted">'+(d.stale ? 'Play history starts once the stats upgrade is run.' : 'No games recorded yet.')+'</p>';
-    var coll = p.collection.length ? '<p class="clist">'+p.collection.map(function(c){ return esc(cardName(c.card_id))+(c.foil?' <span class="foiltag">foil</span>':'')+(c.qty>1?' &times;'+c.qty:''); }).join(', ')+'</p>'
+    var coll = p.collection.length ? '<p class="clist">'+p.collection.map(function(c){ return cardName(c.card_id)+(c.foil?' <span class="foiltag">foil</span>':'')+(c.qty>1?' &times;'+c.qty:''); }).join(', ')+'</p>'
       : '<p class="muted">No pack cards yet.</p>';
     var dl = decks.length ? '<ul class="glist">'+decks.map(function(k){ return '<li><span><b>'+esc(k.deck_name)+'</b> &mdash; '+charNames(k.characters)+'</span><time>'+ago(k.updated_at)+'</time></li>'; }).join('')+'</ul>'
       : '<p class="muted">No saved decks.</p>';

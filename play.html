@@ -246,7 +246,14 @@ b.t0,b.t1,.who{color:var(--tc)}
 .unit{transition:transform .25s,box-shadow .25s,opacity .25s,filter .25s}
 /* a foil unit keeps a visible gold ring on the battlefield even at mini-card size, where the holo
    sheen alone (busy real photos, tiny card) reads as barely-there */
-.unit.foil{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 14px rgba(214,178,90,.75)}
+/* A box-shadow ring would get silently overridden by .ready/.cur/.pick further down (same property,
+   later in the cascade) exactly when it matters most — on your own ready units. A fixed badge instead
+   always shows, whatever other state the card is in. */
+.foilbadge{position:absolute;top:-6px;left:-6px;z-index:7;width:22px;height:22px;border-radius:50%;
+  background:conic-gradient(from 0deg,#ff5ecf,#ffd65e,#6dff9e,#5ecbff,#c95eff,#ff5ecf);
+  box-shadow:0 0 0 2px #000,0 2px 6px rgba(0,0,0,.6);animation:foilspin 3s linear infinite;pointer-events:none}
+@keyframes foilspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.foilbadge{animation:none}}
 .unit.cur{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 26px rgba(214,178,90,.8);animation:glow 1.6s ease-in-out infinite;transform:translateY(-6px) scale(1.04);z-index:2}
 .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #7fe0ff,0 0 24px #36b3ff;cursor:crosshair;animation:pickp 1s ease-in-out infinite}
 .zone.top .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #ff8a6a,0 0 24px #ff4a2a}
