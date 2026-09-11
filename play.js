@@ -962,8 +962,9 @@ function accountStrip(){
   if(!ACC.ready) return '<div class="acct"><span class="muted">Connecting&hellip;</span></div>';
   if(!ACC.user || !ACC.profile) return '<div class="acct"><p>Sign in to open packs, build your own decks and play colleagues online.</p><button class="btn" data-a="go" data-v="auth">Sign in or create an account</button></div>';
   var p = ACC.profile;
-  return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+p.packs+' pack'+(p.packs===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
-    +'<div class="acct-btns"><button class="btn sm'+(p.packs?' gold':'')+'" data-a="go" data-v="packs">Packs'+(p.packs?' ('+p.packs+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button>'
+  var np = ACC.totalPacks();
+  return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+np+' pack'+(np===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
+    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button>'
     +(p.is_admin ? '<button class="btn sm" data-a="go" data-v="admin">Admin</button>' : '')
     +'<button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
@@ -1008,7 +1009,8 @@ function packOption(pk, p){
   return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+esc(pk.name)+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
     +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
     +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
-    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(p.packs&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open '+esc(pk.name))+'</button></div>';
+    +(ACC.typedPacks(pk.id) ? '<p class="pkown">You have <b>'+ACC.typedPacks(pk.id)+'</b> '+esc(pk.name)+' pack'+(ACC.typedPacks(pk.id)===1?'':'s')+'. These open first.</p>' : '')
+    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open '+esc(pk.name))+'</button></div>';
 }
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, body = '';
@@ -1027,7 +1029,7 @@ function renderPacks(){
     body = '<div class="packopts">'+ACC.packs.map(function(pk){ return packOption(pk, p); }).join('')+'</div>';
   }
   return pageTop('Packs')+'<div class="panel-pg wide">'
-    +'<div class="statline"><span><b>'+p.packs+'</b> unopened pack'+(p.packs===1?'':'s')+'</span><span><b>'+p.grant_points+'</b> Grant Points</span></div>'
+    +'<div class="statline"><span><b>'+p.packs+'</b> any-type pack'+(p.packs===1?'':'s')+' <small>(open as whichever pack you like)</small></span><span><b>'+p.grant_points+'</b> Grant Points</span></div>'
     + msgs() + body
     +'<ul class="how small"><li>Win a game against the CPU or online for a pack (up to five a day). You choose which pack to open.</li><li>Cards you can&rsquo;t use more of, and starter cards, become Grant Points. Spend them in your <button class="lnk" data-a="go" data-v="collection">Collection</button> to buy the exact card you want.</li></ul>'
     +'</div></div>';
@@ -1287,19 +1289,26 @@ function selectPlayer(name){
   var d = M.admin;
   if(d.sel===name){ d.sel = null; d.player = null; render(); return; }
   d.sel = name; d.player = {state:'loading'}; render();
-  if(d.stale){ d.player = {state:'ok', collection:[], games:[]}; render(); return; }
+  if(d.stale){ d.player = {state:'ok', collection:[], games:[], packs:{}}; render(); return; }
   ACC.adminPlayer(name).then(function(p){
-    if(M.admin===d && d.sel===name){ d.player = {state:'ok', collection:(p&&p.collection)||[], games:(p&&p.games)||[]}; render(); }
+    if(M.admin===d && d.sel===name){ d.player = {state:'ok', collection:(p&&p.collection)||[], games:(p&&p.games)||[], packs:(p&&p.packs)||{}}; render(); }
   }, function(e){ if(M.admin===d && d.sel===name){ d.player = {state:'error', msg:(e && e.message) || String(e)}; render(); } });
 }
 /* username null = every player */
 var EVERYONE = '*';
 function giveCount(key){ return M.form[key]!=null ? M.form[key] : '1'; }
+/* Which kind of pack to give: '' = an any-type pack, otherwise a pack id. */
+function packPicker(name){
+  var cur = M.form[name] || '';
+  return '<select name="'+esc(name)+'" aria-label="Which pack">'
+    +'<option value=""'+(cur===''?' selected':'')+'>any-type pack(s)</option>'
+    + ACC.packs.map(function(pk){ return '<option value="'+esc(pk.id)+'"'+(cur===pk.id?' selected':'')+'>'+esc(pk.name)+' pack(s)</option>'; }).join('')
+    +'</select>';
+}
+function giveCountInput(key){ return '<input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount(key))+'" aria-label="How many packs">'; }
 /* Inside a player's row: give to that player. */
 function giveRow(username){
-  var key = 'give_'+username;
-  return '<div class="formrow"><label>Give <input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount(key))+'"> '
-    +'pack(s) to <b>'+esc(username)+'</b></label>'
+  return '<div class="formrow"><span>Give</span>'+giveCountInput('give_'+username)+packPicker('givepack_'+username)+'<span>to <b>'+esc(username)+'</b></span>'
     +'<button class="btn sm gold" data-a="givepacks" data-v="'+esc(username)+'" data-submit'+(M.busy?' disabled':'')+'>Give</button></div>';
 }
 /* Top of the admin screen: pick any player, or everyone. */
@@ -1307,32 +1316,44 @@ function givePicker(players){
   var to = M.form.give_to || (players[0] ? players[0].username : EVERYONE);
   var opts = players.map(function(u){ return '<option value="'+esc(u.username)+'"'+(to===u.username?' selected':'')+'>'+esc(u.username)+(u.username===ACC.profile.username?' (you)':'')+'</option>'; }).join('')
     +'<option value="'+EVERYONE+'"'+(to===EVERYONE?' selected':'')+'>Everyone ('+players.length+' players)</option>';
-  return '<div class="formrow"><label>Give <input name="give_top" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount('give_top'))+'"> pack(s) to</label>'
+  return '<div class="formrow"><span>Give</span>'+giveCountInput('give_top')+packPicker('givepack_top')+'<span>to</span>'
     +'<select name="give_to" aria-label="Who gets the packs">'+opts+'</select>'
     +'<button class="btn sm gold" data-a="givepacks" data-v="@top" data-submit'+(M.busy?' disabled':'')+'>Give</button></div>';
 }
 function givePacks(target){
-  var d = M.admin, key = 'give_'+target;
+  var d = M.admin, key = 'give_'+target, packKey = 'givepack_'+target;
   if(target==='@top'){
-    key = 'give_top';
+    key = 'give_top'; packKey = 'givepack_top';
     target = M.form.give_to || (d && d.overview && d.overview[0] ? d.overview[0].username : EVERYONE);
   }
-  var username = target===EVERYONE ? null : target;
+  var username = target===EVERYONE ? null : target, packId = M.form[packKey] || null;
+  var pk = packId && ACC.packs.filter(function(x){ return x.id===packId; })[0];
+  var what = function(n){ return n+' '+(pk ? pk.name : 'any-type')+' pack'+(n===1?'':'s'); };
   var n = parseInt(giveCount(key), 10);
   if(!(n>=1 && n<=100)){ M.note = ''; M.err = 'Give between 1 and 100 packs at a time.'; render(); return; }
-  if(!username && typeof confirm==='function' && !confirm('Give '+n+' pack'+(n===1?'':'s')+' to every player?')) return;
+  if(!username && typeof confirm==='function' && !confirm('Give '+what(n)+' to every player?')) return;
   busy(async function(){
-    var got = await ACC.adminGivePacks(username, n);
-    if(d && d.overview) d.overview.forEach(function(u){ if(!username || u.username===username) u.packs += n; });
-    M.note = 'Gave '+n+' pack'+(n===1?'':'s')+' to '+(username ? username : got+' player'+(got===1?'':'s'))+'.';
+    var got = await ACC.adminGivePacks(username, n, packId);
+    if(d && d.overview) d.overview.forEach(function(u){
+      if(username && u.username!==username) return;
+      if(!packId) u.packs += n;
+      else if(d.sel===u.username && d.player && d.player.packs) d.player.packs[packId] = (d.player.packs[packId]||0) + n;
+    });
+    M.note = 'Gave '+what(n)+' to '+(username ? username : got+' player'+(got===1?'':'s'))+'.';
   });
+}
+/* "3 any-type packs, 2 SOC's Favourite" */
+function packSummary(anyPacks, typed){
+  var parts = [anyPacks+' any-type pack'+(anyPacks===1?'':'s')];
+  ACC.packs.forEach(function(pk){ if(typed && typed[pk.id]) parts.push(typed[pk.id]+' '+esc(pk.name)); });
+  return parts.join(', ');
 }
 function kpi(label, value, sub){ return '<div class="kpi"><span class="kl">'+label+'</span><b class="kv">'+value+'</b><span class="ks">'+sub+'</span></div>'; }
 function playerDetail(u, d){
   var p = d.player || {state:'loading'};
   var decks = d.decks.filter(function(k){ return k.username===u.username; });
   var facts = '<p class="facts">Joined '+new Date(u.created_at).toLocaleDateString()+' &middot; last sign-in '+ago(u.last_login)
-    +' &middot; last active '+ago(lastActive(u))+' &middot; '+u.packs+' unopened pack'+(u.packs===1?'':'s')+' &middot; '+u.grant_points+' Grant Points</p>';
+    +' &middot; last active '+ago(lastActive(u))+' &middot; '+packSummary(u.packs, p.state==='ok' ? p.packs : null)+' &middot; '+u.grant_points+' Grant Points</p>';
   var body;
   if(p.state==='loading') body = '<p class="muted">Loading&hellip;</p>';
   else if(p.state==='error') body = '<p class="err-msg">'+esc(p.msg)+'</p>';

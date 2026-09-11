@@ -20,7 +20,9 @@ drop function if exists public.admin_player(text) cascade;
 drop function if exists public.log_game(text, text, int, text, int, int, text, text) cascade;
 drop function if exists public.touch_seen() cascade;
 drop function if exists public.admin_give_packs(text, int) cascade;
+drop function if exists public.admin_give_packs(text, int, text) cascade;
 drop table if exists public.games cascade;
+drop table if exists public.pack_stock cascade;
 drop table if exists public.decks cascade;
 drop table if exists public.collection cascade;
 drop table if exists public.profiles cascade;
@@ -92,6 +94,14 @@ create table public.profiles (
   created_at   timestamptz not null default now()
 );
 
+-- Packs of one specific type (given by an admin). Any-type packs stay in profiles.packs.
+create table public.pack_stock (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  pack_id text not null references public.packs(id) on delete cascade,
+  qty     int  not null default 0 check (qty >= 0),
+  primary key (user_id, pack_id)
+);
+
 -- Cards found in packs. Base cards are owned by everyone and are not stored here.
 create table public.collection (
   user_id uuid    not null references public.profiles(id) on delete cascade,
@@ -118,6 +128,7 @@ alter table public.pack_odds  enable row level security;
 alter table public.profiles   enable row level security;
 alter table public.collection enable row level security;
 alter table public.decks      enable row level security;
+alter table public.pack_stock enable row level security;
 
 create policy "cards are public"       on public.cards      for select using (true);
 create policy "packs are public"       on public.packs      for select using (true);
@@ -127,6 +138,7 @@ create policy "read own collection"    on public.collection for select to authen
 create policy "read own decks"         on public.decks      for select to authenticated using (user_id = auth.uid());
 create policy "create own decks"       on public.decks      for insert to authenticated with check (user_id = auth.uid());
 create policy "edit own decks"         on public.decks      for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "read own pack stock"   on public.pack_stock for select to authenticated using (user_id = auth.uid());
 create policy "delete own decks"       on public.decks      for delete to authenticated using (user_id = auth.uid());
 -- profiles and collection have no insert/update policies: they only change through the functions below.
 
@@ -208,8 +220,12 @@ begin
   if not exists (select 1 from packs where id = p_pack and active) then raise exception 'That pack isn''t available'; end if;
   select coalesce(sum(weight), 0) into total from pack_odds where pack_id = p_pack;
   if total <= 0 then raise exception 'That pack has no odds set'; end if;
-  update profiles set packs = packs - 1 where id = uid and packs > 0;
-  if not found then raise exception 'No packs to open'; end if;
+  -- Use a pack of this exact type if they have one (given by an admin), otherwise an any-type pack.
+  update pack_stock set qty = qty - 1 where user_id = uid and pack_id = p_pack and qty > 0;
+  if not found then
+    update profiles set packs = packs - 1 where id = uid and packs > 0;
+    if not found then raise exception 'No packs to open'; end if;
+  end if;
   for i in 1..3 loop
     roll := floor(random() * total)::int;
     select o.slot into pick from (
@@ -350,7 +366,9 @@ language sql security definer set search_path = public stable as $$
     'games', coalesce((select jsonb_agg(x order by x.ended_at desc) from (
                          select g.mode, g.difficulty, g.size, g.result, g.rounds, g.seconds, g.opponent, g.deck_name, g.ended_at
                          from games g join profiles p on p.id = g.user_id
-                         where p.username = lower(p_username) order by g.ended_at desc limit 30) x), '[]'::jsonb)
+                         where p.username = lower(p_username) order by g.ended_at desc limit 30) x), '[]'::jsonb),
+    'packs', coalesce((select jsonb_object_agg(s.pack_id, s.qty)
+                       from pack_stock s join profiles p on p.id = s.user_id where p.username = lower(p_username) and s.qty > 0), '{}'::jsonb)
   ) end;
 $$;
 
@@ -365,20 +383,23 @@ $$;
 
 -- ---------------------------------------------------------------- admin: give packs
 -- Adds packs to one player (by username), or to every player when p_username is null. Admins only.
-create or replace function public.admin_give_packs(p_username text, p_count int) returns int
+create function public.admin_give_packs(p_username text, p_count int, p_pack text default null) returns int
 language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
   if not exists (select 1 from profiles me where me.id = auth.uid() and me.is_admin) then raise exception 'Admins only'; end if;
   if p_count is null or p_count < 1 or p_count > 100 then raise exception 'Give between 1 and 100 packs at a time'; end if;
-  if p_username is null then
-    update profiles set packs = packs + p_count where packs >= 0;   -- every player (Supabase's API rejects an UPDATE with no WHERE)
-    get diagnostics n = row_count;
+  if p_pack is not null and not exists (select 1 from packs where id = p_pack) then raise exception 'There''s no pack called %', p_pack; end if;
+  if p_pack is null then
+    update profiles set packs = packs + p_count
+      where (p_username is null or username = lower(p_username)) and packs >= 0;
   else
-    update profiles set packs = packs + p_count where username = lower(p_username);
-    get diagnostics n = row_count;
-    if n = 0 then raise exception 'No player called %', p_username; end if;
+    insert into pack_stock (user_id, pack_id, qty)
+      select id, p_pack, p_count from profiles where p_username is null or username = lower(p_username)
+      on conflict (user_id, pack_id) do update set qty = pack_stock.qty + excluded.qty;
   end if;
+  get diagnostics n = row_count;
+  if p_username is not null and n = 0 then raise exception 'No player called %', p_username; end if;
   return n;
 end $$;
 
@@ -404,5 +425,5 @@ grant execute on function public.admin_games(int)          to authenticated;
 grant execute on function public.admin_player(text)        to authenticated;
 grant execute on function public.touch_seen()              to authenticated;
 grant execute on function public.log_game(text, text, int, text, int, int, text, text) to authenticated;
-revoke all on function public.admin_give_packs(text, int)   from public, anon;
-grant execute on function public.admin_give_packs(text, int) to authenticated;
+revoke all on function public.admin_give_packs(text, int, text) from public, anon;
+grant execute on function public.admin_give_packs(text, int, text) to authenticated;

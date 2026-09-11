@@ -63,18 +63,28 @@ A.signIn = async function(username, password){
 };
 A.signOut = async function(){
   try{ await client().auth.signOut(); }catch(e){}
-  A.user = null; A.profile = null; A.collection = []; A.decks = []; changed();
+  A.user = null; A.profile = null; A.collection = []; A.decks = []; A.stock = {}; changed();
 };
 A.load = async function(){
   var c = client();
   var r = await Promise.all([
     call(c.from('profiles').select('*').eq('id', A.user.id).maybeSingle()),
     call(c.from('collection').select('card_id,foil,qty')),
-    call(c.from('decks').select('*').order('updated_at', {ascending:false}))
+    call(c.from('decks').select('*').order('updated_at', {ascending:false})),
+    // Missing until upgrade-4 is run; treat that as "no specific-type packs" rather than failing the login.
+    c.from('pack_stock').select('pack_id,qty').then(function(x){ return x.error ? [] : x.data; }, function(){ return []; })
   ]);
   A.profile = r[0]; A.collection = r[1] || []; A.decks = r[2] || [];
+  A.stock = {}; (r[3] || []).forEach(function(s){ if(s.qty>0) A.stock[s.pack_id] = s.qty; });
   if(!A.profile) throw new Error('This login has no player profile. Ask the admin to check the database setup.');
 };
+/* Packs come in two kinds: any-type packs (profile.packs, from wins), opened as whichever pack you
+   choose, and packs of one specific type (A.stock[packId], given by an admin). */
+A.stock = {};
+A.anyPacks = function(){ return A.profile ? A.profile.packs : 0; };
+A.typedPacks = function(id){ return A.stock[id] || 0; };
+A.totalPacks = function(){ var n = A.anyPacks(); for(var k in A.stock) n += A.stock[k]; return n; };
+A.canOpen = function(id){ return A.typedPacks(id) > 0 || A.anyPacks() > 0; };
 A.refresh = async function(){ if(A.user){ await A.load(); changed(); } };
 
 /* ---------------- ownership ---------------- */
@@ -139,9 +149,9 @@ A.adminOverview = function(){ return call(client().rpc('admin_overview')); };
 A.adminDecks = function(){ return call(client().rpc('admin_decks')); };
 A.adminGames = function(limit){ return call(client().rpc('admin_games', {p_limit:limit||40})); };
 A.adminPlayer = function(username){ return call(client().rpc('admin_player', {p_username:username})); };
-/* username null = every player. Resolves to the number of players who got packs. */
-A.adminGivePacks = async function(username, count){
-  var n = await call(client().rpc('admin_give_packs', {p_username:username, p_count:count}));
+/* username null = every player; packId null = any-type packs. Resolves to the number of players who got packs. */
+A.adminGivePacks = async function(username, count, packId){
+  var n = await call(client().rpc('admin_give_packs', {p_username:username, p_count:count, p_pack:packId||null}));
   if(username==null || (A.profile && username===A.profile.username)) await A.refresh();
   return n;
 };
