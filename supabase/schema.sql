@@ -54,7 +54,7 @@ insert into public.packs (id, name, blurb, sort) values
   ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2);
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
-  ('socs-favourite', 'starter', 70), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 25), ('socs-favourite', 'foil', 5);
+  ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5);
 
 -- ---------------------------------------------------------------- card catalogue
 -- rarity: base = a starter card everyone owns; common/rare = found in the pack named by pack_id.

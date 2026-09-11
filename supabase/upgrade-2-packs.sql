@@ -44,7 +44,7 @@ on conflict (id) do update set name = excluded.name, blurb = excluded.blurb, sor
 
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
-  ('socs-favourite', 'starter', 70), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 25), ('socs-favourite', 'foil', 5)
+  ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5)
 on conflict (pack_id, slot) do nothing;   -- keeps any odds you've already tuned
 
 -- ---------------------------------------------------------------- which pack each new card comes from
