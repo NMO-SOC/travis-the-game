@@ -181,7 +181,7 @@ function actCard(a,n,tot){
  return '<div class="card act"><div class="inner"><div class="tag">Action</div>'
  +'<div class="hdr"><div class="no"><span>ACTION '+String(n).padStart(2,'0')+' / '+tot+'</span><span>'+a.t.toUpperCase()+'</span></div>'
  +'<h3>'+a.n+'</h3><div class="role">One action card per turn</div></div>'
- +'<div class="plate">'+S[a.i]+'</div>'
+ +(a.img ? '<div class="plate photo"><img src="'+a.img+'" alt=""></div>' : '<div class="plate">'+S[a.i]+'</div>')
  +'<div class="body"><p class="ab">'+a.a+'</p>'
  +'<div class="flavor">Discard after playing. Hold up to three.</div></div></div></div>';
 }

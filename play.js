@@ -235,9 +235,19 @@ function checkOver(){
   throw ABORT_OVER;
 }
 /* A signed-in player who wins against the CPU or online earns a pack (the server caps it at five a day). */
+/* Play history for the admin screen: one row per CPU/online game a signed-in player finishes or walks away from. */
+function logResult(result){
+  if(G.logged || !G.startedAt || !ACC || !ACC.user || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
+  G.logged = true;
+  var online = CFG.mode==='online', deck = online ? L.deck : chosenDeck();
+  ACC.logGame({mode:CFG.mode, difficulty:CFG.diff, size:CFG.size, result:result, rounds:G.round,
+    seconds:Math.round((Date.now()-G.startedAt)/1000),
+    opponent:online ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU', deck:deck ? deck.name : 'Random deal'});
+}
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
+  logResult(G.winner<0 ? 'draw' : G.winner===me ? 'win' : 'loss');
   if(!ACC || !ACC.user || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g = G;
   ACC.recordWin().then(function(got){ if(g===G){ G.reward = got ? 'pack' : 'capped'; render(); } });
@@ -512,7 +522,7 @@ async function gameLoop(){
 
 /* ---------------- setup: shuffle & deal ---------------- */
 function startGame(){
-  G = {phase:'deal', log:[], fx:[], uid:0, zoom:null,
+  G = {phase:'deal', log:[], fx:[], uid:0, zoom:null, startedAt:Date.now(),
        charDeck:shuffle(BASE_CHARS.slice()),
        deal:{turn:0, picks:[[],[]], shown:[{},{}], mull:[1,1], pass:CFG.mode==='hot'}};
   for(var t=0;t<2;t++) dealTeam(t);
@@ -558,6 +568,7 @@ function baseActions(){ var l = []; acts.forEach(function(a){ for(var k=0;k<a.x;
 function beginBattle(setup){
   setup = setup || {teams:G.deal.picks};
   G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
+  G.startedAt = G.startedAt || Date.now();
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -618,7 +629,7 @@ function actFace(n){
   var a = ACTD[n];
   return '<div class="face f-gold">'
    +'<div class="tl"><span class="tn">'+n+'</span><span class="actiontag" title="This is an action card, not a character">ACTION</span></div>'
-   +'<div class="art a-gold">'+art(a.i)+'</div>'
+   +'<div class="art a-gold">'+(a.img ? '<img src="'+esc(a.img)+'" alt="" loading="lazy">' : art(a.i))+'</div>'
    +'<div class="ty">Action Card</div>'
    +'<div class="tx"><p>'+a.a+'</p><p class="fl">One action card per turn.</p></div>'
    +'</div>';
@@ -827,7 +838,8 @@ function rulesHtml(){
 }
 function topbar(extra){
   return '<header class="bar"><div class="brand">Travis <span>The Game</span></div><div class="meta">'+(extra||'')+'</div>'
-   +'<div class="btns"><button class="btn sm" data-a="mute" aria-label="'+(AUDIO.muted?'Unmute':'Mute')+' sound">'+(AUDIO.muted?'&#128264;':'&#128266;')+'</button>'
+   +'<div class="btns">'+(ACC && ACC.profile && ACC.profile.is_admin ? '<button class="btn sm adminbtn" data-a="go" data-v="admin">Admin</button>' : '')
+   +'<button class="btn sm" data-a="mute" aria-label="'+(AUDIO.muted?'Unmute':'Mute')+' sound">'+(AUDIO.muted?'&#128264;':'&#128266;')+'</button>'
    +'<button class="btn sm" data-a="rules">How to play</button><button class="btn sm" data-a="menu">Menu</button></div></header>';
 }
 function renderBattle(){
@@ -927,7 +939,7 @@ function field(name, label, type, auto){
   return '<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+(type||'text')+'" autocomplete="'+(auto||'off')+'" autocapitalize="off" spellcheck="false" value="'+esc(M.form[name]||'')+'"></label>';
 }
 function msgs(){ return (M.err ? '<p class="err-msg">'+M.err+'</p>' : '') + (M.note ? '<p class="ok-msg">'+M.note+'</p>' : ''); }
-function goScreen(p){ NET.close(); M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
+function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
 function needAccount(){ if(ACC && ACC.user) return false; M.authMode='in'; goScreen('auth'); M.err='Sign in first.'; return true; }
 function chosenDeck(){ return ACC && ACC.user ? ACC.decks.filter(function(d){ return d.id===M.deckSel; })[0] || null : null; }
 async function busy(fn){
@@ -1201,28 +1213,117 @@ function renderLobby(){
 function normCode(s){ s = String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); return s.length>4 ? s.slice(0,4)+'-'+s.slice(4) : s; }
 
 /* ---- admin ---- */
-function renderAdmin(){
-  if(!ACC.profile.is_admin) return renderMenuBlocked();
-  var d = M.admin;
-  if(!d) { loadAdmin(); return pageTop('Admin')+'<div class="panel-pg wide"><p class="muted">Loading&hellip;</p></div></div>'; }
-  var rows = d.overview.map(function(u){
-    return '<div class="deckrow"><div class="dinfo"><b>'+esc(u.username)+'</b><span>'+u.packs+' packs &middot; '+u.grant_points+' GP &middot; '+u.deck_count+' deck'+(u.deck_count===1?'':'s')+'</span></div>'
-      +'<div class="dinfo"><span>Last login</span><b class="small">'+(u.last_login ? new Date(u.last_login).toLocaleString() : 'never')+'</b></div></div>';
-  }).join('');
-  var decks = d.decks.map(function(dk){
-    return '<div class="deckrow"><div class="dinfo"><b>'+esc(dk.username)+'</b><span>'+esc(dk.deck_name)+' &middot; '+dk.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(', ')+'</span></div></div>';
-  }).join('');
-  return pageTop('Admin')+'<div class="panel-pg wide">'
-    +'<h3 class="sec">Players ('+d.overview.length+')</h3>'+(rows || '<p class="muted">No players yet.</p>')
-    +'<h3 class="sec">Decks</h3>'+(decks || '<p class="muted">No decks yet.</p>')
-    +'</div></div>';
+var DAY = 86400000;
+function ago(ts){
+  if(!ts) return 'never';
+  var s = (Date.now()-new Date(ts).getTime())/1000;
+  if(s<90) return 'just now';
+  if(s<3600) return Math.round(s/60)+' min ago';
+  if(s<86400) return Math.round(s/3600)+' h ago';
+  var d = Math.round(s/86400);
+  return d<30 ? d+' day'+(d===1?'':'s')+' ago' : new Date(ts).toLocaleDateString();
 }
-function renderMenuBlocked(){ return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>'; }
+function dur(sec){
+  sec = sec||0;
+  if(sec<60) return sec+' s';
+  var m = Math.round(sec/60);
+  return m<60 ? m+' min' : Math.floor(m/60)+' h '+(m%60)+' min';
+}
+function within(ts, ms){ return !!ts && Date.now()-new Date(ts).getTime() < ms; }
+/* Supabase keeps people signed in, so "last sign-in" can be weeks stale; last_seen (set whenever
+   they open the game) is the real signal. Use whichever is newer. */
+function lastActive(u){
+  if(!u.last_seen) return u.last_login;
+  if(!u.last_login) return u.last_seen;
+  return new Date(u.last_seen) > new Date(u.last_login) ? u.last_seen : u.last_login;
+}
+var RESULT = {win:'Won', loss:'Lost', draw:'Drew', quit:'Quit'};
+function gameDesc(g){
+  var vs = g.mode==='cpu' ? 'CPU'+(g.difficulty ? ' ('+g.difficulty+')' : '') : esc(g.opponent||'someone')+' online';
+  return '<span class="res '+g.result+'">'+RESULT[g.result]+'</span> vs '+vs+' &middot; '+g.size+' v '+g.size
+    +' &middot; '+g.rounds+' round'+(g.rounds===1?'':'s')+' &middot; '+dur(g.seconds)+(g.deck_name ? ' &middot; '+esc(g.deck_name) : '');
+}
+function charNames(ids){ return ids.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(', '); }
+function cardName(id){ var c = chars[CHARID[id]] || ACTID[id]; return c ? c.n : id; }
+
 function loadAdmin(){
-  busy(async function(){
-    var r = await Promise.all([ACC.adminOverview(), ACC.adminDecks()]);
-    M.admin = {overview:r[0]||[], decks:r[1]||[]};
-  });
+  M.admin = {state:'loading'}; M.err = ''; render();
+  Promise.all([ACC.adminOverview(), ACC.adminDecks(), ACC.adminGames(40).catch(function(){ return null; })]).then(function(r){
+    var ov = r[0]||[];
+    M.admin = {state:'ok', overview:ov, decks:r[1]||[], games:r[2]||[], sel:null, player:null,
+      stale: r[2]===null || (ov.length>0 && ov[0].games==null)};
+    render();
+  }, function(e){ M.admin = {state:'error', msg:(e && e.message) || String(e)}; render(); });
+}
+function selectPlayer(name){
+  var d = M.admin;
+  if(d.sel===name){ d.sel = null; d.player = null; render(); return; }
+  d.sel = name; d.player = {state:'loading'}; render();
+  if(d.stale){ d.player = {state:'ok', collection:[], games:[]}; render(); return; }
+  ACC.adminPlayer(name).then(function(p){
+    if(M.admin===d && d.sel===name){ d.player = {state:'ok', collection:(p&&p.collection)||[], games:(p&&p.games)||[]}; render(); }
+  }, function(e){ if(M.admin===d && d.sel===name){ d.player = {state:'error', msg:(e && e.message) || String(e)}; render(); } });
+}
+function kpi(label, value, sub){ return '<div class="kpi"><span class="kl">'+label+'</span><b class="kv">'+value+'</b><span class="ks">'+sub+'</span></div>'; }
+function playerDetail(u, d){
+  var p = d.player || {state:'loading'};
+  var decks = d.decks.filter(function(k){ return k.username===u.username; });
+  var facts = '<p class="facts">Joined '+new Date(u.created_at).toLocaleDateString()+' &middot; last sign-in '+ago(u.last_login)
+    +' &middot; last active '+ago(lastActive(u))+' &middot; '+u.packs+' unopened pack'+(u.packs===1?'':'s')+' &middot; '+u.grant_points+' Grant Points</p>';
+  var body;
+  if(p.state==='loading') body = '<p class="muted">Loading&hellip;</p>';
+  else if(p.state==='error') body = '<p class="err-msg">'+esc(p.msg)+'</p>';
+  else {
+    var games = p.games.length ? '<ul class="glist">'+p.games.map(function(g){ return '<li><span>'+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
+      : '<p class="muted">'+(d.stale ? 'Play history starts once the stats upgrade is run.' : 'No games recorded yet.')+'</p>';
+    var coll = p.collection.length ? '<p class="clist">'+p.collection.map(function(c){ return esc(cardName(c.card_id))+(c.foil?' <span class="foiltag">foil</span>':'')+(c.qty>1?' &times;'+c.qty:''); }).join(', ')+'</p>'
+      : '<p class="muted">No pack cards yet.</p>';
+    var dl = decks.length ? '<ul class="glist">'+decks.map(function(k){ return '<li><span><b>'+esc(k.deck_name)+'</b> &mdash; '+charNames(k.characters)+'</span><time>'+ago(k.updated_at)+'</time></li>'; }).join('')+'</ul>'
+      : '<p class="muted">No saved decks.</p>';
+    body = '<div class="dgrid"><div><h4>Recent games</h4>'+games+'</div><div><h4>Pack cards owned</h4>'+coll+'<p class="hint">Plus every base card.</p><h4>Decks</h4>'+dl+'</div></div>';
+  }
+  return '<tr class="detail"><td colspan="8">'+facts+body+'</td></tr>';
+}
+function renderAdmin(){
+  if(!ACC.profile.is_admin) return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>';
+  var d = M.admin, top = pageTop('Admin')+'<div class="panel-pg wide admin">';
+  var head = '<div class="adhead"><h2>Players &amp; activity</h2><button class="btn sm" data-a="adminrefresh"'+(d && d.state==='loading'?' disabled':'')+'>Refresh</button></div>';
+  if(!d || d.state==='loading') return top+head+'<p class="muted">Loading&hellip;</p></div></div>';
+  if(d.state==='error') return top+head+'<p class="err-msg">Couldn&rsquo;t load admin data: '+esc(d.msg)+'</p></div></div>';
+  var ov = d.overview, n = (d.stale ? '&mdash;' : null);
+  var active7 = ov.filter(function(u){ return within(lastActive(u), 7*DAY); }).length;
+  var activeToday = ov.filter(function(u){ return within(lastActive(u), DAY); }).length;
+  var new7 = ov.filter(function(u){ return within(u.created_at, 7*DAY); }).length;
+  var games = ov.reduce(function(s,u){ return s+(u.games||0); }, 0);
+  var games7 = ov.reduce(function(s,u){ return s+(u.games_week||0); }, 0);
+  var secs = ov.reduce(function(s,u){ return s+(u.play_seconds||0); }, 0);
+  var kpis = '<div class="kpis">'
+    + kpi('Players', ov.length, new7+' joined this week')
+    + kpi('Active this week', active7, activeToday+' today')
+    + kpi('Games played', n || games, n ? 'stats upgrade not run' : games7+' this week')
+    + kpi('Time played', n || dur(secs), n ? 'stats upgrade not run' : games ? 'about '+dur(Math.round(secs/games))+' a game' : 'no games yet')
+    +'</div>';
+  var notice = d.stale ? '<p class="notice">Play history and time played aren&rsquo;t switched on yet. In Supabase, open <b>SQL Editor</b>, paste in <code>supabase/upgrade-1-admin-stats.sql</code> and run it. It only adds tables; no player data is touched.</p>' : '';
+  var rows = ov.map(function(u){
+    var sel = d.sel===u.username, dash = d.stale;
+    return '<tr class="prow'+(sel?' sel':'')+'" data-a="adminsel" data-v="'+esc(u.username)+'">'
+      +'<td><button class="pname" data-a="adminsel" data-v="'+esc(u.username)+'" aria-expanded="'+sel+'">'+esc(u.username)+'</button>'+(u.is_admin?' <span class="adm-tag">admin</span>':'')+'</td>'
+      +'<td>'+ago(lastActive(u))+'</td>'
+      +'<td class="num">'+(dash?'&mdash;':u.games)+'</td>'
+      +'<td class="num">'+(dash?'&mdash;':u.wins+'&ndash;'+u.losses+(u.quits?' <span class="muted">('+u.quits+' quit)</span>':''))+'</td>'
+      +'<td class="num">'+(dash?'&mdash;':dur(u.play_seconds))+'</td>'
+      +'<td>'+(dash||!u.last_played?'&mdash;':ago(u.last_played))+'</td>'
+      +'<td class="num">'+(u.cards_owned==null?'&mdash;':u.cards_owned)+'</td>'
+      +'<td class="num">'+u.deck_count+'</td></tr>'
+      +(sel ? playerDetail(u, d) : '');
+  }).join('');
+  var table = ov.length ? '<div class="tablewrap"><table class="adm"><thead><tr><th>Player</th><th>Last active</th><th class="num">Games</th><th class="num">Won&ndash;lost</th><th class="num">Time played</th><th>Last game</th><th class="num">Pack cards</th><th class="num">Decks</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+    +'<p class="hint">Select a player to see their games, cards and decks.</p>'
+    : '<p class="muted">No players yet.</p>';
+  var feed = d.stale ? '' : '<h3 class="sec">Latest games</h3>'+(d.games.length
+    ? '<ul class="glist feed">'+d.games.map(function(g){ return '<li><span><b>'+esc(g.username)+'</b> '+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
+    : '<p class="muted">No games recorded yet. They appear here as soon as a signed-in player finishes or quits a game against the CPU or online.</p>');
+  return top+head+notice+kpis+table+feed+'</div></div>';
 }
 
 function renderMeta(){
@@ -1306,7 +1407,11 @@ function onClick(e){
     case 'go':
       if(v==='deckedit' || (v!=='auth' && needAccount())) break;
       if(v==='packs') M.reveal = null;
-      goScreen(v); break;
+      goScreen(v);
+      if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
+      break;
+    case 'adminrefresh': loadAdmin(); break;
+    case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; }); break;

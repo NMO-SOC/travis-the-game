@@ -41,7 +41,7 @@ A.init = async function(onChange){
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
-    if(A.user) await A.load();
+    if(A.user){ await A.load(); A.touch(); }
   }catch(e){ A.user = null; }
   A.ready = true; changed();
 };
@@ -53,12 +53,12 @@ A.signUp = async function(username, password){
   if(!free) throw new Error('That username is taken.');
   var d = await call(client().auth.signUp({email:emailFor(u), password:password, options:{data:{username:u}}}));
   if(!d.session) throw new Error('Account made, but sign-in is waiting on email confirmation. Ask the admin to turn off &ldquo;Confirm email&rdquo; in Supabase.');
-  A.user = d.user; await A.load(); changed();
+  A.user = d.user; await A.load(); A.touch(); changed();
 };
 A.signIn = async function(username, password){
   var u = clean(username);
   var d = await call(client().auth.signInWithPassword({email:emailFor(u), password:password}));
-  A.user = d.user; await A.load(); changed();
+  A.user = d.user; await A.load(); A.touch(); changed();
 };
 A.signOut = async function(){
   try{ await client().auth.signOut(); }catch(e){}
@@ -109,9 +109,21 @@ A.saveDeck = async function(d){
 };
 A.deleteDeck = async function(id){ await call(client().from('decks').delete().eq('id', id)); await A.refresh(); };
 
+/* ---------------- play history ----------------
+   Stats are best-effort: a failed write (offline, or upgrade-1-admin-stats.sql not run yet) must
+   never interrupt the game, so errors are swallowed. */
+A.touch = function(){ if(A.user) client().rpc('touch_seen').then(function(){}, function(){}); };
+A.logGame = function(g){
+  if(!A.user) return;
+  client().rpc('log_game', {p_mode:g.mode, p_difficulty:g.difficulty||null, p_size:g.size, p_result:g.result,
+    p_rounds:g.rounds||0, p_seconds:g.seconds||0, p_opponent:g.opponent||null, p_deck:g.deck||null}).then(function(){}, function(){});
+};
+
 /* ---------------- admin ---------------- */
 A.adminOverview = function(){ return call(client().rpc('admin_overview')); };
 A.adminDecks = function(){ return call(client().rpc('admin_decks')); };
+A.adminGames = function(limit){ return call(client().rpc('admin_games', {p_limit:limit||40})); };
+A.adminPlayer = function(username){ return call(client().rpc('admin_player', {p_username:username})); };
 
 /* ---------------- live matches ----------------
    Both players' browsers run the same game with the same random seed. Each move is broadcast on a
