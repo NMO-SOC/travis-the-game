@@ -59,6 +59,8 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
   linear-gradient(90deg,rgba(29,78,137,.09) 1px,transparent 1px) 0 0/12px 12px,#F3F6F5;
   border-bottom:1px solid var(--rule)}
 .plate svg{width:.72in;height:.72in;display:block}
+.plate.photo{height:1.1in;overflow:hidden}
+.plate.photo img{width:100%;height:100%;object-fit:cover;object-position:50% 28%;display:block}
 .stats{display:grid;grid-template-columns:1fr;border-bottom:1.5px solid var(--abyss);flex:0 0 auto}
 .stats div{padding:3px 0 4px;text-align:center;border-right:1px solid var(--rule)}
 .stats div:last-child{border-right:0}
@@ -169,9 +171,9 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 function charCard(c,idx){
  var moves = c.atks.map(function(mv){ return '<div class="mv"><span class="ab-name">'+mv.n+'</span><span class="v hp">'+mv.dmg+'</span><p class="ab">'+mv.a+'</p></div>'; }).join('');
  return '<div class="card"><div class="inner"><div class="tag">Specimen</div>'
- +'<div class="hdr"><div class="no"><span>NO. '+String(idx+1).padStart(2,'0')+' / '+chars.length+'</span><span>KNOX</span></div>'
+ +'<div class="hdr"><div class="no"><span>NO. '+String(idx+1).padStart(2,'0')+' / '+printChars.length+'</span><span>KNOX</span></div>'
  +'<h3>'+c.n+'</h3><div class="role">'+c.r+'</div></div>'
- +'<div class="plate">'+S[c.i]+'</div>'
+ +(c.img ? '<div class="plate photo"><img src="'+c.img+'" alt=""></div>' : '<div class="plate">'+S[c.i]+'</div>')
  +'<div class="stats"><div><div class="k">HP</div><div class="v hp">'+c.hp+'</div></div></div>'
  +'<div class="body">'+moves+'<div class="flavor">'+c.f+'</div></div></div></div>';
 }
@@ -188,7 +190,8 @@ const titleCard='<div class="card title"><div class="inner">'+S.seal.replace(/#0
  +'<p>Sixteen Travis Knoxes. Six per side. One kitchen table.<br>Made for Travis &mdash; go win something.</p></div></div>';
 
 const cards=[];
-chars.forEach(function(c,i){cards.push(charCard(c,i));});
+const printChars=chars.filter(function(c){return c.set==='base';});
+printChars.forEach(function(c,i){cards.push(charCard(c,i));});
 var n=0; var tot=acts.reduce(function(s,a){return s+a.x;},0);
 acts.forEach(function(a){for(var k=0;k<a.x;k++){n++;cards.push(actCard(a,n,tot));}});
 cards.push(titleCard);

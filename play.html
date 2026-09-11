@@ -80,7 +80,8 @@ b.t0,b.t1,.who{color:var(--tc)}
 .art{position:relative;flex:0 0 43%;border-radius:1.2cqw;box-shadow:0 0 0 .6cqw rgba(0,0,0,.65);display:grid;place-items:center;overflow:hidden;color:rgba(255,255,255,.94)}
 .art svg{position:relative;z-index:1;width:56%;height:auto;filter:drop-shadow(0 0 1.6cqw rgba(255,255,255,.7)) drop-shadow(0 .8cqw 1cqw rgba(0,0,0,.5))}
 /* once real artwork is dropped into a character's `img` field, it fills the frame instead of the icon */
-.art img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;object-position:50% 30%}
+/* z-index 0 keeps the card's glare/vignette (.art::after) painted over the picture so it still reads as printed card stock */
+.art img{position:relative;z-index:0;width:100%;height:100%;object-fit:cover;object-position:50% 28%}
 /* rare (pack) characters get a small badge next to their name */
 .setmark{flex:none;font-family:var(--title);font-weight:900;font-size:3.2cqw;letter-spacing:.1em;text-transform:uppercase;
   color:#3a1a02;background:linear-gradient(100deg,#fff6cf,#e9c86c 45%,#b3862f);border-radius:1cqw;padding:.5cqw 2.2cqw;box-shadow:0 .25cqw 0 rgba(0,0,0,.4)}
@@ -110,7 +111,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .fl{font-style:italic;color:#4a4440;border-top:.3cqw solid rgba(0,0,0,.15);padding-top:1.4cqw}
 /* HP is the only round gem left on a card, centered so it reads as "the one vitals dial", not one of a pair. */
 .face>.gem.hp{position:absolute;bottom:-1.6cqw;left:50%;transform:translateX(-50%);width:17cqw;height:17cqw;font-size:3.4cqw;line-height:1.15;z-index:3;box-shadow:0 0 0 .7cqw #000,0 1cqw 2cqw rgba(0,0,0,.6);background:radial-gradient(circle at 35% 28%,#d7ffb2 0,#44982e 42%,#123a0c)}
-.gem.hp b{display:block;font-size:2cqw;line-height:1.1}
+.gem.hp b{display:block;font-size:7.4cqw;line-height:.95}
 .gem.hp.hurt{background:radial-gradient(circle at 35% 28%,#ffe3a6 0,#c98a1e 42%,#4a2c05)}
 /* action cards get a squared, labeled tag instead of a round gem, so they never read as HP/ATK */
 .actiontag{flex:none;padding:.8cqw 2.2cqw;border-radius:1.4cqw;font-family:var(--title);font-weight:900;font-size:3.6cqw;letter-spacing:.14em;color:#2a1a04;background:linear-gradient(180deg,#fff6cf,#e9c86c);box-shadow:0 0 0 .5cqw rgba(0,0,0,.7)}
@@ -130,8 +131,8 @@ b.t0,b.t1,.who{color:var(--tc)}
 .card.mini .tl{font-size:8.2cqw;min-height:15cqw;padding-left:3cqw}
 .card.mini .tl .gem{width:13cqw;height:13cqw;font-size:7.6cqw}
 .card.mini .face{padding-bottom:13cqw}
-.card.mini .face>.gem.hp{width:26cqw;height:26cqw;font-size:5.4cqw;bottom:-2.4cqw}
-.card.mini .gem.hp b{font-size:3.2cqw}
+.card.mini .face>.gem.hp{width:28cqw;height:28cqw;font-size:4.6cqw;bottom:-2.4cqw}
+.card.mini .gem.hp b{font-size:11.5cqw}
 
 /* card back */
 .back{position:relative;height:100%;border-radius:2.6cqw;display:grid;place-items:center;overflow:hidden;

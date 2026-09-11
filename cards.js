@@ -84,7 +84,7 @@ var acts=[
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
-chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; });
+chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; c.img = c.img || 'images/'+c.id+'.jpg'; });
 acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; });
 
 /* Each character has three attacks built from its base ATK: a plain Jab, its named signature move
