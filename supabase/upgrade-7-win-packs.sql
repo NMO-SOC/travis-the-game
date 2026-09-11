@@ -15,7 +15,8 @@ update public.packs set win_weight = case id
   else 0
 end where id in ('term-one','socs-favourite','field-season','end-of-year','holo','legendary');
 
-create or replace function public.record_win() returns text
+drop function if exists public.record_win();
+create function public.record_win() returns text
 language plpgsql security definer set search_path = public as $$
 declare today date := (now() at time zone 'Australia/Sydney')::date; p profiles;
         total int; roll int; won_pack text;
@@ -44,3 +45,7 @@ begin
   update profiles set wins_day = today, wins_today = p.wins_today + 1 where id = p.id;
   return won_pack;
 end $$;
+
+-- Dropping the function above reset its permissions; put them back (same as schema.sql).
+revoke all on function public.record_win() from public, anon;
+grant execute on function public.record_win() to authenticated;
