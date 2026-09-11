@@ -457,10 +457,10 @@ create function public.leaderboard() returns table(
   username text, xp int, wins int, losses int, draws int, games int
 ) language sql security definer set search_path = public stable as $$
   select p.username, p.xp,
-    count(g.id) filter (where g.result = 'win')::int,
-    count(g.id) filter (where g.result = 'loss')::int,
-    count(g.id) filter (where g.result = 'draw')::int,
-    count(g.id) filter (where g.result in ('win','loss','draw'))::int
+    count(g.id) filter (where g.result = 'win')::int as wins,
+    count(g.id) filter (where g.result = 'loss')::int as losses,
+    count(g.id) filter (where g.result = 'draw')::int as draws,
+    count(g.id) filter (where g.result in ('win','loss','draw'))::int as games
   from profiles p
   left join games g on g.user_id = p.id
   group by p.id
