@@ -106,6 +106,10 @@ A.canBuy = function(c, foil){
   if(c.set==='base' || c.set==='legendary') return false;   // legendary is pull- or gift-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
+/* Sell price is half the buy price. Starter (base, non-foil) cards can't be sold — everyone already owns them free. */
+A.sellPrice = function(c, foil){ return foil ? 7 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 10 : 4; };
+A.canSell = function(c, foil){ return !!A.profile && (foil ? A.ownsFoil(c.id) : c.set!=='base' && qty(c.id,false)>0); };
+A.sellCard = async function(id, foil){ await call(client().rpc('sell_card', {card:id, is_foil:!!foil})); await A.refresh(); };
 
 /* ---------------- packs ----------------
    Pack names and odds come from the database (packs, pack_odds) so the odds shown are the odds used.

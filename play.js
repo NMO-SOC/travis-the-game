@@ -1068,9 +1068,11 @@ function collTile(c, foil){
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
   var price = ACC.price(c, foil), buy = ACC.canBuy(c, foil)
     ? '<button class="btn sm buy" data-a="buy" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(ACC.profile.grant_points>=price&&!M.busy?'':' disabled')+'>Buy &middot; '+price+' GP</button>' : '';
+  var sellPrice = ACC.sellPrice(c, foil), sell = ACC.canSell(c, foil)
+    ? '<button class="btn sm sell" data-a="sell" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(M.busy?' disabled':'')+'>Sell &middot; +'+sellPrice+' GP</button>' : '';
   var face = isChar ? charFace(c, {foil:foil}) : actFace(c.n);
   var zv = isChar ? 'c:'+chars.indexOf(c)+(foil?':f':'') : 'a:'+c.n;
-  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+esc(c.n)+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+'</div>';
+  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+esc(c.n)+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
 }
 function renderCollection(){
   var baseChars = chars.filter(function(c){ return c.set==='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
@@ -1559,6 +1561,13 @@ function onClick(e){
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;
     case 'buy': { var f = el.getAttribute('data-f')==='1'; busy(async function(){ await ACC.buyCard(v, f); M.note = 'Added to your collection.'; }); break; }
+    case 'sell': {
+      var sf = el.getAttribute('data-f')==='1', sc = chars.filter(function(x){ return x.id===v; })[0] || acts.filter(function(x){ return x.id===v; })[0];
+      var pts = sc ? ACC.sellPrice(sc, sf) : 0;
+      if(typeof confirm==='function' && !confirm('Sell this'+(sf?' foil':'')+' card for '+pts+' Grant Points? You’ll need to get it again to use it.')) break;
+      busy(async function(){ await ACC.sellCard(v, sf); M.note = 'Sold for '+pts+' Grant Points.'; });
+      break;
+    }
     case 'czoom': {
       var parts = v.split(':');
       G.zoom = parts[0]==='c' ? {k:'ci', ci:+parts[1], foil:parts[2]==='f'} : {k:'an', n:parts.slice(1).join(':')};

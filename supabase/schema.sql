@@ -12,6 +12,7 @@ drop function if exists public.record_win() cascade;
 drop function if exists public.open_pack() cascade;
 drop function if exists public.open_pack(text) cascade;
 drop function if exists public.buy_card(text, boolean) cascade;
+drop function if exists public.sell_card(text, boolean) cascade;
 drop function if exists public.check_deck() cascade;
 drop function if exists public.admin_overview() cascade;
 drop function if exists public.admin_decks() cascade;
@@ -324,6 +325,28 @@ begin
   return left_pts;
 end $$;
 
+-- Sell price is half the buy price: foil 7, common action 4, rare character 10. Starter (base) cards
+-- can't be sold — everyone already owns them for free, there's nothing to convert.
+create function public.sell_card(card text, is_foil boolean) returns int
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); r text; price int; owned int; left_pts int;
+begin
+  select rarity into r from cards where id = card;
+  if r is null then raise exception 'Unknown card'; end if;
+  if r = 'base' and not is_foil then raise exception 'Starter cards can''t be sold: everyone already owns them.'; end if;
+  select qty into owned from collection where user_id = uid and card_id = card and foil = is_foil;
+  if owned is null or owned < 1 then raise exception 'You don''t own that card.'; end if;
+  if is_foil then price := 7;
+  elsif r = 'common' then price := 4;
+  elsif r = 'rare' then price := 10;
+  else raise exception 'That card can''t be sold.';
+  end if;
+  update collection set qty = qty - 1 where user_id = uid and card_id = card and foil = is_foil;
+  delete from collection where user_id = uid and card_id = card and foil = is_foil and qty <= 0;
+  update profiles set grant_points = grant_points + price where id = uid returning grant_points into left_pts;
+  return left_pts;
+end $$;
+
 -- ---------------------------------------------------------------- play history
 -- One row per finished or abandoned game by a signed-in player (CPU and online games).
 create table public.games (
@@ -473,6 +496,7 @@ revoke all on function public.check_deck()                from public, anon, aut
 revoke all on function public.record_win()                from public, anon;
 revoke all on function public.open_pack(text)             from public, anon;
 revoke all on function public.buy_card(text, boolean)     from public, anon;
+revoke all on function public.sell_card(text, boolean)    from public, anon;
 revoke all on function public.admin_overview()             from public, anon;
 revoke all on function public.admin_decks()                from public, anon;
 revoke all on function public.admin_games(int)             from public, anon;
@@ -483,6 +507,7 @@ grant execute on function public.username_available(text) to anon, authenticated
 grant execute on function public.record_win()              to authenticated;
 grant execute on function public.open_pack(text)           to authenticated;
 grant execute on function public.buy_card(text, boolean)   to authenticated;
+grant execute on function public.sell_card(text, boolean)   to authenticated;
 grant execute on function public.admin_overview()          to authenticated;
 grant execute on function public.admin_decks()             to authenticated;
 grant execute on function public.admin_games(int)          to authenticated;
