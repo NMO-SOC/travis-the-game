@@ -32,11 +32,13 @@ drop table if exists public.packs cascade;
 
 -- ---------------------------------------------------------------- packs and their odds
 create table public.packs (
-  id     text primary key,
-  name   text not null,
-  blurb  text not null default '',
-  sort   int  not null default 0,
-  active boolean not null default true
+  id            text primary key,
+  name          text not null,
+  blurb         text not null default '',
+  sort          int  not null default 0,
+  active        boolean not null default true,
+  valid_until   timestamptz,             -- null = no expiry; past this, the pack can no longer be opened
+  open_with_any boolean not null default true   -- false = only openable with a pack of this exact type (admin-gift only)
 );
 -- Each of the 3 cards in a pack is rolled separately. A slot's chance = its weight / the pack's total.
 --   starter = a starter card (everyone already owns these, so it becomes 1 Grant Point)
@@ -49,12 +51,22 @@ create table public.pack_odds (
   weight  int  not null check (weight >= 0),
   primary key (pack_id, slot)
 );
-insert into public.packs (id, name, blurb, sort) values
-  ('term-one',       'Term One',        'Harbour Seal and Conference Knox, plus five new action cards.', 1),
-  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2);
+insert into public.packs (id, name, blurb, sort, valid_until, open_with_any) values
+  ('term-one',       'Term One',        'Harbour Seal and Conference Knox, plus five new action cards.', 1, null, true),
+  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2, null, true),
+  ('field-season',   'Field Season',    'Four new specimens from the sub-Antarctic, plus two new action cards.', 3, null, true),
+  ('end-of-year',    'End of Year',     'Three characters for the end of the school year. Available until 31 December.', 4, '2026-12-31 23:59:59+11', true),
+  ('holo',           'Holo',            'Every card is a foil of a starter character. Only ever given, never pulled from an ordinary pack.', 5, null, false),
+  ('legendary',      'Legendary',       'Gold editions of fan-favourite Knoxes. Only ever given, never pulled from an ordinary pack.', 6, null, false);
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
-  ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5);
+  ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5),
+  ('field-season', 'starter', 55), ('field-season', 'common', 25), ('field-season', 'rare', 15), ('field-season', 'foil', 5),
+  ('end-of-year', 'starter', 60), ('end-of-year', 'common', 0), ('end-of-year', 'rare', 35), ('end-of-year', 'foil', 5),
+  ('holo', 'starter', 10), ('holo', 'common', 0), ('holo', 'rare', 0), ('holo', 'foil', 90),
+  -- 'rare' here means "one of the five golden characters" (pack_id = 'legendary', rarity = 'rare' —
+  -- the gold finish is the card itself, not a foil of something else).
+  ('legendary', 'starter', 15), ('legendary', 'common', 0), ('legendary', 'rare', 85), ('legendary', 'foil', 0);
 
 -- ---------------------------------------------------------------- card catalogue
 -- rarity: base = a starter card everyone owns; common/rare = found in the pack named by pack_id.
@@ -79,7 +91,15 @@ insert into public.cards (id, kind, rarity, pack_id) values
   ('cat','action','base',null), ('canteen','action','base',null), ('excursion','action','base',null), ('dlc','action','base',null),
   ('detention','action','base',null),
   ('reports','action','common','term-one'), ('photo-day','action','common','term-one'), ('uniform-check','action','common','term-one'),
-  ('assembly','action','common','term-one'), ('low-tide','action','common','term-one');
+  ('assembly','action','common','term-one'), ('low-tide','action','common','term-one'),
+  ('fur-seal-knox','character','rare','field-season'), ('weddell-seal-knox','character','rare','field-season'),
+  ('sea-lion-knox','character','rare','field-season'), ('research-vessel-knox','character','rare','field-season'),
+  ('tagging-dart','action','common','field-season'), ('fog-bank','action','common','field-season'),
+  ('graduation-knox','character','rare','end-of-year'), ('yearbook-knox','character','rare','end-of-year'),
+  ('staff-party-knox','character','rare','end-of-year'),
+  ('golden-doctor-knox','character','rare','legendary'), ('golden-beer-frog-knox','character','rare','legendary'),
+  ('golden-elephant-seal-knox','character','rare','legendary'), ('golden-leopard-seal-knox','character','rare','legendary'),
+  ('golden-emeritus-knox','character','rare','legendary');
 
 -- ---------------------------------------------------------------- players
 create table public.profiles (
@@ -215,14 +235,17 @@ end $$;
 create function public.open_pack(p_pack text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare uid uuid := auth.uid(); result jsonb := '[]'; i int; total int; roll int; pick text;
-        cid text; is_foil boolean; cap int; pts int; owned int;
+        cid text; is_foil boolean; cap int; pts int; owned int; pk packs;
 begin
-  if not exists (select 1 from packs where id = p_pack and active) then raise exception 'That pack isn''t available'; end if;
+  select * into pk from packs where id = p_pack and active;
+  if pk.id is null then raise exception 'That pack isn''t available'; end if;
+  if pk.valid_until is not null and now() > pk.valid_until then raise exception '% is no longer available', pk.name; end if;
   select coalesce(sum(weight), 0) into total from pack_odds where pack_id = p_pack;
   if total <= 0 then raise exception 'That pack has no odds set'; end if;
   -- Use a pack of this exact type if they have one (given by an admin), otherwise an any-type pack.
   update pack_stock set qty = qty - 1 where user_id = uid and pack_id = p_pack and qty > 0;
   if not found then
+    if not pk.open_with_any then raise exception '% can only be opened with a pack of that exact type', pk.name; end if;
     update profiles set packs = packs - 1 where id = uid and packs > 0;
     if not found then raise exception 'No packs to open'; end if;
   end if;

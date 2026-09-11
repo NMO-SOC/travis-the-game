@@ -84,7 +84,12 @@ A.stock = {};
 A.anyPacks = function(){ return A.profile ? A.profile.packs : 0; };
 A.typedPacks = function(id){ return A.stock[id] || 0; };
 A.totalPacks = function(){ var n = A.anyPacks(); for(var k in A.stock) n += A.stock[k]; return n; };
-A.canOpen = function(id){ return A.typedPacks(id) > 0 || A.anyPacks() > 0; };
+A.isExpired = function(id){ var p = A.packs.filter(function(x){ return x.id===id; })[0]; return !!(p && p.validUntil && new Date(p.validUntil) < new Date()); };
+A.canOpen = function(id){
+  if(A.isExpired(id)) return false;
+  var p = A.packs.filter(function(x){ return x.id===id; })[0];
+  return A.typedPacks(id) > 0 || (A.anyPacks() > 0 && (!p || p.openWithAny));
+};
 A.refresh = async function(){ if(A.user){ await A.load(); changed(); } };
 
 /* ---------------- ownership ---------------- */
@@ -98,13 +103,16 @@ A.price = function(c, foil){ return foil ? 15 : c.set==='base' ? 0 : chars.index
 A.canBuy = function(c, foil){
   if(!A.profile) return false;
   if(foil) return c.set==='base' && chars.indexOf(c)>=0 && !A.ownsFoil(c.id);
-  if(c.set==='base') return false;
+  if(c.set==='base' || c.set==='legendary') return false;   // legendary is pull- or gift-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 
 /* ---------------- packs ----------------
    Pack names and odds come from the database (packs, pack_odds) so the odds shown are the odds used.
-   A.packs: [{id, name, blurb, odds:{starter, common, rare, foil} as fractions}], or [] if not set up yet. */
+   A.packs: [{id, name, blurb, odds, openWithAny, validUntil}], or [] if not set up yet.
+   openWithAny false = admin-gift only (Holo, Legendary): an any-type pack can't open it, only a
+   matching specific pack (from A.stock) can. validUntil, when set, is when a limited pack stops
+   being openable (e.g. End of Year) — columns added by upgrade-6; missing gracefully as true/null. */
 A.packs = [];
 A.loadPacks = async function(){
   try{
@@ -113,7 +121,7 @@ A.loadPacks = async function(){
     A.packs = (r[0]||[]).map(function(p){
       var rows = (r[1]||[]).filter(function(o){ return o.pack_id===p.id; }), total = rows.reduce(function(s,o){ return s+o.weight; }, 0), odds = {};
       rows.forEach(function(o){ odds[o.slot] = total ? o.weight/total : 0; });
-      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds};
+      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null};
     });
   }catch(e){ A.packs = []; }
 };

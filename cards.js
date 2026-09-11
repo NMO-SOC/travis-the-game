@@ -37,7 +37,14 @@ photo:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" 
 bus:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="14" width="48" height="30" rx="4"/><path d="M8 26h48M22 14v12M40 14v12"/><circle cx="20" cy="50" r="4"/><circle cx="44" cy="50" r="4"/></svg>',
 hseal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 42c0-13 6-24 14-24s14 11 14 24"/><circle cx="26" cy="28" r="1.9" fill="#0B2545" stroke="none"/><circle cx="38" cy="28" r="1.9" fill="#0B2545" stroke="none"/><path d="M29 34c2 2 4 2 6 0"/><path d="M24 33l-9-2M24 36l-9 1M40 33l9-2M40 36l9 1"/><path d="M4 44c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/><path d="M4 54c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/></svg>',
 pool:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="10" width="48" height="44" rx="3"/><path d="M8 25h48M8 39h48" stroke-dasharray="3 4"/><path d="M14 18c4-3 8 3 12 0s8 3 12 0"/><circle cx="44" cy="17" r="3"/><path d="M14 47c4-3 8 3 12 0s8 3 12 0 8 3 12 0"/></svg>',
-lectern:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 24h32l-5 9H21z"/><path d="M27 33v21M37 33v21M20 56h24"/><path d="M40 24v-9"/><rect x="37" y="7" width="6" height="9" rx="3"/><path d="M8 14l5 3M8 24h5M56 14l-5 3"/></svg>'
+lectern:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 24h32l-5 9H21z"/><path d="M27 33v21M37 33v21M20 56h24"/><path d="M40 24v-9"/><rect x="37" y="7" width="6" height="9" rx="3"/><path d="M8 14l5 3M8 24h5M56 14l-5 3"/></svg>',
+furseal:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20c-2-6 1-10 5-10s6 4 5 9M41 19c-1-5 1-9 5-9s7 4 5 10"/><path d="M14 26c0-9 8-16 18-16s18 7 18 16c0 12-8 20-18 20S14 38 14 26z"/><circle cx="24" cy="24" r="1.9" fill="#0B2545" stroke="none"/><circle cx="40" cy="24" r="1.9" fill="#0B2545" stroke="none"/><path d="M29 30c2 2 4 2 6 0"/><path d="M8 48c6-3 10-3 14 0s10 3 14 0 10-3 14 0"/></svg>',
+weddell:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="32" cy="46" rx="22" ry="9"/><circle cx="32" cy="46" r="9" fill="#0B2545" fill-opacity=".08"/><path d="M26 22c0-6 3-10 6-10s6 4 6 10c0 8-3 20-6 24-3-4-6-16-6-24z"/><circle cx="29" cy="22" r="1.7" fill="#0B2545" stroke="none"/><circle cx="35" cy="22" r="1.7" fill="#0B2545" stroke="none"/><path d="M29 28c1.5 1.4 3.5 1.4 5 0"/></svg>',
+sealion:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 54c-6-10-6-24 2-34 6-8 16-10 22-4 5 5 4 13-2 15"/><path d="M42 31c5 1 9 5 8 11-1 5-6 8-11 6"/><circle cx="24" cy="22" r="1.9" fill="#0B2545" stroke="none"/><path d="M18 24c-3 1-5 0-6-1M18 27c-3 2-5 2-7 1"/><path d="M22 28c3 2 6 2 8-1"/></svg>',
+vessel:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40h48l-6 14H14z"/><path d="M14 40V24h8v16M28 40V18h10v22"/><path d="M32 18V8M32 8l10 5-10 3"/><path d="M4 48c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/></svg>',
+grad:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 14L6 24l26 10 26-10z"/><path d="M18 29v12c0 4 7 8 14 8s14-4 14-8V29"/><path d="M56 24v16"/><path d="M32 42v14M28 56h8"/></svg>',
+yearbook:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="10" width="40" height="46" rx="2"/><path d="M12 16h40M22 10v10l4-3 4 3V10"/><path d="M20 32h24M20 40h24M20 48h16"/></svg>',
+party:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 54L36 28c6-6 6-14 0-18s-14 0-18 6L10 24"/><path d="M22 34l8 8M28 26l10 10"/><circle cx="14" cy="14" r="2" fill="#5F8F35" stroke="none"/><circle cx="52" cy="20" r="2" fill="#5F8F35" stroke="none"/><circle cx="46" cy="10" r="2" fill="#5F8F35" stroke="none"/><path d="M8 58l4-8 8 4z" fill="#5F8F35" fill-opacity=".25"/></svg>'
 };
 
 /* an = Power name, a = Power text (once per game). */
@@ -64,7 +71,22 @@ var chars=[
  {n:"Conference Knox",r:"Keynote Speaker",i:"lectern",hp:21,atk:4,spd:4,an:"Keynote",a:"Reveal every face-down enemy, then deal 1 damage to every enemy.",f:"Forty slides. Thirty-nine about seals.",set:"term-one"},
  {n:"Yard Duty Knox",r:"Lunchtime Patrol",i:"whistle",hp:24,atk:3,spd:4,an:"Whistle",a:"Remove the Shield from every enemy, then deal 2 damage to one enemy.",f:"Sees the handball court. Sees everything.",set:"socs-favourite"},
  {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"socs-favourite"},
- {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"socs-favourite"}
+ {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"socs-favourite"},
+ /* Field Season pack. */
+ {n:"Fur Seal Knox",r:"Sub-Antarctic Specialist",i:"furseal",hp:19,atk:4,spd:6,an:"Territorial Bark",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Louder than the whole rookery combined.",set:"field-season"},
+ {n:"Weddell Seal Knox",r:"Ice Hole Sentinel",i:"weddell",hp:25,atk:3,spd:3,an:"Breathing Hole",a:"This character gets a Shield and heals 3 HP.",f:"Files the ice hole under &ldquo;mine.&rdquo;",set:"field-season"},
+ {n:"Sea Lion Knox",r:"Colony Enforcer",i:"sealion",hp:20,atk:5,spd:5,an:"Beach Charge",a:"Attack one enemy for double damage.",f:"The whole colony moves when he does.",set:"field-season"},
+ {n:"Research Vessel Knox",r:"Southern Ocean Transit",i:"vessel",hp:23,atk:4,spd:4,an:"All Hands",a:"Every character on your team heals 2 HP.",f:"Six weeks at sea. Forty thousand photos of seals.",set:"field-season"},
+ /* End of Year pack. Limited: only while packs.valid_until hasn't passed. */
+ {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:18,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year"},
+ {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year"},
+ {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year"},
+ /* Legendary pack. Gold editions of fan-favourite Knoxes — same stats and attacks as the original, just rarer and shinier. */
+ {n:"Golden Doctor Knox",r:"Legendary Edition",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"",f:"The four hundred pages, bound in gold.",set:"legendary",like:"doctor-knox",img:"images/legendary/doctor-knox.jpg"},
+ {n:"Golden Beer Frog Knox",r:"Legendary Edition",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"",f:"Legend. Menace. Frog. Now with a finish to match.",set:"legendary",like:"beer-frog-knox",img:"images/legendary/beer-frog-knox.jpg"},
+ {n:"Golden Elephant Seal Knox",r:"Legendary Edition",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"",f:"Two tonnes of disapproval, entirely in gold leaf.",set:"legendary",like:"elephant-seal-knox",img:"images/legendary/elephant-seal-knox.jpg"},
+ {n:"Golden Leopard Seal Knox",r:"Legendary Edition",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"",f:"Smiles like that for a reason. Glints, too.",set:"legendary",like:"leopard-seal-knox",img:"images/legendary/leopard-seal-knox.jpg"},
+ {n:"Golden Emeritus Knox",r:"Legendary Edition",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"",f:"Retired. Not finished. Now in gold.",set:"legendary",like:"emeritus-knox",img:"images/legendary/emeritus-knox.jpg"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -79,11 +101,17 @@ var acts=[
  {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player.",x:0,set:"term-one"},
  {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every ATK boost from one enemy.",x:0,set:"term-one"},
  {n:"Assembly",i:"mic",t:"Instant",a:"Heal every character on your team 2 HP.",x:0,set:"term-one"},
- {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"term-one"}
+ {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"term-one"},
+ /* Field Season pack. */
+ {n:"Tagging Dart",i:"dart",t:"Instant",a:"Deal 4 damage to one enemy.",x:0,set:"field-season"},
+ {n:"Fog Bank",i:"wave",t:"Instant",a:"Heal every character on your team 3 HP.",x:0,set:"field-season"}
 ];
 
 /* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
-var PACKS = [{id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'}];
+var PACKS = [
+  {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
+  {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'legendary', name:'Legendary'}
+];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
@@ -100,7 +128,10 @@ var SIG_FX = {
  'Field Researcher Knox':'stun', 'Fire Drill Knox':'draw', 'Elephant Seal Knox':'heal', 'Leopard Seal Knox':undefined,
  'Staff Meeting Knox':'heal', 'Parent-Teacher Knox':'heal', 'Tadpole Knox':undefined, 'Emeritus Knox':'recoil',
  'Harbour Seal Knox':'shield', 'Sports Carnival Knox':undefined, 'Conference Knox':'stun', 'Yard Duty Knox':'unshield',
- 'Swimming Carnival Knox':undefined, 'SOC&rsquo;s Got Talent Knox':undefined
+ 'Swimming Carnival Knox':undefined, 'SOC&rsquo;s Got Talent Knox':undefined,
+ 'Fur Seal Knox':'stun', 'Weddell Seal Knox':'shield', 'Sea Lion Knox':undefined, 'Research Vessel Knox':'heal',
+ 'Graduation Knox':'shield', 'Yearbook Knox':'stun', 'Staff Party Knox':'heal'
+ /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
  heal:function(n){ return 'Also heals this character '+n+' HP.'; },
@@ -119,4 +150,11 @@ chars.forEach(function(c){
     {n:c.an, dmg:sig, fx:fx, a:FX_TEXT[fx||'plain'](sigN)},
     {n:'Overdrive', dmg:over, fx:'recoil', a:FX_TEXT.recoil(overN)}
   ];
+});
+/* Golden (legendary) characters play identically to the original they're a gold edition of — only the
+   look and rarity differ — so their attacks are copied over rather than generated a second time. */
+chars.filter(function(c){ return c.like; }).forEach(function(c){
+  var orig = chars.filter(function(o){ return o.id===c.like || o.n===c.like; })[0];
+  if(!orig) return;
+  c.atks = orig.atks; c.a = orig.a;
 });

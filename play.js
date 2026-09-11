@@ -624,7 +624,8 @@ function charFace(c, o){
     return '<p class="mv"><b>'+mv.n+'</b><span class="mvdmg" title="Damage">'+mv.dmg+'</span><br><span class="fl">'+mv.a+'</span></p>';
   }).join('');
   return '<div class="face f-'+col+(o.foil?' foil':'')+'">'
-   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '')+'</div>'
+   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set==='legendary' ? '<span class="setmark legend" title="Legendary &mdash; admin gift only">Legendary</span>'
+     : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '')+'</div>'
    +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
@@ -998,7 +999,7 @@ function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {fo
 function pct(x){ var v = x*100; return (v>0 && v<1 ? '&lt;1' : Math.round(v))+'%'; }
 function packCards(id){ return chars.concat(acts).filter(function(c){ return c.set===id; }); }
 function packOption(pk, p){
-  var o = pk.odds, fresh = (o.rare||0)+(o.common||0), atLeastOne = 1-Math.pow(1-fresh, 3);
+  var o = pk.odds, fresh = (o.rare||0)+(o.common||0)+(o.foil||0), atLeastOne = 1-Math.pow(1-fresh, 3);
   var odds = [['Starter card', o.starter, '1 Grant Point, since you already have it'], ['New character', o.rare], ['New action card', o.common], ['Foil starter character', o.foil]]
     .filter(function(r){ return r[1]>0; })
     .map(function(r){ return '<li><span>'+r[0]+(r[2] ? ' <small>('+r[2]+')</small>' : '')+'</span><b>'+pct(r[1])+'</b></li>'; }).join('');
@@ -1006,11 +1007,18 @@ function packOption(pk, p){
     var have = chars.indexOf(c)>=0 ? ACC.qty(c.id,false)>0 : ACC.qty(c.id,false)>=3;
     return '<button class="pkcard'+(have?' have':'')+'" data-a="czoom" data-v="'+esc(chars.indexOf(c)>=0 ? 'c:'+chars.indexOf(c) : 'a:'+c.n)+'">'+c.n+(have?' <span aria-label="owned">&#10003;</span>':'')+'</button>';
   }).join('');
-  return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+esc(pk.name)+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
+  var expired = ACC.isExpired(pk.id), giftOnly = pk.openWithAny===false, have = ACC.typedPacks(pk.id);
+  var badge = giftOnly ? '<span class="pktag gift">Admin gift only</span>' : pk.validUntil ? '<span class="pktag limited">Limited</span>' : '';
+  var notice = expired ? '<p class="notice">This pack is no longer available.</p>'
+    : pk.validUntil ? '<p class="hint">Available until '+new Date(pk.validUntil).toLocaleDateString()+'.</p>'
+    : giftOnly && !have ? '<p class="hint">Given by the game admin &mdash; can&rsquo;t be opened with a regular pack.</p>' : '';
+  var btnLabel = expired ? 'No longer available' : M.busy ? 'Opening&hellip;' : 'Open '+esc(pk.name);
+  return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+esc(pk.name)+' '+badge+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
     +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
     +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
-    +(ACC.typedPacks(pk.id) ? '<p class="pkown">You have <b>'+ACC.typedPacks(pk.id)+'</b> '+esc(pk.name)+' pack'+(ACC.typedPacks(pk.id)===1?'':'s')+'. These open first.</p>' : '')
-    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open '+esc(pk.name))+'</button></div>';
+    + notice
+    +(have ? '<p class="pkown">You have <b>'+have+'</b> '+esc(pk.name)+' pack'+(have===1?'':'s')+'. These open first.</p>' : '')
+    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button></div>';
 }
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, body = '';
@@ -1053,7 +1061,7 @@ function collTile(c, foil){
   var isChar = chars.indexOf(c)>=0, owned, label;
   if(foil){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil'; }
   else if(c.set==='base'){ owned = true; label = isChar ? 'Starter card' : '3 in every deck'; }
-  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : 'Pack card'; }
+  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : c.set==='legendary' ? 'Admin gift only' : 'Pack card'; }
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
   var price = ACC.price(c, foil), buy = ACC.canBuy(c, foil)
     ? '<button class="btn sm buy" data-a="buy" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(ACC.profile.grant_points>=price&&!M.busy?'':' disabled')+'>Buy &middot; '+price+' GP</button>' : '';

@@ -85,6 +85,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 /* rare (pack) characters get a small badge next to their name */
 .setmark{flex:none;font-family:var(--title);font-weight:900;font-size:3.2cqw;letter-spacing:.1em;text-transform:uppercase;
   color:#3a1a02;background:linear-gradient(100deg,#fff6cf,#e9c86c 45%,#b3862f);border-radius:1cqw;padding:.5cqw 2.2cqw;box-shadow:0 .25cqw 0 rgba(0,0,0,.4)}
+.setmark.legend{background:linear-gradient(100deg,#fff9e0,#f0cd6c 40%,#8a6516 80%,#3d2f16);box-shadow:0 .25cqw 0 rgba(0,0,0,.4),0 0 1.4cqw rgba(240,205,108,.7)}
 /* holographic foil: a shifting rainbow sheen over the whole card, plus extra-bright art */
 .face.foil{position:relative}
 .face.foil::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;mix-blend-mode:color-dodge;opacity:.55;border-radius:inherit;
@@ -511,6 +512,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 .packopt{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:14px;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(214,178,90,.3)}
 .pkhead{display:flex;gap:14px;align-items:center}
 .pkhead h3{margin:0 0 4px;font-family:var(--title);font-size:19px;color:var(--gold-2)}
+.pktag{font-family:var(--body);font-weight:600;font-size:11px;letter-spacing:.04em;padding:2px 8px;border-radius:10px;vertical-align:middle}
+.pktag.gift{color:#3a1a02;background:linear-gradient(100deg,#fff6cf,#e9c86c)}
+.pktag.limited{color:#ffd9a0;background:rgba(224,72,58,.18);border:1px solid rgba(224,72,58,.5)}
 .pkhead p{margin:0;font-size:14px;color:var(--ink-soft)}
 .card.pack.sm{--cw:62px;flex:none;box-shadow:1px 1px 0 #000,3px 3px 0 #3a230e,5px 5px 0 #000,0 8px 14px rgba(0,0,0,.5)}
 .pkchance{margin:0;font-size:15px;color:var(--ink)}
