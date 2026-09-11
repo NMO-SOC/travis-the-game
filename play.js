@@ -409,11 +409,17 @@ async function humanTurn(t){
     }
   }
 }
-/* Difficulty just tunes how sharp the CPU's decisions are: how much randomness gets mixed into its
-   scoring, how eager it is to spend action cards, and (on Easy) how often it ignores its plan and
-   fumbles a random move instead. */
-function diffNoise(){ return CFG.diff==='easy' ? 3.5 : CFG.diff==='hard' ? 0.3 : 1.5; }
-function cardThreshold(base){ return base + (CFG.diff==='easy' ? 1.6 : CFG.diff==='hard' ? -1.2 : 0); }
+/* Difficulty only tunes how sharp the CPU's decisions are. noise: randomness mixed into its scoring.
+   fumble: chance it ignores its plan and swings a random move at a random target. cards: how reluctant
+   it is to spend action cards (added to the score a card must beat). */
+var DIFF = {
+  easy:   {noise:7,   fumble:0.55, cards:3},
+  medium: {noise:3.5, fumble:0.25, cards:1.2},
+  hard:   {noise:1.5, fumble:0.08, cards:0}
+};
+function diffCfg(){ return DIFF[CFG.diff] || DIFF.medium; }
+function diffNoise(){ return diffCfg().noise; }
+function cardThreshold(base){ return base + diffCfg().cards; }
 async function cpuCard(t, threshold){
   if(G.cardPlayed) return;
   var bi = -1, bs = cardThreshold(threshold);
@@ -447,13 +453,13 @@ function movePlan(u){
   });
   return top;
 }
-/* On Easy, the CPU occasionally ignores its own plan and just swings with a random move at a random target. */
+/* A fumble: the CPU ignores its own plan and just swings a random move at a random target. */
 function fumblePlan(u){
   var mv = u.c.atks[Math.floor(rand()*u.c.atks.length)], list = foes(u);
   return {i:0, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
 }
 function cpuPlan(u){
-  var mp = CFG.diff==='easy' && rand()<0.3 ? fumblePlan(u) : movePlan(u);
+  var mp = rand()<diffCfg().fumble ? fumblePlan(u) : movePlan(u);
   return {u:u, mv:mp, score:mp.score+rand()*diffNoise()};
 }
 async function cpuTurn(t){
@@ -610,6 +616,7 @@ var COLOR = {
 };
 var root = null;
 function art(k){ return (S[k]||'').replace(/#(0B2545|5F8F35|1D4E89)/g, 'currentColor'); }
+function packName(id){ var p = PACKS.filter(function(x){ return x.id===id; })[0]; return p ? p.name : 'a'; }
 function charFace(c, o){
   o = o || {};
   var col = COLOR[c.id] || 'blue';
@@ -617,7 +624,7 @@ function charFace(c, o){
     return '<p class="mv"><b>'+mv.n+'</b><span class="mvdmg" title="Damage">'+mv.dmg+'</span><br><span class="fl">'+mv.a+'</span></p>';
   }).join('');
   return '<div class="face f-'+col+(o.foil?' foil':'')+'">'
-   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set!=='base' ? '<span class="setmark" title="Rare &mdash; found in packs">Rare</span>' : '')+'</div>'
+   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '')+'</div>'
    +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
@@ -710,7 +717,7 @@ function statusLine(){
   if(myTurn()){
     var u = G.cur, cards = !G.cardPlayed && G.hands[G.turnOf].some(function(c){ return canPlayNow(c); });
     if(G.acted) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
-    if(!u) return '<b>Your turn.</b> Tap one of your <b>glowing characters</b> to choose who acts.'+(cards?' Or tap a card in your hand to play it.':'');
+    if(!u) return '<b>Your turn.</b> Tap one of your <b>glowing characters</b> to choose who acts.'+(cards?' Or tap a card in your hand to read it, then tap it again to play it.':'');
     return nm(u)+' is chosen. <b>Choose an attack</b> below.';
   }
   if(G.turnOf!=null && isCPU(G.turnOf)) return (G.cur ? nm(G.cur)+' acts' : pname(G.turnOf)+' is choosing')+' <span class="muted">&hellip;</span>';
@@ -779,7 +786,7 @@ function zoomBlock(){
       html = '<div class="card big">'+actFace(c.n)+'</div>';
       btn = canPlayNow(c) ? '<button class="btn gold big" data-a="play" data-v="'+c.uid+'">Play this card</button>'
                           : '<button class="btn big" disabled>Can&rsquo;t play right now</button>';
-      cap = canPlayNow(c) ? '' : '<span class="why">'+cardReason(c)+'</span>';
+      cap = canPlayNow(c) ? 'Tap the card in your hand again, or press Play.' : '<span class="why">'+cardReason(c)+'</span>';
     }
   } else if(z && z.k==='ci'){
     html = '<div class="card big">'+charFace(chars[z.ci], {foil:z.foil})+'</div>';
@@ -916,7 +923,7 @@ function renderMenu(){
    + o('mode','online','Online','A colleague, live')
    +'</div></div>'
    +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
-     + o('diff','easy','Easy','Makes mistakes') + o('diff','medium','Medium','Plays it straight') + o('diff','hard','Hard','Rarely misplays')
+     + o('diff','easy','Easy','Very forgiving') + o('diff','medium','Medium','Makes mistakes') + o('diff','hard','Hard','A fair fight')
      +'</div></div>' : '')
    + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
@@ -987,30 +994,49 @@ function submitAuth(){
 
 /* ---- packs ---- */
 function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil}) : actFace(x.card.n); }
+function pct(x){ var v = x*100; return (v>0 && v<1 ? '&lt;1' : Math.round(v))+'%'; }
+function packCards(id){ return chars.concat(acts).filter(function(c){ return c.set===id; }); }
+function packOption(pk, p){
+  var o = pk.odds, fresh = (o.rare||0)+(o.common||0), atLeastOne = 1-Math.pow(1-fresh, 3);
+  var odds = [['Starter card', o.starter, '1 Grant Point, since you already have it'], ['New character', o.rare], ['New action card', o.common], ['Foil starter character', o.foil]]
+    .filter(function(r){ return r[1]>0; })
+    .map(function(r){ return '<li><span>'+r[0]+(r[2] ? ' <small>('+r[2]+')</small>' : '')+'</span><b>'+pct(r[1])+'</b></li>'; }).join('');
+  var inside = packCards(pk.id).map(function(c){
+    var have = chars.indexOf(c)>=0 ? ACC.qty(c.id,false)>0 : ACC.qty(c.id,false)>=3;
+    return '<button class="pkcard'+(have?' have':'')+'" data-a="czoom" data-v="'+esc(chars.indexOf(c)>=0 ? 'c:'+chars.indexOf(c) : 'a:'+c.n)+'">'+c.n+(have?' <span aria-label="owned">&#10003;</span>':'')+'</button>';
+  }).join('');
+  return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+esc(pk.name)+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
+    +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
+    +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
+    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(p.packs&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open '+esc(pk.name))+'</button></div>';
+}
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, body = '';
   if(r){
-    body = '<div class="reveal">'+r.cards.map(function(x,i){
+    body = '<p class="revealof">'+esc(r.pack)+'</p><div class="reveal">'+r.cards.map(function(x,i){
       var up = r.shown[i], f = fxFor('rv'+i);
-      var tag = !up ? '' : x.dupe ? '<span class="rtag dupe">Duplicate &middot; +'+x.points+' Grant Points</span>'
+      var tag = !up ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
+        : x.dupe ? '<span class="rtag dupe">Duplicate &middot; +'+x.points+' Grant Points</span>'
         : '<span class="rtag new">'+(x.foil?'New foil!':'New!')+'</span>';
       return '<div class="rslot"><button class="card rcard'+(up?' up':'')+(x.foil&&up?' shine':'')+f.cls+'" style="'+f.style+'" data-a="rv" data-v="'+i+'" aria-label="'+(up?x.card.n:'Face-down card')+'">'+(up?packCardFace(x):backFace())+'</button>'+tag+'</div>';
     }).join('')+'</div>'
     +'<div class="row">'+(r.shown.every(Boolean) ? '<button class="btn gold" data-a="rvdone">Done</button>' : '<button class="btn" data-a="rvall">Reveal all</button>')+'</div>';
+  } else if(!ACC.packs.length){
+    body = '<p class="notice">Packs aren&rsquo;t set up yet. The game admin needs to run <code>supabase/upgrade-2-packs.sql</code> in Supabase.</p>';
   } else {
-    body = '<div class="packstack'+(p.packs?'':' empty')+'"><div class="card pack">'+backFace()+'<span class="packn">'+p.packs+'</span></div></div>'
-      +'<div class="row"><button class="btn gold big" data-a="packopen"'+(p.packs&&!M.busy?'':' disabled')+'>'+(M.busy?'Opening&hellip;':'Open a pack')+'</button></div>';
+    body = '<div class="packopts">'+ACC.packs.map(function(pk){ return packOption(pk, p); }).join('')+'</div>';
   }
-  return pageTop('Packs')+'<div class="panel-pg">'
-    +'<div class="statline"><span><b>'+p.packs+'</b> unopened</span><span><b>'+p.grant_points+'</b> Grant Points</span></div>'
+  return pageTop('Packs')+'<div class="panel-pg wide">'
+    +'<div class="statline"><span><b>'+p.packs+'</b> unopened pack'+(p.packs===1?'':'s')+'</span><span><b>'+p.grant_points+'</b> Grant Points</span></div>'
     + msgs() + body
-    +'<ul class="how small"><li>Each pack holds three cards: two action cards and one new character or foil.</li><li>Win a game against the CPU or online for a pack (up to five a day).</li><li>Cards you can&rsquo;t use more of become Grant Points. Spend them in your <button class="lnk" data-a="go" data-v="collection">Collection</button>.</li></ul>'
+    +'<ul class="how small"><li>Win a game against the CPU or online for a pack (up to five a day). You choose which pack to open.</li><li>Cards you can&rsquo;t use more of, and starter cards, become Grant Points. Spend them in your <button class="lnk" data-a="go" data-v="collection">Collection</button> to buy the exact card you want.</li></ul>'
     +'</div></div>';
 }
-function openPack(){
+function openPack(packId){
+  var pk = ACC.packs.filter(function(x){ return x.id===packId; })[0];
   busy(async function(){
-    var cards = await ACC.openPack();
-    M.reveal = {cards:cards, shown:cards.map(function(){ return false; })};
+    var cards = await ACC.openPack(packId);
+    M.reveal = {pack:pk ? pk.name : '', cards:cards, shown:cards.map(function(){ return false; })};
     cards.forEach(function(_,i){ fxc('rv'+i, 'dealt', 650, i*180); });
   });
 }
@@ -1024,7 +1050,7 @@ function flipReveal(i){
 function collTile(c, foil){
   var isChar = chars.indexOf(c)>=0, owned, label;
   if(foil){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil'; }
-  else if(c.set==='base'){ owned = true; label = isChar ? 'Base card' : '3 in every deck'; }
+  else if(c.set==='base'){ owned = true; label = isChar ? 'Starter card' : '3 in every deck'; }
   else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : 'Pack card'; }
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
   var price = ACC.price(c, foil), buy = ACC.canBuy(c, foil)
@@ -1034,17 +1060,19 @@ function collTile(c, foil){
   return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+esc(c.n)+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+'</div>';
 }
 function renderCollection(){
-  var packChars = chars.filter(function(c){ return c.set!=='base'; }), baseChars = chars.filter(function(c){ return c.set==='base'; });
-  var packActs = acts.filter(function(a){ return a.set!=='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
+  var baseChars = chars.filter(function(c){ return c.set==='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
   var grid = function(list, foil){ return '<div class="grid">'+list.map(function(c){ return collTile(c, foil); }).join('')+'</div>'; };
+  var packs = PACKS.map(function(pk){
+    var list = packCards(pk.id), have = list.filter(function(c){ return ACC.qty(c.id,false)>0; }).length;
+    return '<h3 class="sec">'+pk.name+' pack <span class="count'+(have===list.length?' ok':'')+'">'+have+' / '+list.length+' collected</span></h3>'+grid(list);
+  }).join('');
   return pageTop('Collection')+'<div class="panel-pg wide">'
     +'<div class="statline"><span><b>'+ACC.profile.grant_points+'</b> Grant Points</span><span>Commons 8 &middot; Foils 15 &middot; New characters 20</span></div>'
     + msgs()
-    +'<h3 class="sec">New characters</h3>'+grid(packChars)
-    +'<h3 class="sec">New action cards</h3>'+grid(packActs)
+    + packs
     +'<h3 class="sec">Foils</h3><p class="hint">Foils play exactly like the normal card. They just shine.</p>'+grid(baseChars, true)
-    +'<h3 class="sec">Base characters</h3>'+grid(baseChars)
-    +'<h3 class="sec">Base action cards</h3>'+grid(baseActs)
+    +'<h3 class="sec">Starter characters</h3>'+grid(baseChars)
+    +'<h3 class="sec">Starter action cards</h3>'+grid(baseActs)
     +'</div></div>';
 }
 
@@ -1264,6 +1292,23 @@ function selectPlayer(name){
     if(M.admin===d && d.sel===name){ d.player = {state:'ok', collection:(p&&p.collection)||[], games:(p&&p.games)||[]}; render(); }
   }, function(e){ if(M.admin===d && d.sel===name){ d.player = {state:'error', msg:(e && e.message) || String(e)}; render(); } });
 }
+/* username null = every player */
+function giveRow(username){
+  var key = 'give_'+(username||'all'), val = M.form[key]!=null ? M.form[key] : '1';
+  return '<div class="formrow"><label>Give <input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(val)+'"> '
+    +(username ? 'pack(s) to <b>'+esc(username)+'</b>' : 'pack(s) to every player')+'</label>'
+    +'<button class="btn sm gold" data-a="givepacks" data-v="'+esc(username||'')+'" data-submit'+(M.busy?' disabled':'')+'>'+(username ? 'Give' : 'Give everyone')+'</button></div>';
+}
+function givePacks(username){
+  var n = parseInt(M.form['give_'+(username||'all')] || '1', 10), d = M.admin;
+  if(!(n>=1 && n<=100)){ M.note = ''; M.err = 'Give between 1 and 100 packs at a time.'; render(); return; }
+  if(!username && typeof confirm==='function' && !confirm('Give '+n+' pack'+(n===1?'':'s')+' to every player?')) return;
+  busy(async function(){
+    var got = await ACC.adminGivePacks(username, n);
+    if(d && d.overview) d.overview.forEach(function(u){ if(!username || u.username===username) u.packs += n; });
+    M.note = 'Gave '+n+' pack'+(n===1?'':'s')+' to '+(username ? username : got+' player'+(got===1?'':'s'))+'.';
+  });
+}
 function kpi(label, value, sub){ return '<div class="kpi"><span class="kl">'+label+'</span><b class="kv">'+value+'</b><span class="ks">'+sub+'</span></div>'; }
 function playerDetail(u, d){
   var p = d.player || {state:'loading'};
@@ -1280,9 +1325,9 @@ function playerDetail(u, d){
       : '<p class="muted">No pack cards yet.</p>';
     var dl = decks.length ? '<ul class="glist">'+decks.map(function(k){ return '<li><span><b>'+esc(k.deck_name)+'</b> &mdash; '+charNames(k.characters)+'</span><time>'+ago(k.updated_at)+'</time></li>'; }).join('')+'</ul>'
       : '<p class="muted">No saved decks.</p>';
-    body = '<div class="dgrid"><div><h4>Recent games</h4>'+games+'</div><div><h4>Pack cards owned</h4>'+coll+'<p class="hint">Plus every base card.</p><h4>Decks</h4>'+dl+'</div></div>';
+    body = '<div class="dgrid"><div><h4>Recent games</h4>'+games+'</div><div><h4>Pack cards owned</h4>'+coll+'<p class="hint">Plus every starter card.</p><h4>Decks</h4>'+dl+'</div></div>';
   }
-  return '<tr class="detail"><td colspan="8">'+facts+body+'</td></tr>';
+  return '<tr class="detail"><td colspan="8">'+giveRow(u.username)+facts+body+'</td></tr>';
 }
 function renderAdmin(){
   if(!ACC.profile.is_admin) return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>';
@@ -1323,7 +1368,7 @@ function renderAdmin(){
   var feed = d.stale ? '' : '<h3 class="sec">Latest games</h3>'+(d.games.length
     ? '<ul class="glist feed">'+d.games.map(function(g){ return '<li><span><b>'+esc(g.username)+'</b> '+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
     : '<p class="muted">No games recorded yet. They appear here as soon as a signed-in player finishes or quits a game against the CPU or online.</p>');
-  return top+head+notice+kpis+table+feed+'</div></div>';
+  return top+head+msgs()+notice+kpis+'<div class="giveall">'+giveRow(null)+'</div>'+table+feed+'</div></div>';
 }
 
 function renderMeta(){
@@ -1411,12 +1456,13 @@ function onClick(e){
       if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
       break;
     case 'adminrefresh': loadAdmin(); break;
+    case 'givepacks': givePacks(v || null); break;
     case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; }); break;
     case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
-    case 'packopen': openPack(); break;
+    case 'packopen': openPack(v); break;
     case 'rv': flipReveal(+v); break;
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;
@@ -1472,8 +1518,9 @@ function onClick(e){
     case 'hand': {
       var uid = +v, h = G.hands[viewer()], i = h.map(function(c){ return c.uid; }).indexOf(uid);
       if(i<0) break;
-      if(canPlayNow(h[i])){ G.sel=null; G.zoomOpen=false; w.res({t:'card', i:i}); }
-      else { G.sel = uid; G.zoom = {k:'c', uid:uid}; G.zoomOpen = true; render(); }
+      // First tap opens the card so it can be read; tapping the same card again plays it.
+      if(G.sel===uid && canPlayNow(h[i])){ G.sel=null; G.zoomOpen=false; w.res({t:'card', i:i}); break; }
+      G.sel = uid; G.zoom = {k:'c', uid:uid}; G.zoomOpen = true; render();
       break;
     }
     case 'play': {
@@ -1495,7 +1542,7 @@ function onClick(e){
 function onInput(e){ var t = e.target; if(t && t.name) M.form[t.name] = t.value; }
 function onKey(e){
   if(e.key!=='Enter' || !e.target || e.target.tagName!=='INPUT') return;
-  var b = root.querySelector('[data-submit]');
+  var row = e.target.closest('.formrow'), b = (row || root).querySelector('[data-submit]');
   if(b && !b.disabled){ e.preventDefault(); b.click(); }
 }
 

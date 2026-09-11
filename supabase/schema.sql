@@ -10,6 +10,7 @@ drop function if exists public.username_available(text) cascade;
 drop function if exists public.claim_daily() cascade;
 drop function if exists public.record_win() cascade;
 drop function if exists public.open_pack() cascade;
+drop function if exists public.open_pack(text) cascade;
 drop function if exists public.buy_card(text, boolean) cascade;
 drop function if exists public.check_deck() cascade;
 drop function if exists public.admin_overview() cascade;
@@ -18,31 +19,65 @@ drop function if exists public.admin_games(int) cascade;
 drop function if exists public.admin_player(text) cascade;
 drop function if exists public.log_game(text, text, int, text, int, int, text, text) cascade;
 drop function if exists public.touch_seen() cascade;
+drop function if exists public.admin_give_packs(text, int) cascade;
 drop table if exists public.games cascade;
 drop table if exists public.decks cascade;
 drop table if exists public.collection cascade;
 drop table if exists public.profiles cascade;
 drop table if exists public.cards cascade;
+drop table if exists public.pack_odds cascade;
+drop table if exists public.packs cascade;
+
+-- ---------------------------------------------------------------- packs and their odds
+create table public.packs (
+  id     text primary key,
+  name   text not null,
+  blurb  text not null default '',
+  sort   int  not null default 0,
+  active boolean not null default true
+);
+-- Each of the 3 cards in a pack is rolled separately. A slot's chance = its weight / the pack's total.
+--   starter = a starter card (everyone already owns these, so it becomes 1 Grant Point)
+--   common  = a new action card from this pack      rare = a new character from this pack
+--   foil    = a foil of a starter character
+-- Tune later with e.g.: update public.pack_odds set weight = 30 where pack_id = 'socs-favourite' and slot = 'rare';
+create table public.pack_odds (
+  pack_id text not null references public.packs(id) on delete cascade,
+  slot    text not null check (slot in ('starter','common','rare','foil')),
+  weight  int  not null check (weight >= 0),
+  primary key (pack_id, slot)
+);
+insert into public.packs (id, name, blurb, sort) values
+  ('term-one',       'Term One',        'Carnivals, conferences and five new action cards.', 1),
+  ('socs-favourite', 'SOC’s Favourite', 'Four fan-favourite Knoxes. No new action cards, better odds of a new character.', 2);
+insert into public.pack_odds (pack_id, slot, weight) values
+  ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
+  ('socs-favourite', 'starter', 70), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 25), ('socs-favourite', 'foil', 5);
 
 -- ---------------------------------------------------------------- card catalogue
--- rarity: base = everyone owns it; common/rare = found in packs. Foils exist for every base character.
+-- rarity: base = a starter card everyone owns; common/rare = found in the pack named by pack_id.
+-- Foils exist for every starter character.
 create table public.cards (
-  id     text primary key,
-  kind   text not null check (kind in ('character','action')),
-  rarity text not null check (rarity in ('base','common','rare'))
+  id      text primary key,
+  kind    text not null check (kind in ('character','action')),
+  rarity  text not null check (rarity in ('base','common','rare')),
+  pack_id text references public.packs(id)
 );
-insert into public.cards (id, kind, rarity) values
-  ('doctor-knox','character','base'), ('director-knox','character','base'), ('blue-suit-knox','character','base'),
-  ('beer-frog-knox','character','base'), ('family-man-knox','character','base'), ('seal-whisperer-knox','character','base'),
-  ('mixtape-knox','character','base'), ('chaperone-knox','character','base'), ('field-researcher-knox','character','base'),
-  ('fire-drill-knox','character','base'), ('elephant-seal-knox','character','base'), ('leopard-seal-knox','character','base'),
-  ('staff-meeting-knox','character','base'), ('parent-teacher-knox','character','base'), ('tadpole-knox','character','base'),
-  ('emeritus-knox','character','base'),
-  ('harbour-seal-knox','character','rare'), ('sports-carnival-knox','character','rare'), ('conference-knox','character','rare'),
-  ('yard-duty-knox','character','rare'), ('swimming-carnival-knox','character','rare'), ('socs-got-talent-knox','character','rare'),
-  ('cat','action','base'), ('canteen','action','base'), ('excursion','action','base'), ('dlc','action','base'), ('detention','action','base'),
-  ('reports','action','common'), ('photo-day','action','common'), ('uniform-check','action','common'),
-  ('assembly','action','common'), ('low-tide','action','common');
+insert into public.cards (id, kind, rarity, pack_id) values
+  ('doctor-knox','character','base',null), ('director-knox','character','base',null), ('beer-frog-knox','character','base',null),
+  ('family-man-knox','character','base',null), ('seal-whisperer-knox','character','base',null), ('mixtape-knox','character','base',null),
+  ('chaperone-knox','character','base',null), ('field-researcher-knox','character','base',null), ('elephant-seal-knox','character','base',null),
+  ('leopard-seal-knox','character','base',null), ('staff-meeting-knox','character','base',null), ('tadpole-knox','character','base',null),
+  ('emeritus-knox','character','base',null),
+  ('harbour-seal-knox','character','rare','term-one'), ('sports-carnival-knox','character','rare','term-one'),
+  ('conference-knox','character','rare','term-one'), ('swimming-carnival-knox','character','rare','term-one'),
+  ('socs-got-talent-knox','character','rare','term-one'),
+  ('yard-duty-knox','character','rare','socs-favourite'), ('parent-teacher-knox','character','rare','socs-favourite'),
+  ('fire-drill-knox','character','rare','socs-favourite'), ('blue-suit-knox','character','rare','socs-favourite'),
+  ('cat','action','base',null), ('canteen','action','base',null), ('excursion','action','base',null), ('dlc','action','base',null),
+  ('detention','action','base',null),
+  ('reports','action','common','term-one'), ('photo-day','action','common','term-one'), ('uniform-check','action','common','term-one'),
+  ('assembly','action','common','term-one'), ('low-tide','action','common','term-one');
 
 -- ---------------------------------------------------------------- players
 create table public.profiles (
@@ -78,11 +113,15 @@ create table public.decks (
 
 -- ---------------------------------------------------------------- row-level security
 alter table public.cards      enable row level security;
+alter table public.packs      enable row level security;
+alter table public.pack_odds  enable row level security;
 alter table public.profiles   enable row level security;
 alter table public.collection enable row level security;
 alter table public.decks      enable row level security;
 
 create policy "cards are public"       on public.cards      for select using (true);
+create policy "packs are public"       on public.packs      for select using (true);
+create policy "pack odds are public"   on public.pack_odds  for select using (true);
 create policy "read own profile"       on public.profiles   for select to authenticated using (id = auth.uid());
 create policy "read own collection"    on public.collection for select to authenticated using (user_id = auth.uid());
 create policy "read own decks"         on public.decks      for select to authenticated using (user_id = auth.uid());
@@ -159,30 +198,47 @@ begin
   return true;
 end $$;
 
--- Three cards: two commons (new action cards), then a rare character (65%) or a foil base character (35%).
--- Anything beyond what a deck can use (3 of an action, 1 of a character or foil) becomes Grant Points.
-create function public.open_pack() returns jsonb
+-- Each of the 3 cards is rolled from the pack's odds (pack_odds). Anything beyond what a deck can use
+-- (3 of an action, 1 of a character or foil) becomes Grant Points; a starter card is worth 1.
+create function public.open_pack(p_pack text) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare uid uuid := auth.uid(); result jsonb := '[]'; i int; cid text; is_foil boolean; cap int; pts int; owned int;
+declare uid uuid := auth.uid(); result jsonb := '[]'; i int; total int; roll int; pick text;
+        cid text; is_foil boolean; cap int; pts int; owned int;
 begin
+  if not exists (select 1 from packs where id = p_pack and active) then raise exception 'That pack isn''t available'; end if;
+  select coalesce(sum(weight), 0) into total from pack_odds where pack_id = p_pack;
+  if total <= 0 then raise exception 'That pack has no odds set'; end if;
   update profiles set packs = packs - 1 where id = uid and packs > 0;
   if not found then raise exception 'No packs to open'; end if;
   for i in 1..3 loop
-    if i < 3 then
-      select id into cid from cards where rarity = 'common' order by random() limit 1; is_foil := false; cap := 3; pts := 2;
-    elsif random() < 0.65 then
-      select id into cid from cards where rarity = 'rare' order by random() limit 1; is_foil := false; cap := 1; pts := 5;
-    else
+    roll := floor(random() * total)::int;
+    select o.slot into pick from (
+      select slot, sum(weight) over (order by case slot when 'starter' then 1 when 'common' then 2 when 'rare' then 3 else 4 end) as upto
+      from pack_odds where pack_id = p_pack and weight > 0) o
+    where roll < o.upto order by o.upto limit 1;
+    cid := null; is_foil := false;
+    if pick = 'common' then
+      select id into cid from cards where pack_id = p_pack and rarity = 'common' order by random() limit 1; cap := 3; pts := 2;
+    elsif pick = 'rare' then
+      select id into cid from cards where pack_id = p_pack and rarity = 'rare' order by random() limit 1; cap := 1; pts := 5;
+    elsif pick = 'foil' then
       select id into cid from cards where rarity = 'base' and kind = 'character' order by random() limit 1; is_foil := true; cap := 1; pts := 5;
+    end if;
+    if cid is null then
+      -- A starter card (or a pack with nothing in the rolled slot): everyone owns these, so it's worth 1 Grant Point.
+      select id into cid from cards where rarity = 'base' order by random() limit 1;
+      update profiles set grant_points = grant_points + 1 where id = uid;
+      result := result || jsonb_build_object('id', cid, 'foil', false, 'dupe', true, 'starter', true, 'points', 1);
+      continue;
     end if;
     select coalesce(sum(qty), 0) into owned from collection where user_id = uid and card_id = cid and foil = is_foil;
     if owned >= cap then
       update profiles set grant_points = grant_points + pts where id = uid;
-      result := result || jsonb_build_object('id', cid, 'foil', is_foil, 'dupe', true, 'points', pts);
+      result := result || jsonb_build_object('id', cid, 'foil', is_foil, 'dupe', true, 'starter', false, 'points', pts);
     else
       insert into collection (user_id, card_id, foil, qty) values (uid, cid, is_foil, 1)
         on conflict (user_id, card_id, foil) do update set qty = collection.qty + 1;
-      result := result || jsonb_build_object('id', cid, 'foil', is_foil, 'dupe', false, 'points', 0);
+      result := result || jsonb_build_object('id', cid, 'foil', is_foil, 'dupe', false, 'starter', false, 'points', 0);
     end if;
   end loop;
   return result;
@@ -307,11 +363,30 @@ create function public.admin_decks() returns table(
   order by p.username, d.updated_at desc;
 $$;
 
+-- ---------------------------------------------------------------- admin: give packs
+-- Adds packs to one player (by username), or to every player when p_username is null. Admins only.
+create or replace function public.admin_give_packs(p_username text, p_count int) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not exists (select 1 from profiles me where me.id = auth.uid() and me.is_admin) then raise exception 'Admins only'; end if;
+  if p_count is null or p_count < 1 or p_count > 100 then raise exception 'Give between 1 and 100 packs at a time'; end if;
+  if p_username is null then
+    update profiles set packs = packs + p_count where packs >= 0;   -- every player (Supabase's API rejects an UPDATE with no WHERE)
+    get diagnostics n = row_count;
+  else
+    update profiles set packs = packs + p_count where username = lower(p_username);
+    get diagnostics n = row_count;
+    if n = 0 then raise exception 'No player called %', p_username; end if;
+  end if;
+  return n;
+end $$;
+
 -- ---------------------------------------------------------------- who may call what
 revoke all on function public.handle_new_user()           from public, anon, authenticated;
 revoke all on function public.check_deck()                from public, anon, authenticated;
 revoke all on function public.record_win()                from public, anon;
-revoke all on function public.open_pack()                 from public, anon;
+revoke all on function public.open_pack(text)             from public, anon;
 revoke all on function public.buy_card(text, boolean)     from public, anon;
 revoke all on function public.admin_overview()             from public, anon;
 revoke all on function public.admin_decks()                from public, anon;
@@ -321,7 +396,7 @@ revoke all on function public.touch_seen()                 from public, anon;
 revoke all on function public.log_game(text, text, int, text, int, int, text, text) from public, anon;
 grant execute on function public.username_available(text) to anon, authenticated;
 grant execute on function public.record_win()              to authenticated;
-grant execute on function public.open_pack()               to authenticated;
+grant execute on function public.open_pack(text)           to authenticated;
 grant execute on function public.buy_card(text, boolean)   to authenticated;
 grant execute on function public.admin_overview()          to authenticated;
 grant execute on function public.admin_decks()             to authenticated;
@@ -329,3 +404,5 @@ grant execute on function public.admin_games(int)          to authenticated;
 grant execute on function public.admin_player(text)        to authenticated;
 grant execute on function public.touch_seen()              to authenticated;
 grant execute on function public.log_game(text, text, int, text, int, int, text, text) to authenticated;
+revoke all on function public.admin_give_packs(text, int)   from public, anon;
+grant execute on function public.admin_give_packs(text, int) to authenticated;

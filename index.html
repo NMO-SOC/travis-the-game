@@ -190,7 +190,11 @@ const titleCard='<div class="card title"><div class="inner">'+S.seal.replace(/#0
  +'<p>Sixteen Travis Knoxes. Six per side. One kitchen table.<br>Made for Travis &mdash; go win something.</p></div></div>';
 
 const cards=[];
-const printChars=chars.filter(function(c){return c.set==='base';});
+/* The physical deck is always the original sixteen Knoxes. Online packs change who owns what, not what's printed. */
+const PRINTED_IDS=['doctor-knox','director-knox','blue-suit-knox','beer-frog-knox','family-man-knox','seal-whisperer-knox',
+ 'mixtape-knox','chaperone-knox','field-researcher-knox','fire-drill-knox','elephant-seal-knox','leopard-seal-knox',
+ 'staff-meeting-knox','parent-teacher-knox','tadpole-knox','emeritus-knox'];
+const printChars=PRINTED_IDS.map(function(id){return chars.filter(function(c){return c.id===id;})[0];});
 printChars.forEach(function(c,i){cards.push(charCard(c,i));});
 var n=0; var tot=acts.reduce(function(s,a){return s+a.x;},0);
 acts.forEach(function(a){for(var k=0;k<a.x;k++){n++;cards.push(actCard(a,n,tot));}});

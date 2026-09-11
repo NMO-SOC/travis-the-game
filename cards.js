@@ -44,27 +44,27 @@ lectern:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2
 var chars=[
  {n:"Doctor Knox",r:"Ph.D., Pinniped Sciences",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"Choose an enemy. It can&rsquo;t use its Power for the rest of the game.",f:"&ldquo;I have four hundred pages on seals and I will use them.&rdquo;"},
  {n:"Director Knox",r:"Middle School Command",i:"clip",hp:26,atk:4,spd:3,an:"See Me After Class",a:"Choose an enemy. It skips its next turn.",f:"The hallway goes quiet on its own."},
- {n:"Blue Suit Knox",r:"Formalwear Alignment",i:"suit",hp:15,atk:6,spd:6,an:"Cut of the Cloth",a:"This character gets +3 ATK for the rest of the game.",f:"Nobody has ever seen it wrinkled."},
+ {n:"Blue Suit Knox",r:"Formalwear Alignment",i:"suit",hp:15,atk:6,spd:6,an:"Cut of the Cloth",a:"This character gets +3 ATK for the rest of the game.",f:"Nobody has ever seen it wrinkled.",set:"socs-favourite"},
  {n:"Beer Frog Knox",r:"Beloved Household Amphibian",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"Deal 2 damage to every enemy.",f:"Legend. Menace. Frog."},
  {n:"Family Man Knox",r:"Dad to Huddy &amp; Charlotte",i:"family",hp:20,atk:4,spd:6,an:"Huddy &amp; Charlotte",a:"Heal every character on your team 4 HP.",f:"Outnumbered at home. Undefeated anyway."},
  {n:"Seal Whisperer Knox",r:"Haul-Out Field Contact",i:"wave",hp:23,atk:4,spd:5,an:"Blubber Layer",a:"Give every character on your team a Shield.",f:"Counted 212 harbor seals before breakfast."},
  {n:"Mixtape Knox",r:"Gift of the Co-Workers",i:"cd",hp:22,atk:3,spd:6,an:"Track Seven",a:"Deal 5 damage to one enemy.",f:"Burned with love. Track 7 is the one."},
  {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Six Inches of Daylight",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Leave room for the Journal of Marine Biology."},
  {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy. It skips its next turn.",f:"Tag 041 has been recaptured four times. Rude."},
- {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"Draw 2 action cards.",f:"Line up. Outside voices outside."},
+ {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"Draw 2 action cards.",f:"Line up. Outside voices outside.",set:"socs-favourite"},
  {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"Heal this character back to full HP.",f:"Two tonnes of disapproval. Mostly nose."},
  {n:"Leopard Seal Knox",r:"Apex Predator",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"Attack one enemy for double damage.",f:"Smiles like that for a reason."},
  {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
- {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap this character&rsquo;s HP with one enemy&rsquo;s HP.",f:"Ten-minute slots. Forty-minute conversations."},
+ {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap this character&rsquo;s HP with one enemy&rsquo;s HP.",f:"Ten-minute slots. Forty-minute conversations.",set:"socs-favourite"},
  {n:"Tadpole Knox",r:"Heir to Beer Frog",i:"tad",hp:10,atk:2,spd:10,an:"Metamorphosis",a:"Bring back one knocked-out character on your team with 8 HP.",f:"Small now. Destined for legend."},
  {n:"Emeritus Knox",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"Deal 10 damage to one enemy. This character takes 4 damage.",f:"Retired. Not finished."},
- /* Pack cards (set x1). Not in the printed base deck. */
- {n:"Harbour Seal Knox",r:"Haul-Out Regular",i:"hseal",hp:18,atk:4,spd:5,an:"Haul Out",a:"This character gets a Shield and heals 3 HP.",f:"Found on the same rock every morning at 7:40.",set:"x1"},
- {n:"Sports Carnival Knox",r:"House Captain",i:"flag",hp:19,atk:4,spd:6,an:"House Captain",a:"Choose another ready character on your team. It attacks an enemy now, then it&rsquo;s done for the round.",f:"Has never once lost the tug of war.",set:"x1"},
- {n:"Conference Knox",r:"Keynote Speaker",i:"lectern",hp:21,atk:4,spd:4,an:"Keynote",a:"Reveal every face-down enemy, then deal 1 damage to every enemy.",f:"Forty slides. Thirty-nine about seals.",set:"x1"},
- {n:"Yard Duty Knox",r:"Lunchtime Patrol",i:"whistle",hp:24,atk:3,spd:4,an:"Whistle",a:"Remove the Shield from every enemy, then deal 2 damage to one enemy.",f:"Sees the handball court. Sees everything.",set:"x1"},
- {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"x1"},
- {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"x1"}
+ /* Pack cards: set names the pack they come from. Not in the printed base deck. */
+ {n:"Harbour Seal Knox",r:"Haul-Out Regular",i:"hseal",hp:18,atk:4,spd:5,an:"Haul Out",a:"This character gets a Shield and heals 3 HP.",f:"Found on the same rock every morning at 7:40.",set:"term-one"},
+ {n:"Sports Carnival Knox",r:"House Captain",i:"flag",hp:19,atk:4,spd:6,an:"House Captain",a:"Choose another ready character on your team. It attacks an enemy now, then it&rsquo;s done for the round.",f:"Has never once lost the tug of war.",set:"term-one"},
+ {n:"Conference Knox",r:"Keynote Speaker",i:"lectern",hp:21,atk:4,spd:4,an:"Keynote",a:"Reveal every face-down enemy, then deal 1 damage to every enemy.",f:"Forty slides. Thirty-nine about seals.",set:"term-one"},
+ {n:"Yard Duty Knox",r:"Lunchtime Patrol",i:"whistle",hp:24,atk:3,spd:4,an:"Whistle",a:"Remove the Shield from every enemy, then deal 2 damage to one enemy.",f:"Sees the handball court. Sees everything.",set:"socs-favourite"},
+ {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"term-one"},
+ {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"term-one"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -74,13 +74,16 @@ var acts=[
  {n:"Excursion",i:"bus",t:"Instant",a:"One character on your team gets +2 ATK for the rest of the game.",x:3},
  {n:"DLC",i:"bldg",t:"Instant",a:"Give one character on your team a Shield. (It blocks all damage from the next hit.)",x:3},
  {n:"Detention",i:"clipg",t:"Instant",a:"Choose an enemy. It skips its next turn.",x:2},
- /* Pack cards (set x1). */
- {n:"Reports",i:"pass",t:"Instant",a:"Look at your opponent&rsquo;s hand and choose one card for them to discard.",x:0,set:"x1"},
- {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player.",x:0,set:"x1"},
- {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every ATK boost from one enemy.",x:0,set:"x1"},
- {n:"Assembly",i:"mic",t:"Instant",a:"Heal every character on your team 2 HP.",x:0,set:"x1"},
- {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"x1"}
+ /* Pack cards. */
+ {n:"Reports",i:"pass",t:"Instant",a:"Look at your opponent&rsquo;s hand and choose one card for them to discard.",x:0,set:"term-one"},
+ {n:"Photo Day",i:"photo",t:"Instant",a:"Copy the last action card played by either player.",x:0,set:"term-one"},
+ {n:"Uniform Check",i:"shirt",t:"Instant",a:"Remove every ATK boost from one enemy.",x:0,set:"term-one"},
+ {n:"Assembly",i:"mic",t:"Instant",a:"Heal every character on your team 2 HP.",x:0,set:"term-one"},
+ {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"term-one"}
 ];
+
+/* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
+var PACKS = [{id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'}];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }

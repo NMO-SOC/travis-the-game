@@ -38,6 +38,7 @@ A.init = async function(onChange){
   var c = client();
   if(!c){ A.ready = true; changed(); return; }
   A.available = true;
+  A.loadPacks();
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
@@ -91,11 +92,25 @@ A.canBuy = function(c, foil){
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 
-/* ---------------- packs ---------------- */
-A.openPack = async function(){
-  var cards = await call(client().rpc('open_pack'));
+/* ---------------- packs ----------------
+   Pack names and odds come from the database (packs, pack_odds) so the odds shown are the odds used.
+   A.packs: [{id, name, blurb, odds:{starter, common, rare, foil} as fractions}], or [] if not set up yet. */
+A.packs = [];
+A.loadPacks = async function(){
+  try{
+    var r = await Promise.all([call(client().from('packs').select('*').eq('active', true).order('sort')),
+                               call(client().from('pack_odds').select('*'))]);
+    A.packs = (r[0]||[]).map(function(p){
+      var rows = (r[1]||[]).filter(function(o){ return o.pack_id===p.id; }), total = rows.reduce(function(s,o){ return s+o.weight; }, 0), odds = {};
+      rows.forEach(function(o){ odds[o.slot] = total ? o.weight/total : 0; });
+      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds};
+    });
+  }catch(e){ A.packs = []; }
+};
+A.openPack = async function(packId){
+  var cards = await call(client().rpc('open_pack', {p_pack:packId}));
   await A.refresh();
-  return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, dupe:x.dupe, points:x.points, card:CARD[x.id]}; });
+  return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
 };
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
 A.recordWin = async function(){ if(!A.user) return false; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return false; } };
@@ -124,6 +139,12 @@ A.adminOverview = function(){ return call(client().rpc('admin_overview')); };
 A.adminDecks = function(){ return call(client().rpc('admin_decks')); };
 A.adminGames = function(limit){ return call(client().rpc('admin_games', {p_limit:limit||40})); };
 A.adminPlayer = function(username){ return call(client().rpc('admin_player', {p_username:username})); };
+/* username null = every player. Resolves to the number of players who got packs. */
+A.adminGivePacks = async function(username, count){
+  var n = await call(client().rpc('admin_give_packs', {p_username:username, p_count:count}));
+  if(username==null || (A.profile && username===A.profile.username)) await A.refresh();
+  return n;
+};
 
 /* ---------------- live matches ----------------
    Both players' browsers run the same game with the same random seed. Each move is broadcast on a

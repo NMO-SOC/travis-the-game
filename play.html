@@ -506,7 +506,30 @@ b.t0,b.t1,.who{color:var(--tc)}
 .lobby-card p{margin:0;font-size:14px;color:var(--ink-soft)}
 .codebox{display:flex;flex-direction:column;align-items:center;gap:4px;margin:18px 0;padding:16px;border-radius:14px;background:rgba(214,178,90,.08);box-shadow:inset 0 0 0 1px rgba(214,178,90,.3)}
 .codebox b{font-family:var(--title);font-weight:900;font-size:34px;letter-spacing:.1em;color:var(--gold-2)}
+/* pack chooser */
+.packopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin:8px 0 16px;text-align:left}
+.packopt{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:14px;background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px rgba(214,178,90,.3)}
+.pkhead{display:flex;gap:14px;align-items:center}
+.pkhead h3{margin:0 0 4px;font-family:var(--title);font-size:19px;color:var(--gold-2)}
+.pkhead p{margin:0;font-size:14px;color:var(--ink-soft)}
+.card.pack.sm{--cw:62px;flex:none;box-shadow:1px 1px 0 #000,3px 3px 0 #3a230e,5px 5px 0 #000,0 8px 14px rgba(0,0,0,.5)}
+.pkchance{margin:0;font-size:15px;color:var(--ink)}
+.pkchance b{font-family:var(--title);font-size:20px;color:var(--gold-2)}
+.odds{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:14px}
+.odds li{display:flex;justify-content:space-between;gap:10px;padding:4px 8px;border-radius:6px;background:rgba(0,0,0,.25)}
+.odds li b{font-variant-numeric:tabular-nums;color:var(--ink)}
+.odds small{color:var(--ink-soft);font-size:12.5px}
+.pklabel{margin:2px 0 0;font-size:13px;color:var(--ink-soft)}
+.pkcards{display:flex;flex-wrap:wrap;gap:6px}
+.pkcard{font-size:13px;padding:3px 9px;border-radius:12px;border:1px solid rgba(214,178,90,.35);color:var(--ink)}
+.pkcard.have{border-color:rgba(111,207,74,.55);color:#c8f0b0}
+.pkcard:hover{border-color:var(--gold)}
+.revealof{font-family:var(--title);font-weight:700;font-size:18px;color:var(--gold-2);margin:4px 0 0;text-align:center}
 /* admin */
+.formrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 12px;font-size:15px}
+.formrow input{width:4.5em;padding:5px 8px;border-radius:7px;background:rgba(0,0,0,.35);border:1px solid rgba(214,178,90,.35);color:var(--ink);font:inherit}
+.formrow input:focus{outline:none;border-color:var(--gold)}
+.giveall{padding:10px 14px 0;border-radius:12px;background:rgba(255,255,255,.02);box-shadow:inset 0 0 0 1px rgba(214,178,90,.15);margin-bottom:14px}
 .btn.adminbtn{border-color:var(--gold);color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#c9a24a)}
 .panel-pg.admin{max-width:1040px;text-align:left}
 .adhead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
