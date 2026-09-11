@@ -131,7 +131,9 @@ A.openPack = async function(packId){
   return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
 };
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
-A.recordWin = async function(){ if(!A.user) return false; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return false; } };
+/* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
+   won, or null if today's five win-packs are already claimed. */
+A.recordWin = async function(){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return null; } };
 
 /* ---------------- decks ---------------- */
 A.saveDeck = async function(d){

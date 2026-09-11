@@ -56,7 +56,7 @@ var chars=[
  {n:"Family Man Knox",r:"Dad to Huddy &amp; Charlotte",i:"family",hp:20,atk:4,spd:6,an:"Huddy &amp; Charlotte",a:"Heal every character on your team 4 HP.",f:"Outnumbered at home. Undefeated anyway."},
  {n:"Seal Whisperer Knox",r:"Haul-Out Field Contact",i:"wave",hp:23,atk:4,spd:5,an:"Blubber Layer",a:"Give every character on your team a Shield.",f:"Counted 212 harbor seals before breakfast."},
  {n:"Mixtape Knox",r:"Gift of the Co-Workers",i:"cd",hp:22,atk:3,spd:6,an:"Track Seven",a:"Deal 5 damage to one enemy.",f:"Burned with love. Track 7 is the one."},
- {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Six Inches of Daylight",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Leave room for the Journal of Marine Biology."},
+ {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Supervision Duty",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Leave room for the Journal of Marine Biology."},
  {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy. It skips its next turn.",f:"Tag 041 has been recaptured four times. Rude."},
  {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"Draw 2 action cards.",f:"Line up. Outside voices outside.",set:"socs-favourite"},
  {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"Heal this character back to full HP.",f:"Two tonnes of disapproval. Mostly nose."},

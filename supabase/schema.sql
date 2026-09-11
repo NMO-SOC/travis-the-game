@@ -38,7 +38,8 @@ create table public.packs (
   sort          int  not null default 0,
   active        boolean not null default true,
   valid_until   timestamptz,             -- null = no expiry; past this, the pack can no longer be opened
-  open_with_any boolean not null default true   -- false = only openable with a pack of this exact type (admin-gift only)
+  open_with_any boolean not null default true,  -- false = only openable with a pack of this exact type (admin-gift only)
+  win_weight    int  not null default 0 check (win_weight >= 0)  -- 0 = never given for winning a battle
 );
 -- Each of the 3 cards in a pack is rolled separately. A slot's chance = its weight / the pack's total.
 --   starter = a starter card (everyone already owns these, so it becomes 1 Grant Point)
@@ -51,13 +52,13 @@ create table public.pack_odds (
   weight  int  not null check (weight >= 0),
   primary key (pack_id, slot)
 );
-insert into public.packs (id, name, blurb, sort, valid_until, open_with_any) values
-  ('term-one',       'Term One',        'Harbour Seal and Conference Knox, plus five new action cards.', 1, null, true),
-  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2, null, true),
-  ('field-season',   'Field Season',    'Four new specimens from the sub-Antarctic, plus two new action cards.', 3, null, true),
-  ('end-of-year',    'End of Year',     'Three characters for the end of the school year. Available until 31 December.', 4, '2026-12-31 23:59:59+11', true),
-  ('holo',           'Holo',            'Every card is a foil of a starter character. Only ever given, never pulled from an ordinary pack.', 5, null, false),
-  ('legendary',      'Legendary',       'Gold editions of fan-favourite Knoxes. Only ever given, never pulled from an ordinary pack.', 6, null, false);
+insert into public.packs (id, name, blurb, sort, valid_until, open_with_any, win_weight) values
+  ('term-one',       'Term One',        'Harbour Seal and Conference Knox, plus five new action cards.', 1, null, true, 40),
+  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2, null, true, 20),
+  ('field-season',   'Field Season',    'Four new specimens from the sub-Antarctic, plus two new action cards.', 3, null, true, 20),
+  ('end-of-year',    'End of Year',     'Three characters for the end of the school year. Available until 31 December.', 4, '2026-12-31 23:59:59+11', true, 20),
+  ('holo',           'Holo',            'Every card is a foil of a starter character. Only ever given, never pulled from an ordinary pack.', 5, null, false, 0),
+  ('legendary',      'Legendary',       'Gold editions of fan-favourite Knoxes. Only ever given, never pulled from an ordinary pack.', 6, null, false, 0);
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
   ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5),
@@ -215,19 +216,34 @@ create trigger check_deck before insert or update on public.decks
 
 -- ---------------------------------------------------------------- packs
 -- School days run on Sydney time. Packs come only from wins, up to five a day.
-create function public.record_win() returns boolean
+create function public.record_win() returns text
 language plpgsql security definer set search_path = public as $$
 declare today date := (now() at time zone 'Australia/Sydney')::date; p profiles;
+        total int; roll int; won_pack text;
 begin
   select * into p from profiles where id = auth.uid() for update;
   if not found then raise exception 'Not signed in'; end if;
   if p.wins_day is distinct from today then p.wins_today := 0; end if;
   if p.wins_today >= 5 then
     update profiles set wins_day = today, wins_today = p.wins_today where id = p.id;
-    return false;
+    return null;
   end if;
-  update profiles set packs = packs + 1, wins_day = today, wins_today = p.wins_today + 1 where id = p.id;
-  return true;
+  select coalesce(sum(win_weight), 0) into total from packs
+    where win_weight > 0 and active and (valid_until is null or now() <= valid_until);
+  if total <= 0 then
+    -- No eligible pack configured (or all expired): fall back to the old any-type pack rather than error.
+    update profiles set packs = packs + 1, wins_day = today, wins_today = p.wins_today + 1 where id = p.id;
+    return 'any';
+  end if;
+  roll := floor(random() * total)::int;
+  select x.id into won_pack from (
+    select id, sum(win_weight) over (order by id) as upto from packs
+    where win_weight > 0 and active and (valid_until is null or now() <= valid_until)
+  ) x where roll < x.upto order by x.upto limit 1;
+  insert into pack_stock (user_id, pack_id, qty) values (p.id, won_pack, 1)
+    on conflict (user_id, pack_id) do update set qty = pack_stock.qty + 1;
+  update profiles set wins_day = today, wins_today = p.wins_today + 1 where id = p.id;
+  return won_pack;
 end $$;
 
 -- Each of the 3 cards is rolled from the pack's odds (pack_odds). Anything beyond what a deck can use

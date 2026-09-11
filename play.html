@@ -244,6 +244,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 
 /* battlefield card states */
 .unit{transition:transform .25s,box-shadow .25s,opacity .25s,filter .25s}
+/* a foil unit keeps a visible gold ring on the battlefield even at mini-card size, where the holo
+   sheen alone (busy real photos, tiny card) reads as barely-there */
+.unit.foil{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 14px rgba(214,178,90,.75)}
 .unit.cur{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 26px rgba(214,178,90,.8);animation:glow 1.6s ease-in-out infinite;transform:translateY(-6px) scale(1.04);z-index:2}
 .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #7fe0ff,0 0 24px #36b3ff;cursor:crosshair;animation:pickp 1s ease-in-out infinite}
 .zone.top .unit.pick{box-shadow:0 0 0 2px #000,0 0 0 4px #ff8a6a,0 0 24px #ff4a2a}
@@ -314,7 +317,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 /* rail */
 .rail{display:flex;flex-direction:column;gap:16px;position:sticky;top:10px}
 .zoom{display:flex;flex-direction:column;align-items:center;gap:8px}
-.card.big{--cw:270px;max-width:100%}
+.card.big{--cw:270px;max-width:100%;min-height:0}
 .card.big.ghost{opacity:.18}
 .card.big.ko{filter:grayscale(1)}
 .cap{margin:0;text-align:center;font-size:14px;color:var(--ink-soft)}
@@ -468,7 +471,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .packn{position:absolute;right:-8px;top:-8px;min-width:26px;height:26px;padding:0 6px;border-radius:14px;display:grid;place-items:center;font-family:var(--title);font-weight:900;font-size:13px;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a);box-shadow:0 0 0 2px #000}
 .reveal{display:flex;flex-wrap:wrap;justify-content:center;gap:18px;margin:16px 0}
 .rslot{display:flex;flex-direction:column;align-items:center;gap:8px}
-.card.rcard{--cw:150px}
+.card.rcard{--cw:150px;min-height:0}
 .card.rcard.shine{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 30px rgba(214,178,90,.75)}
 .rtag{font-family:var(--title);font-weight:700;font-size:12px;letter-spacing:.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px}
 .rtag.new{color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a)}
@@ -478,7 +481,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 /* collection & deck-builder grids */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:14px 10px;margin-bottom:6px}
 .tile{display:flex;flex-direction:column;align-items:center;gap:6px}
-.card.coll{--cw:112px}
+/* .tile is a column flexbox, so without this a card's own text content (which varies in length
+   between characters) can override its aspect-ratio and stretch it taller than its neighbours */
+.card.coll{--cw:112px;min-height:0}
 .card.coll.locked{filter:grayscale(1) brightness(.5);opacity:.7}
 .card.coll.shine{box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold),0 0 20px rgba(214,178,90,.6)}
 .card.coll.pickable{cursor:pointer;transition:transform .15s,box-shadow .15s}

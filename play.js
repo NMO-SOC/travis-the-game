@@ -250,7 +250,7 @@ function gameEnded(){
   logResult(G.winner<0 ? 'draw' : G.winner===me ? 'win' : 'loss');
   if(!ACC || !ACC.user || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g = G;
-  ACC.recordWin().then(function(got){ if(g===G){ G.reward = got ? 'pack' : 'capped'; render(); } });
+  ACC.recordWin().then(function(got){ if(g===G){ G.reward = got; render(); } });
 }
 function strikeTargets(u){ return foes(u); }
 /* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays tapped next round. */
@@ -666,7 +666,7 @@ function unitCard(u){
   var dim = w && w.kind==='unit' && !pick;
   var hid = hidden(u), f = fxFor('u'+u.id), body;
   var cls = 'card mini unit t'+u.team+(u.ko?' ko':'')+(G.cur===u?' cur':'')+(pick?' pick':'')+(dim?' dim':'')
-    +(selectable(u) && G.cur!==u ? ' ready' : '')
+    +(selectable(u) && G.cur!==u ? ' ready' : '')+(!hid && u.foil ? ' foil' : '')
     +(u.acted && !u.ko && G.cur!==u ? ' tapped' : '')+(isZoom('u',u.id)?' zoomed':'')+f.cls;
   if(hid){
     var dmg = u.max-u.hp;
@@ -820,8 +820,9 @@ function overlays(){
     if(G.winner<0){ title='Stalemate'; sub='Nobody claims the grant.'; }
     else if(you){ title = G.winner===me ? 'Victory' : 'Defeat'; sub = G.winner===me ? 'The grant is yours.' : pname(G.winner)+' takes the grant.'; }
     else { title = pname(G.winner)+' Wins'; sub = 'The grant is theirs.'; }
-    var reward = G.reward==='pack' ? '<p class="reward">&#10022; You earned a pack! Open it from the menu.</p>'
-               : G.reward==='capped' ? '<p class="reward dim">You&rsquo;ve had today&rsquo;s five packs from wins. More tomorrow.</p>' : '';
+    var reward = G.reward===null ? '<p class="reward dim">You&rsquo;ve had today&rsquo;s five packs from wins. More tomorrow.</p>'
+               : G.reward==='any' ? '<p class="reward">&#10022; You earned a pack! Open it from the menu.</p>'
+               : G.reward ? '<p class="reward">&#10022; You earned a '+esc(packName(G.reward))+' pack! Open it from the menu.</p>' : '';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
     o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward
       +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
