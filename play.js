@@ -1293,14 +1293,32 @@ function selectPlayer(name){
   }, function(e){ if(M.admin===d && d.sel===name){ d.player = {state:'error', msg:(e && e.message) || String(e)}; render(); } });
 }
 /* username null = every player */
+var EVERYONE = '*';
+function giveCount(key){ return M.form[key]!=null ? M.form[key] : '1'; }
+/* Inside a player's row: give to that player. */
 function giveRow(username){
-  var key = 'give_'+(username||'all'), val = M.form[key]!=null ? M.form[key] : '1';
-  return '<div class="formrow"><label>Give <input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(val)+'"> '
-    +(username ? 'pack(s) to <b>'+esc(username)+'</b>' : 'pack(s) to every player')+'</label>'
-    +'<button class="btn sm gold" data-a="givepacks" data-v="'+esc(username||'')+'" data-submit'+(M.busy?' disabled':'')+'>'+(username ? 'Give' : 'Give everyone')+'</button></div>';
+  var key = 'give_'+username;
+  return '<div class="formrow"><label>Give <input name="'+esc(key)+'" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount(key))+'"> '
+    +'pack(s) to <b>'+esc(username)+'</b></label>'
+    +'<button class="btn sm gold" data-a="givepacks" data-v="'+esc(username)+'" data-submit'+(M.busy?' disabled':'')+'>Give</button></div>';
 }
-function givePacks(username){
-  var n = parseInt(M.form['give_'+(username||'all')] || '1', 10), d = M.admin;
+/* Top of the admin screen: pick any player, or everyone. */
+function givePicker(players){
+  var to = M.form.give_to || (players[0] ? players[0].username : EVERYONE);
+  var opts = players.map(function(u){ return '<option value="'+esc(u.username)+'"'+(to===u.username?' selected':'')+'>'+esc(u.username)+(u.username===ACC.profile.username?' (you)':'')+'</option>'; }).join('')
+    +'<option value="'+EVERYONE+'"'+(to===EVERYONE?' selected':'')+'>Everyone ('+players.length+' players)</option>';
+  return '<div class="formrow"><label>Give <input name="give_top" type="number" inputmode="numeric" min="1" max="100" value="'+esc(giveCount('give_top'))+'"> pack(s) to</label>'
+    +'<select name="give_to" aria-label="Who gets the packs">'+opts+'</select>'
+    +'<button class="btn sm gold" data-a="givepacks" data-v="@top" data-submit'+(M.busy?' disabled':'')+'>Give</button></div>';
+}
+function givePacks(target){
+  var d = M.admin, key = 'give_'+target;
+  if(target==='@top'){
+    key = 'give_top';
+    target = M.form.give_to || (d && d.overview && d.overview[0] ? d.overview[0].username : EVERYONE);
+  }
+  var username = target===EVERYONE ? null : target;
+  var n = parseInt(giveCount(key), 10);
   if(!(n>=1 && n<=100)){ M.note = ''; M.err = 'Give between 1 and 100 packs at a time.'; render(); return; }
   if(!username && typeof confirm==='function' && !confirm('Give '+n+' pack'+(n===1?'':'s')+' to every player?')) return;
   busy(async function(){
@@ -1368,7 +1386,7 @@ function renderAdmin(){
   var feed = d.stale ? '' : '<h3 class="sec">Latest games</h3>'+(d.games.length
     ? '<ul class="glist feed">'+d.games.map(function(g){ return '<li><span><b>'+esc(g.username)+'</b> '+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
     : '<p class="muted">No games recorded yet. They appear here as soon as a signed-in player finishes or quits a game against the CPU or online.</p>');
-  return top+head+msgs()+notice+kpis+'<div class="giveall">'+giveRow(null)+'</div>'+table+feed+'</div></div>';
+  return top+head+msgs()+notice+kpis+'<div class="giveall">'+givePicker(ov)+'</div>'+table+feed+'</div></div>';
 }
 
 function renderMeta(){
@@ -1456,7 +1474,7 @@ function onClick(e){
       if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
       break;
     case 'adminrefresh': loadAdmin(); break;
-    case 'givepacks': givePacks(v || null); break;
+    case 'givepacks': if(v) givePacks(v); break;
     case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
