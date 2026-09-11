@@ -60,11 +60,11 @@ var chars=[
  {n:"Emeritus Knox",r:"The One They Still Talk About",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"Deal 10 damage to one enemy. This character takes 4 damage.",f:"Retired. Not finished."},
  /* Pack cards: set names the pack they come from. Not in the printed base deck. */
  {n:"Harbour Seal Knox",r:"Haul-Out Regular",i:"hseal",hp:18,atk:4,spd:5,an:"Haul Out",a:"This character gets a Shield and heals 3 HP.",f:"Found on the same rock every morning at 7:40.",set:"term-one"},
- {n:"Sports Carnival Knox",r:"House Captain",i:"flag",hp:19,atk:4,spd:6,an:"House Captain",a:"Choose another ready character on your team. It attacks an enemy now, then it&rsquo;s done for the round.",f:"Has never once lost the tug of war.",set:"term-one"},
+ {n:"Sports Carnival Knox",r:"House Captain",i:"flag",hp:19,atk:4,spd:6,an:"House Captain",a:"Choose another ready character on your team. It attacks an enemy now, then it&rsquo;s done for the round.",f:"Has never once lost the tug of war.",set:"socs-favourite"},
  {n:"Conference Knox",r:"Keynote Speaker",i:"lectern",hp:21,atk:4,spd:4,an:"Keynote",a:"Reveal every face-down enemy, then deal 1 damage to every enemy.",f:"Forty slides. Thirty-nine about seals.",set:"term-one"},
  {n:"Yard Duty Knox",r:"Lunchtime Patrol",i:"whistle",hp:24,atk:3,spd:4,an:"Whistle",a:"Remove the Shield from every enemy, then deal 2 damage to one enemy.",f:"Sees the handball court. Sees everything.",set:"socs-favourite"},
- {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"term-one"},
- {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"term-one"}
+ {n:"Swimming Carnival Knox",r:"Lane Four",i:"pool",hp:17,atk:4,spd:7,an:"Three Laps",a:"Deal 2 damage three times. Choose the enemy each time.",f:"Tumble turns at forty. Still got it.",set:"socs-favourite"},
+ {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"socs-favourite"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */

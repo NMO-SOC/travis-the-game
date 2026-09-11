@@ -48,8 +48,8 @@ create table public.pack_odds (
   primary key (pack_id, slot)
 );
 insert into public.packs (id, name, blurb, sort) values
-  ('term-one',       'Term One',        'Carnivals, conferences and five new action cards.', 1),
-  ('socs-favourite', 'SOC’s Favourite', 'Four fan-favourite Knoxes. No new action cards, better odds of a new character.', 2);
+  ('term-one',       'Term One',        'Harbour Seal and Conference Knox, plus five new action cards.', 1),
+  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2);
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
   ('socs-favourite', 'starter', 70), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 25), ('socs-favourite', 'foil', 5);
@@ -69,9 +69,9 @@ insert into public.cards (id, kind, rarity, pack_id) values
   ('chaperone-knox','character','base',null), ('field-researcher-knox','character','base',null), ('elephant-seal-knox','character','base',null),
   ('leopard-seal-knox','character','base',null), ('staff-meeting-knox','character','base',null), ('tadpole-knox','character','base',null),
   ('emeritus-knox','character','base',null),
-  ('harbour-seal-knox','character','rare','term-one'), ('sports-carnival-knox','character','rare','term-one'),
-  ('conference-knox','character','rare','term-one'), ('swimming-carnival-knox','character','rare','term-one'),
-  ('socs-got-talent-knox','character','rare','term-one'),
+  ('harbour-seal-knox','character','rare','term-one'), ('sports-carnival-knox','character','rare','socs-favourite'),
+  ('conference-knox','character','rare','term-one'), ('swimming-carnival-knox','character','rare','socs-favourite'),
+  ('socs-got-talent-knox','character','rare','socs-favourite'),
   ('yard-duty-knox','character','rare','socs-favourite'), ('parent-teacher-knox','character','rare','socs-favourite'),
   ('fire-drill-knox','character','rare','socs-favourite'), ('blue-suit-knox','character','rare','socs-favourite'),
   ('cat','action','base',null), ('canteen','action','base',null), ('excursion','action','base',null), ('dlc','action','base',null),

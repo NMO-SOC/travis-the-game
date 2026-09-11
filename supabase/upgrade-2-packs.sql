@@ -38,8 +38,8 @@ create policy "packs are public"     on public.packs     for select using (true)
 create policy "pack odds are public" on public.pack_odds for select using (true);
 
 insert into public.packs (id, name, blurb, sort) values
-  ('term-one',       'Term One',         'Carnivals, conferences and five new action cards.', 1),
-  ('socs-favourite', 'SOC’s Favourite', 'Four fan-favourite Knoxes. No new action cards, better odds of a new character.', 2)
+  ('term-one',       'Term One',         'Harbour Seal and Conference Knox, plus five new action cards.', 1),
+  ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2)
 on conflict (id) do update set name = excluded.name, blurb = excluded.blurb, sort = excluded.sort;
 
 insert into public.pack_odds (pack_id, slot, weight) values
