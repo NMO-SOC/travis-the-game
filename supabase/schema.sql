@@ -21,6 +21,7 @@ drop function if exists public.log_game(text, text, int, text, int, int, text, t
 drop function if exists public.touch_seen() cascade;
 drop function if exists public.admin_give_packs(text, int) cascade;
 drop function if exists public.admin_give_packs(text, int, text) cascade;
+drop function if exists public.leaderboard() cascade;
 drop table if exists public.games cascade;
 drop table if exists public.pack_stock cascade;
 drop table if exists public.decks cascade;
@@ -112,6 +113,7 @@ create table public.profiles (
   wins_today   int  not null default 0,
   is_admin     boolean not null default false,
   last_seen    timestamptz,                                          -- last time they had the game open
+  xp           int  not null default 0 check (xp >= 0),
   created_at   timestamptz not null default now()
 );
 
@@ -335,6 +337,7 @@ create table public.games (
   seconds    int  not null default 0 check (seconds between 0 and 86400),
   opponent   text check (char_length(opponent) <= 30),
   deck_name  text check (char_length(deck_name) <= 30),
+  xp         int  not null default 0 check (xp >= 0),
   ended_at   timestamptz not null default now()
 );
 create index games_user_ended on public.games (user_id, ended_at desc);
@@ -350,13 +353,21 @@ $$;
 create function public.log_game(p_mode text, p_difficulty text, p_size int, p_result text,
   p_rounds int, p_seconds int, p_opponent text, p_deck text) returns void
 language plpgsql security definer set search_path = public as $$
+declare v_xp int;
 begin
   if auth.uid() is null then raise exception 'Not signed in'; end if;
-  insert into games (user_id, mode, difficulty, size, result, rounds, seconds, opponent, deck_name)
+  v_xp := case when p_result = 'quit' then 0 else
+    round((8 + case when p_result = 'win' then 12 else 0 end) *
+      case when p_mode = 'online' then 1.2
+           when p_difficulty = 'hard' then 1.4
+           when p_difficulty = 'easy' then 0.75
+           else 1 end)::int
+  end;
+  insert into games (user_id, mode, difficulty, size, result, rounds, seconds, opponent, deck_name, xp)
   values (auth.uid(), p_mode, case when p_mode = 'cpu' then p_difficulty end, p_size, p_result,
           least(greatest(coalesce(p_rounds, 0), 0), 999), least(greatest(coalesce(p_seconds, 0), 0), 86400),
-          left(p_opponent, 30), left(p_deck, 30));
-  update profiles set last_seen = now() where id = auth.uid();
+          left(p_opponent, 30), left(p_deck, 30), v_xp);
+  update profiles set last_seen = now(), xp = profiles.xp + v_xp where id = auth.uid();
 end $$;
 
 -- ---------------------------------------------------------------- admin
@@ -442,6 +453,20 @@ begin
   return n;
 end $$;
 
+create function public.leaderboard() returns table(
+  username text, xp int, wins int, losses int, draws int, games int
+) language sql security definer set search_path = public stable as $$
+  select p.username, p.xp,
+    count(g.id) filter (where g.result = 'win')::int,
+    count(g.id) filter (where g.result = 'loss')::int,
+    count(g.id) filter (where g.result = 'draw')::int,
+    count(g.id) filter (where g.result in ('win','loss','draw'))::int
+  from profiles p
+  left join games g on g.user_id = p.id
+  group by p.id
+  order by p.xp desc, wins desc;
+$$;
+
 -- ---------------------------------------------------------------- who may call what
 revoke all on function public.handle_new_user()           from public, anon, authenticated;
 revoke all on function public.check_deck()                from public, anon, authenticated;
@@ -466,3 +491,5 @@ grant execute on function public.touch_seen()              to authenticated;
 grant execute on function public.log_game(text, text, int, text, int, int, text, text) to authenticated;
 revoke all on function public.admin_give_packs(text, int, text) from public, anon;
 grant execute on function public.admin_give_packs(text, int, text) to authenticated;
+revoke all on function public.leaderboard() from public, anon;
+grant execute on function public.leaderboard() to authenticated;

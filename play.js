@@ -243,6 +243,7 @@ function logResult(result){
   ACC.logGame({mode:CFG.mode, difficulty:CFG.diff, size:CFG.size, result:result, rounds:G.round,
     seconds:Math.round((Date.now()-G.startedAt)/1000),
     opponent:online ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU', deck:deck ? deck.name : 'Random deal'});
+  M.board = null;   // XP just changed — refetch the leaderboard next time it's shown
 }
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
@@ -920,6 +921,7 @@ function renderMenu(){
    +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
    +'<p class="tag">Specimens of Travis Knox. A shuffled deck. You never know who you&rsquo;ll get.</p>'
    + accountStrip()
+   + leaderboardTeaser()
    +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
    + o('mode','online','Online','A colleague, live')
@@ -1285,6 +1287,46 @@ function gameDesc(g){
 function charNames(ids){ return ids.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(', '); }
 function cardName(id){ var c = chars[CHARID[id]] || ACTID[id]; return c ? c.n : id; }
 
+/* ---- leaderboard ----
+   XP is earned by every player for every finished/quit battle (win or lose, more for winning, scaled
+   by difficulty/mode server-side in log_game()) — see supabase/upgrade-8-leaderboard.sql. Open to any
+   signed-in player, not just admins. */
+function winRate(u){ var n = u.wins+u.losses; return n ? Math.round(u.wins/n*100) : 0; }
+function loadLeaderboard(){
+  M.board = {state:'loading'}; render();
+  ACC.getLeaderboard().then(function(r){
+    M.board = {state:'ok', rows:(r||[]).slice().sort(function(a,b){ return b.xp-a.xp || b.wins-a.wins; })};
+    render();
+  }, function(e){ M.board = {state:'error', msg:(e && e.message) || String(e)}; render(); });
+}
+/* A compact top-3 box on the main menu; the full table lives on its own screen. */
+function leaderboardTeaser(){
+  if(!ACC || !ACC.user) return '';
+  if(!M.board) loadLeaderboard();
+  if(!M.board || M.board.state==='loading') return '<div class="group"><div class="gl">Leaderboard</div><p class="muted">Loading&hellip;</p></div>';
+  if(M.board.state==='error') return '';
+  var top = M.board.rows.slice(0,3);
+  if(!top.length) return '';
+  return '<div class="group"><div class="gl">Leaderboard</div><ol class="board-teaser">'+top.map(function(u,i){
+      return '<li'+(ACC.profile&&u.username===ACC.profile.username?' class="me"':'')+'><b>'+(i+1)+'.</b> <span>'+esc(u.username)+'</span><b class="xp">'+u.xp+' XP</b></li>';
+    }).join('')+'</ol><button class="lnk" data-a="go" data-v="leaderboard">Full leaderboard</button></div>';
+}
+function renderLeaderboard(){
+  var d = M.board;
+  if(!d || d.state==='loading') return pageTop('Leaderboard')+'<div class="panel-pg wide"><p class="muted">Loading&hellip;</p></div></div>';
+  if(d.state==='error') return pageTop('Leaderboard')+'<div class="panel-pg wide"><p class="err-msg">Couldn&rsquo;t load the leaderboard: '+esc(d.msg)+'</p></div></div>';
+  var rows = d.rows.map(function(u,i){
+    return '<tr'+(ACC.profile&&u.username===ACC.profile.username?' class="me"':'')+'><td class="num">'+(i+1)+'</td><td>'+esc(u.username)+(u.username===ACC.profile.username?' <span class="muted">(you)</span>':'')+'</td>'
+      +'<td class="num"><b>'+u.xp+'</b></td><td class="num">'+u.wins+'&ndash;'+u.losses+(u.draws?'&ndash;'+u.draws+' draw'+(u.draws===1?'':'s'):'')+'</td>'
+      +'<td class="num">'+winRate(u)+'%</td><td class="num">'+u.games+'</td></tr>';
+  }).join('');
+  return pageTop('Leaderboard')+'<div class="panel-pg wide admin">'
+    +'<div class="adhead"><h2>Leaderboard</h2><button class="btn sm" data-a="boardrefresh"'+(d.state==='loading'?' disabled':'')+'>Refresh</button></div>'
+    +(d.rows.length ? '<div class="tablewrap"><table class="adm"><thead><tr><th>#</th><th>Player</th><th class="num">XP</th><th class="num">Won&ndash;lost</th><th class="num">Win rate</th><th class="num">Games</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+      : '<p class="muted">No registered players yet.</p>')
+    +'<p class="hint">Every battle earns XP, win or lose &mdash; more for a win, and more on Hard difficulty or online.</p>'
+    +'</div></div>';
+}
 function loadAdmin(){
   M.admin = {state:'loading'}; M.err = ''; render();
   Promise.all([ACC.adminOverview(), ACC.adminDecks(), ACC.adminGames(40).catch(function(){ return null; })]).then(function(r){
@@ -1421,11 +1463,11 @@ function renderAdmin(){
 
 function renderMeta(){
   var signedIn = ACC && ACC.user && ACC.profile;
-  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1};
+  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1};
   if(needs[G.phase] && !signedIn) return renderAuth();
   var html = G.phase==='auth' ? renderAuth() : G.phase==='packs' ? renderPacks() : G.phase==='collection' ? renderCollection()
     : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby()
-    : G.phase==='admin' ? renderAdmin() : renderPick();
+    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : renderPick();
   if(G.zoomOpen) html += '<div class="ov zoomov always" data-a="unzoom">'+zoomBlock()+'</div>';
   return html;
 }
@@ -1502,13 +1544,15 @@ function onClick(e){
       if(v==='packs') M.reveal = null;
       goScreen(v);
       if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
+      if(v==='leaderboard') loadLeaderboard();
       break;
     case 'adminrefresh': loadAdmin(); break;
+    case 'boardrefresh': loadLeaderboard(); break;
     case 'givepacks': if(v) givePacks(v); break;
     case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
-    case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; }); break;
+    case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; M.board=null; M.admin=null; }); break;
     case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
     case 'packopen': openPack(v); break;
     case 'rv': flipReveal(+v); break;

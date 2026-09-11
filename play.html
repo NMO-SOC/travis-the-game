@@ -567,6 +567,14 @@ table.adm{width:100%;border-collapse:collapse;font-size:15px;min-width:760px}
 .dgrid h4{margin:0 0 6px;font-family:var(--title);font-size:13px;letter-spacing:.06em;color:var(--gold)}
 .dgrid h4:not(:first-child){margin-top:14px}
 .glist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px}
+/* leaderboard */
+.board-teaser{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:4px}
+.board-teaser li{display:flex;align-items:baseline;gap:8px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.03);font-size:14px}
+.board-teaser li b:first-child{color:var(--gold-2);font-family:var(--title);width:1.4em}
+.board-teaser li span{flex:1;color:var(--ink)}
+.board-teaser li .xp{color:var(--gold-2);font-family:var(--title);font-size:13px}
+.board-teaser li.me{box-shadow:inset 0 0 0 1px var(--gold-d)}
+.adm tr.me td{background:rgba(214,178,90,.1)}
 .glist li{display:flex;justify-content:space-between;gap:12px;padding:5px 8px;border-radius:6px;background:rgba(255,255,255,.03)}
 .glist time{flex:none;color:var(--ink-soft);font-size:13px}
 .glist.feed{font-size:15px}

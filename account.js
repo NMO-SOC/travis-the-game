@@ -159,6 +159,10 @@ A.adminOverview = function(){ return call(client().rpc('admin_overview')); };
 A.adminDecks = function(){ return call(client().rpc('admin_decks')); };
 A.adminGames = function(limit){ return call(client().rpc('admin_games', {p_limit:limit||40})); };
 A.adminPlayer = function(username){ return call(client().rpc('admin_player', {p_username:username})); };
+
+/* ---------------- leaderboard ----------------
+   Open to any signed-in player (not just admins): [{username, xp, wins, losses, draws, games}]. */
+A.getLeaderboard = function(){ return call(client().rpc('leaderboard')); };
 /* username null = every player; packId null = any-type packs. Resolves to the number of players who got packs. */
 A.adminGivePacks = async function(username, count, packId){
   var n = await call(client().rpc('admin_give_packs', {p_username:username, p_count:count, p_pack:packId||null}));
