@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+<defs><filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18"/></filter></defs>
+<rect width="400" height="300" fill="#3D0812"/>
+<g filter="url(#b)">
+<circle cx="120" cy="90" r="120" fill="#C8102E"/>
+<circle cx="290" cy="160" r="100" fill="#7A0C1E"/>
+<circle cx="210" cy="230" r="90" fill="#E8384F"/>
+<circle cx="60" cy="230" r="70" fill="#7A0C1E"/>
+</g>
+<g fill="#FFDDE0" fill-opacity=".9">
+<path d="M200 90c8 18 8 30 0 42-8-12-8-24 0-42z"/>
+<path d="M242 132c-18-8-30-8-42 0 12 8 24 8 42 0z"/>
+<path d="M200 174c8 18 8 30 0 42-8-12-8-24 0-42z"/>
+<path d="M158 132c-18-8-30-8-42 0 12 8 24 8 42 0z"/>
+<circle cx="200" cy="132" r="16"/>
+</g>
+</svg>

@@ -59,13 +59,16 @@ insert into public.packs (id, name, blurb, sort, valid_until, open_with_any, win
   ('socs-favourite', 'SOC’s Favourite', 'Seven fan-favourite Knoxes, from carnivals to talent shows. No new action cards, better odds of a new character.', 2, null, true, 20),
   ('field-season',   'Field Season',    'Four new specimens from the sub-Antarctic, plus two new action cards.', 3, null, true, 20),
   ('end-of-year',    'End of Year',     'Three characters for the end of the school year. Available until 31 December.', 4, '2026-12-31 23:59:59+11', true, 20),
-  ('holo',           'Holo',            'Every card is a foil of a starter character. Only ever given, never pulled from an ordinary pack.', 5, null, false, 0),
-  ('legendary',      'Legendary',       'Gold editions of fan-favourite Knoxes. Only ever given, never pulled from an ordinary pack.', 6, null, false, 0);
+  ('spirit-week',    'Spirit Week',     'Four house-colour action cards, one per house. Collect copies of the same one to make it stronger.', 5, null, true, 20),
+  ('holo',           'Holo',            'Every card is a foil of a starter character. A rare 1-in-3 bonus on any battle-win pack.', 6, null, true, 0),
+  ('legendary',      'Legendary',       'Gold editions of fan-favourite Knoxes. A rare 1-in-3 bonus on any battle-win pack.', 7, null, true, 0);
 insert into public.pack_odds (pack_id, slot, weight) values
   ('term-one', 'starter', 60), ('term-one', 'common', 25), ('term-one', 'rare', 12), ('term-one', 'foil', 3),
   ('socs-favourite', 'starter', 55), ('socs-favourite', 'common', 0), ('socs-favourite', 'rare', 40), ('socs-favourite', 'foil', 5),
   ('field-season', 'starter', 55), ('field-season', 'common', 25), ('field-season', 'rare', 15), ('field-season', 'foil', 5),
   ('end-of-year', 'starter', 60), ('end-of-year', 'common', 0), ('end-of-year', 'rare', 35), ('end-of-year', 'foil', 5),
+  -- No characters in this pack (rare = 0): every non-starter, non-foil pull is one of the 4 house cards.
+  ('spirit-week', 'starter', 40), ('spirit-week', 'common', 55), ('spirit-week', 'rare', 0), ('spirit-week', 'foil', 5),
   ('holo', 'starter', 10), ('holo', 'common', 0), ('holo', 'rare', 0), ('holo', 'foil', 90),
   -- 'rare' here means "one of the five golden characters" (pack_id = 'legendary', rarity = 'rare' —
   -- the gold finish is the card itself, not a foil of something else).
@@ -100,6 +103,8 @@ insert into public.cards (id, kind, rarity, pack_id) values
   ('tagging-dart','action','common','field-season'), ('fog-bank','action','common','field-season'),
   ('graduation-knox','character','rare','end-of-year'), ('yearbook-knox','character','rare','end-of-year'),
   ('staff-party-knox','character','rare','end-of-year'),
+  ('waratah-spirit','action','common','spirit-week'), ('grevillea-spirit','action','common','spirit-week'),
+  ('acacia-spirit','action','common','spirit-week'), ('banksia-spirit','action','common','spirit-week'),
   ('golden-doctor-knox','character','rare','legendary'), ('golden-beer-frog-knox','character','rare','legendary'),
   ('golden-elephant-seal-knox','character','rare','legendary'), ('golden-leopard-seal-knox','character','rare','legendary'),
   ('golden-emeritus-knox','character','rare','legendary');
@@ -230,6 +235,14 @@ begin
   if p.wins_today >= 5 then
     update profiles set wins_day = today, wins_today = p.wins_today where id = p.id;
     return null;
+  end if;
+  -- 1 in 3 chance any win is upgraded to a Holo or Legendary pack instead of a normal one.
+  if random() < 1.0/3 then
+    won_pack := case when random() < 0.5 then 'holo' else 'legendary' end;
+    insert into pack_stock (user_id, pack_id, qty) values (p.id, won_pack, 1)
+      on conflict (user_id, pack_id) do update set qty = pack_stock.qty + 1;
+    update profiles set wins_day = today, wins_today = p.wins_today + 1 where id = p.id;
+    return won_pack;
   end if;
   select coalesce(sum(win_weight), 0) into total from packs
     where win_weight > 0 and active and (valid_until is null or now() <= valid_until);

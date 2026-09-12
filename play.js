@@ -362,8 +362,43 @@ var ACT = {
   run:async function(t){
    living(1-t).forEach(function(e){ e.atkRound -= 2; });
    log(pn(t)+' plays '+card('Low Tide')+': every enemy has &minus;2 ATK this round.'); return true;
+  }},
+ /* ---- Field Season pack ---- */
+ 'Tagging Dart':{
+  can:function(t){ return living(1-t).length>0; },
+  ai:function(t){ return living(1-t).some(function(e){ return e.hp<=4 && !e.shield; }) ? 8 : 3.5; },
+  run:async function(t){
+   var e = await pickUnit(t, 'Tagging Dart: deal 4 damage to whom?', living(1-t), function(e){ return hitScore(4, e); }, true);
+   if(!e) return false;
+   log(pn(t)+' plays '+card('Tagging Dart')+' on '+nm(e)+'.');
+   await damage(e, 4); return true;
+  }},
+ 'Fog Bank':{
+  can:function(t){ return living(t).some(function(f){ return f.hp<f.max; }); },
+  ai:function(t){ return Math.min(9, maxMissing(t)) - 0.5; },
+  run:async function(t){
+   log(pn(t)+' plays '+card('Fog Bank')+': the whole team heals 3.');
+   living(t).forEach(function(f){ heal(f, 3); }); return true;
   }}
 };
+/* ---- Spirit Week pack: house-colour cards. Each gets stronger the more copies of itself you own
+   (owned collection count, capped at 3 like any other action card). Playing one with no account
+   context (e.g. a random CPU test team) treats it as a single copy. */
+function houseCard(n){
+ return {
+  can:function(t){ return living(t).length>0; },
+  ai:function(){ return 3.5; },
+  run:async function(t){
+   var owned = (typeof ACC!=='undefined' && ACC && ACC.available && ACC.user) ? Math.max(1, ACC.qty(ACTD[n].id, false)) : 1;
+   var f = await pickFriend(t, n+': who gets the boost?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
+   if(!f) return false;
+   f.atkGame += owned; f.max += owned; f.hp += owned; f.spd += owned;
+   log(pn(t)+' plays '+card(n)+': '+nm(f)+' gets +'+owned+' ATK, +'+owned+' HP and +'+owned+' SPD.');
+   return true;
+  }
+ };
+}
+['Waratah Spirit','Grevillea Spirit','Acacia Spirit','Banksia Spirit'].forEach(function(n){ ACT[n] = houseCard(n); });
 async function playCard(t, i, u){
   var c = G.hands[t][i];
   G.hands[t].splice(i,1);
@@ -625,7 +660,7 @@ function charFace(c, o){
     return '<p class="mv"><b>'+mv.n+'</b><span class="mvdmg" title="Damage">'+mv.dmg+'</span><br><span class="fl">'+mv.a+'</span></p>';
   }).join('');
   return '<div class="face f-'+col+(o.foil?' foil':'')+'">'
-   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set==='legendary' ? '<span class="setmark legend" title="Legendary &mdash; admin gift only">Legendary</span>'
+   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set==='legendary' ? '<span class="setmark legend" title="Legendary &mdash; a rare bonus on any battle-win pack">Legendary</span>'
      : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '')+'</div>'
    +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
    +(o.bar||'')
@@ -1065,7 +1100,7 @@ function collTile(c, foil){
   var isChar = chars.indexOf(c)>=0, owned, label;
   if(foil){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil'; }
   else if(c.set==='base'){ owned = true; label = isChar ? 'Starter card' : '3 in every deck'; }
-  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : c.set==='legendary' ? 'Admin gift only' : 'Pack card'; }
+  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : c.set==='legendary' ? 'Battle-win bonus' : 'Pack card'; }
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
   var price = ACC.price(c, foil), buy = ACC.canBuy(c, foil)
     ? '<button class="btn sm buy" data-a="buy" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(ACC.profile.grant_points>=price&&!M.busy?'':' disabled')+'>Buy &middot; '+price+' GP</button>' : '';

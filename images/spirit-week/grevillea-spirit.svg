@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+<defs><filter id="b" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18"/></filter></defs>
+<rect width="400" height="300" fill="#081B33"/>
+<g filter="url(#b)">
+<circle cx="120" cy="90" r="120" fill="#1C4E9C"/>
+<circle cx="290" cy="160" r="100" fill="#0B2545"/>
+<circle cx="210" cy="230" r="90" fill="#3E7BD6"/>
+<circle cx="60" cy="230" r="70" fill="#0B2545"/>
+</g>
+<g stroke="#CFE3FF" stroke-opacity=".85" stroke-width="6" fill="none" stroke-linecap="round">
+<path d="M150 120c22-12 40-12 52 6 12-20 34-24 56-14"/>
+<path d="M150 180c22 12 40 12 52-6 12 20 34 24 56 14"/>
+</g>
+</svg>

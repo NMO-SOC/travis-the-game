@@ -44,7 +44,13 @@ sealion:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2
 vessel:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 40h48l-6 14H14z"/><path d="M14 40V24h8v16M28 40V18h10v22"/><path d="M32 18V8M32 8l10 5-10 3"/><path d="M4 48c6 4 12 4 18 0s12-4 18 0 12 4 18 0"/></svg>',
 grad:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M32 14L6 24l26 10 26-10z"/><path d="M18 29v12c0 4 7 8 14 8s14-4 14-8V29"/><path d="M56 24v16"/><path d="M32 42v14M28 56h8"/></svg>',
 yearbook:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="10" width="40" height="46" rx="2"/><path d="M12 16h40M22 10v10l4-3 4 3V10"/><path d="M20 32h24M20 40h24M20 48h16"/></svg>',
-party:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 54L36 28c6-6 6-14 0-18s-14 0-18 6L10 24"/><path d="M22 34l8 8M28 26l10 10"/><circle cx="14" cy="14" r="2" fill="#5F8F35" stroke="none"/><circle cx="52" cy="20" r="2" fill="#5F8F35" stroke="none"/><circle cx="46" cy="10" r="2" fill="#5F8F35" stroke="none"/><path d="M8 58l4-8 8 4z" fill="#5F8F35" fill-opacity=".25"/></svg>'
+party:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 54L36 28c6-6 6-14 0-18s-14 0-18 6L10 24"/><path d="M22 34l8 8M28 26l10 10"/><circle cx="14" cy="14" r="2" fill="#5F8F35" stroke="none"/><circle cx="52" cy="20" r="2" fill="#5F8F35" stroke="none"/><circle cx="46" cy="10" r="2" fill="#5F8F35" stroke="none"/><path d="M8 58l4-8 8 4z" fill="#5F8F35" fill-opacity=".25"/></svg>',
+/* House-colour action cards (Spirit Week pack). Fill colours are literal house colours, not the
+   currentColor palette other icons use, so they stay red/blue/yellow/green on any card background. */
+waratah:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#C8102E"/><path d="M32 8c3 7 3 11 0 15-3-4-3-8 0-15zM56 32c-7 3-11 3-15 0 4-3 8-3 15 0zM32 56c-3-7-3-11 0-15 3 4 3 8 0 15zM8 32c7-3 11-3 15 0-4 3-8 3-15 0z" fill="#fff" fill-opacity=".38"/><circle cx="32" cy="32" r="7" fill="#fff" fill-opacity=".55"/></svg>',
+grevillea:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#1C4E9C"/><path d="M14 26c8-4 14-4 18 2 4-8 12-10 20-6M14 40c8 4 14 4 18-2 4 8 12 10 20 6" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+acacia:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#F5B301"/><circle cx="22" cy="24" r="5" fill="#fff" fill-opacity=".4"/><circle cx="38" cy="20" r="4" fill="#fff" fill-opacity=".4"/><circle cx="44" cy="34" r="5" fill="#fff" fill-opacity=".4"/><circle cx="28" cy="42" r="4.5" fill="#fff" fill-opacity=".4"/><circle cx="42" cy="46" r="3.5" fill="#fff" fill-opacity=".4"/></svg>',
+banksia:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#2E7D32"/><path d="M32 10v44M22 18l10 6 10-6M20 30l12 6 12-6M22 42l10 6 10-6" stroke="#fff" stroke-opacity=".4" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
 /* an = Power name, a = Power text (once per game). */
@@ -104,13 +110,21 @@ var acts=[
  {n:"Low Tide",i:"tide",t:"Round",a:"Every enemy gets &minus;2 ATK until the end of this round.",x:0,set:"term-one"},
  /* Field Season pack. */
  {n:"Tagging Dart",i:"dart",t:"Instant",a:"Deal 4 damage to one enemy.",x:0,set:"field-season"},
- {n:"Fog Bank",i:"wave",t:"Instant",a:"Heal every character on your team 3 HP.",x:0,set:"field-season"}
+ {n:"Fog Bank",i:"wave",t:"Instant",a:"Heal every character on your team 3 HP.",x:0,set:"field-season"},
+ /* Spirit Week pack. Action cards only, one per school house. Each gets stronger the more copies
+    of itself you own (up to 3): choose a character on your team, it gets +1 ATK, +1 max HP and
+    +1 SPD for the rest of the game for every copy you have. */
+ {n:"Waratah Spirit",i:"waratah",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Waratah Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/waratah-spirit.svg"},
+ {n:"Grevillea Spirit",i:"grevillea",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Grevillea Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/grevillea-spirit.svg"},
+ {n:"Acacia Spirit",i:"acacia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Acacia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/acacia-spirit.svg"},
+ {n:"Banksia Spirit",i:"banksia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Banksia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/banksia-spirit.svg"}
 ];
 
 /* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
 var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
-  {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'legendary', name:'Legendary'}
+  {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'spirit-week', name:'Spirit Week'},
+  {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
 ];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
