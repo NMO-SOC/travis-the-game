@@ -988,6 +988,7 @@ function renderMenu(){
    +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
    +'<p class="tag">Specimens of Travis Knox. A shuffled deck. You never know who you&rsquo;ll get.</p>'
    + accountStrip()
+   + onlinePlayersBlock()
    + leaderboardTeaser()
    +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
@@ -1312,7 +1313,9 @@ function renderLobby(){
     body = '<div class="lobby-grid"><div class="lobby-card"><h3>Create a game</h3><p>You&rsquo;ll get a code to send to your opponent. Format: <b>'+CFG.size+' v '+CFG.size+'</b>.</p><button class="btn gold" data-a="host">Create game</button></div>'
       +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div></div>'+deckLine;
   } else if(L.stage==='hosting'){
-    body = '<div class="codebox"><span class="eyebrow">Your game code</span><b>'+esc(L.code)+'</b></div><p>Send this code to your opponent. The game starts when they join.</p><p class="muted">Waiting&hellip;</p>';
+    body = L.invitee
+      ? '<p>Invite sent to <b>'+esc(L.invitee)+'</b>. Waiting for them to accept&hellip;</p>'
+      : '<div class="codebox"><span class="eyebrow">Your game code</span><b>'+esc(L.code)+'</b></div><p>Send this code to your opponent. The game starts when they join.</p><p class="muted">Waiting&hellip;</p>';
   } else if(L.stage==='joining'){
     body = '<p>Joining <b>'+esc(L.code)+'</b>&hellip;</p><p class="muted">If nothing happens, check the code with your opponent.</p>';
   } else if(L.stage==='waiting'){
@@ -1370,6 +1373,20 @@ function loadLeaderboard(){
   }, function(e){ M.board = {state:'error', msg:(e && e.message) || String(e)}; render(); });
 }
 /* A compact top-3 box on the main menu; the full table lives on its own screen. */
+function onlinePlayersBlock(){
+  if(!ACC || !ACC.user) return '';
+  var people = (M.online || []).slice().sort(function(a,b){ return String(a.username).localeCompare(b.username); });
+  if(!people.length) return '<div class="group"><div class="gl">Active players</div><p class="muted">No one else is online right now.</p></div>';
+  return '<div class="group"><div class="gl">Active players</div><ul class="online-list">'+people.map(function(p){
+      return '<li><span class="dot"></span><b>'+esc(p.username)+'</b><button class="btn sm gold" data-a="invite" data-v="'+esc(p.id)+'" data-name="'+esc(p.username)+'">Battle</button></li>';
+    }).join('')+'</ul></div>';
+}
+function inviteBanner(){
+  if(!M.incomingInvite || G.phase==='battle' || G.phase==='deal') return '';
+  var inv = M.incomingInvite;
+  return '<div class="invite-toast"><span><b>'+esc(inv.fromName)+'</b> wants to battle ('+inv.size+' v '+inv.size+')</span>'
+    +'<button class="btn sm gold" data-a="inviteaccept">Accept</button><button class="btn sm" data-a="invitedecline">Decline</button></div>';
+}
 function leaderboardTeaser(){
   if(!ACC || !ACC.user) return '';
   if(!M.board) loadLeaderboard();
@@ -1579,7 +1596,7 @@ function paint(){
   G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
   // Keep typing focus across re-renders (the whole screen is rebuilt each time).
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
-  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml();
+  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
@@ -1666,6 +1683,17 @@ function onClick(e){
     case 'lobby': if(needAccount()) break; openLobby(); break;
     case 'host': connect(ACC.makeCode(), 'host'); break;
     case 'join': { var code = normCode(M.form.code); if(!/^[A-Z]{4}-\d{2}$/.test(code)){ M.err=''; L.err = 'Codes look like ABCD-12.'; render(); break; } L.err=''; connect(code, 'guest'); break; }
+    case 'invite': {
+      if(needAccount()) break;
+      var icode = ACC.makeCode();
+      ACC.sendInvite(v, icode, CFG.size);
+      connect(icode, 'host');
+      L.invitee = el.getAttribute('data-name');
+      render();
+      break;
+    }
+    case 'inviteaccept': { var inv = M.incomingInvite; M.incomingInvite = null; if(inv){ CFG.size = inv.size; connect(inv.code, 'guest'); } else render(); break; }
+    case 'invitedecline': M.incomingInvite = null; render(); break;
     case 'close': G.hideOver = true; render(); break;
     case 'unzoom': G.zoomOpen = false; render(); break;
     case 'dealpass': G.deal.pass = false; G.deal.picks[G.deal.turn].forEach(function(_,i){ fxc('d'+G.deal.turn+'_'+i, 'dealt', 650, i*160); }); render(); break;
@@ -1723,10 +1751,14 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
     el.addEventListener('keydown', onKey);
     if(typeof window!=='undefined') window.addEventListener('resize', function(){ requestAnimationFrame(fitZones); });
     render();
-    if(ACC) ACC.init(function(){
-      if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
-      if(G.phase!=='battle') render();
-    });
+    if(ACC){
+      ACC.onLobbyChange(function(people){ M.online = people; if(G.phase!=='battle' && G.phase!=='deal') render(); });
+      ACC.onInvite(function(inv){ M.incomingInvite = inv; render(); });
+      ACC.init(function(){
+        if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
+        if(G.phase!=='battle') render();
+      });
+    }
   }};
 if(typeof window!=='undefined') window.TravisGame = api;
 })();

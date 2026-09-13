@@ -62,6 +62,7 @@ A.signIn = async function(username, password){
   A.user = d.user; await A.load(); A.touch(); changed();
 };
 A.signOut = async function(){
+  A.leaveLobby();
   try{ await client().auth.signOut(); }catch(e){}
   A.user = null; A.profile = null; A.collection = []; A.decks = []; A.stock = {}; changed();
 };
@@ -77,6 +78,7 @@ A.load = async function(){
   A.profile = r[0]; A.collection = r[1] || []; A.decks = r[2] || [];
   A.stock = {}; (r[3] || []).forEach(function(s){ if(s.qty>0) A.stock[s.pack_id] = s.qty; });
   if(!A.profile) throw new Error('This login has no player profile. Ask the admin to check the database setup.');
+  A.joinLobby();
 };
 /* Packs come in two kinds: any-type packs (profile.packs, from wins), opened as whichever pack you
    choose, and packs of one specific type (A.stock[packId], given by an admin). */
@@ -173,6 +175,42 @@ A.adminGivePacks = async function(username, count, packId){
   var n = await call(client().rpc('admin_give_packs', {p_username:username, p_count:count, p_pack:packId||null}));
   if(username==null || (A.profile && username===A.profile.username)) await A.refresh();
   return n;
+};
+
+/* ---------------- lobby presence ----------------
+   A single shared channel every signed-in player joins while the app is open, so the home screen can
+   show who else is around and let you send them a direct battle invite (a match code, delivered by
+   broadcast rather than typed in). Separate from the per-match channel used once a game starts. */
+var lobbyCh = null, lobbyPeople = [], onLobby = function(){}, onInvite = function(){};
+A.joinLobby = function(){
+  if(lobbyCh || !A.user || !A.profile) return;
+  var c = client();
+  lobbyCh = c.channel('lobby', {config:{broadcast:{self:false}, presence:{key:A.user.id}}});
+  lobbyCh.on('presence', {event:'sync'}, function(){
+    if(!lobbyCh) return;
+    var st = lobbyCh.presenceState(), people = [];
+    Object.keys(st).forEach(function(k){ if(st[k][0]) people.push(st[k][0]); });
+    lobbyPeople = people.filter(function(p){ return p.id!==A.user.id; });
+    try{ onLobby(lobbyPeople); }catch(e){}
+  });
+  lobbyCh.on('broadcast', {event:'invite'}, function(e){
+    if(e.payload && e.payload.to===A.user.id) try{ onInvite(e.payload); }catch(e2){}
+  });
+  lobbyCh.subscribe(function(status){
+    if(status==='SUBSCRIBED' && lobbyCh) lobbyCh.track({id:A.user.id, username:A.profile.username});
+  });
+};
+A.leaveLobby = function(){
+  if(lobbyCh){ try{ client().removeChannel(lobbyCh); }catch(e){} }
+  lobbyCh = null; lobbyPeople = [];
+};
+A.onlinePlayers = function(){ return lobbyPeople; };
+A.onLobbyChange = function(fn){ onLobby = fn || function(){}; };
+A.onInvite = function(fn){ onInvite = fn || function(){}; };
+/* code: a match code already created with A.makeCode() and opened with A.openMatch(code, 'host', ...). */
+A.sendInvite = function(targetId, code, size){
+  if(!lobbyCh || !A.user || !A.profile) return;
+  lobbyCh.send({type:'broadcast', event:'invite', payload:{to:targetId, from:A.user.id, fromName:A.profile.username, code:code, size:size}});
 };
 
 /* ---------------- live matches ----------------
