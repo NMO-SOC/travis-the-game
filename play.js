@@ -1009,7 +1009,7 @@ function renderMenu(){
 
 /* ================= accounts, packs, collection, decks, online ================= */
 /* M holds screen state that survives G being replaced (forms, messages, the pack being revealed, the deck being edited). */
-var M = {form:{}, err:'', note:'', busy:false, authMode:'in', deckSel:'random', reveal:null, edit:null};
+var M = {form:{}, err:'', note:'', busy:false, authMode:'in', deckSel:'random', reveal:null, opening:null, edit:null};
 try{ M.deckSel = localStorage.getItem('travis.deck') || 'random'; }catch(e){}
 var L = {stage:'choose'};   // online lobby state
 
@@ -1093,8 +1093,11 @@ function packOption(pk, p){
     +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button></div>';
 }
 function renderPacks(){
-  var p = ACC.profile, r = M.reveal, body = '';
-  if(r){
+  var p = ACC.profile, r = M.reveal, o = M.opening, body = '';
+  if(o){
+    body = '<div class="packstack'+(o.phase==='burst'?' burst':' rip')+'"><div class="card pack">'+backFace()+'</div><div class="burstflash"></div></div>'
+      +'<p class="openingtxt">Opening '+esc(o.pack)+'&hellip;</p>';
+  } else if(r){
     body = '<p class="revealof">'+r.pack+'</p><div class="reveal">'+r.cards.map(function(x,i){
       var up = r.shown[i], f = fxFor('rv'+i);
       var tag = !up ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
@@ -1117,9 +1120,16 @@ function renderPacks(){
 function openPack(packId){
   var pk = ACC.packs.filter(function(x){ return x.id===packId; })[0];
   busy(async function(){
-    var cards = await ACC.openPack(packId);
-    M.reveal = {pack:pk ? pk.name : '', cards:cards, shown:cards.map(function(){ return false; })};
-    cards.forEach(function(_,i){ fxc('rv'+i, 'dealt', 650, i*180); });
+    M.opening = {pack:pk ? pk.name : '', phase:'rip'}; render();
+    try{
+      var p = ACC.openPack(packId);
+      await sleep(520);
+      M.opening.phase = 'burst'; render();
+      await sleep(420);
+      var cards = await p;
+      M.reveal = {pack:pk ? pk.name : '', cards:cards, shown:cards.map(function(){ return false; })};
+      cards.forEach(function(_,i){ fxc('rv'+i, 'dealt', 650, i*180); });
+    } finally { M.opening = null; }
   });
 }
 function flipReveal(i){
