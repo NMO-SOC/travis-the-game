@@ -710,8 +710,8 @@ function actFace(n){
    +'</div>';
 }
 function backFace(){
-  return '<div class="back"><div class="pips"><i class="pw"></i><i class="pu"></i><i class="pb"></i><i class="pr"></i><i class="pg"></i></div>'
-   +'<div class="oval">'+art('seal')+'</div><div class="bw">Travis</div></div>';
+  return '<div class="back"><div class="oval"><span class="mono">T</span></div>'
+   +'<div class="bw"><span class="l1">Travis</span><span class="l2">The Game</span></div></div>';
 }
 
 /* ---------------- rendering ---------------- */
