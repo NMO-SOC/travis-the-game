@@ -512,9 +512,9 @@ function fxBonus(u, mv, e){
   }
 }
 function movePlan(u){
-  var top = null;
+  var top = null, noise = diffNoise();
   u.c.atks.forEach(function(mv, i){
-    var dmg = moveDamage(u, mv), foe = best(foes(u), function(e){ return hitScore(dmg, e)+fxBonus(u,mv,e); });
+    var dmg = moveDamage(u, mv), foe = best(foes(u), function(e){ return hitScore(dmg, e)+fxBonus(u,mv,e)+rand()*noise; });
     var score = hitScore(dmg, foe) + fxBonus(u, mv, foe);
     if(!top || score>top.score) top = {i:i, mv:mv, foe:foe, score:score};
   });
