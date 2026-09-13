@@ -1074,8 +1074,9 @@ function packOption(pk, p){
     .filter(function(r){ return r[1]>0; })
     .map(function(r){ return '<li><span>'+r[0]+(r[2] ? ' <small>('+r[2]+')</small>' : '')+'</span><b>'+pct(r[1])+'</b></li>'; }).join('');
   var inside = packCards(pk.id).map(function(c){
-    var have = chars.indexOf(c)>=0 ? ACC.qty(c.id,false)>0 : ACC.qty(c.id,false)>=3;
-    return '<button class="pkcard'+(have?' have':'')+'" data-a="czoom" data-v="'+esc(chars.indexOf(c)>=0 ? 'c:'+chars.indexOf(c) : 'a:'+c.n)+'">'+c.n+(have?' <span aria-label="owned">&#10003;</span>':'')+'</button>';
+    var isChar = chars.indexOf(c)>=0, n = ACC.qty(c.id,false), have = isChar ? n>0 : n>=3, part = !isChar && n>0 && !have;
+    var tag = have ? ' <span aria-label="owned">&#10003;</span>' : part ? ' <span class="pkqty" aria-label="owned '+n+' of 3">'+n+'/3</span>' : '';
+    return '<button class="pkcard'+(have?' have':part?' part':'')+'" data-a="czoom" data-v="'+esc(isChar ? 'c:'+chars.indexOf(c) : 'a:'+c.n)+'">'+c.n+tag+'</button>';
   }).join('');
   var expired = ACC.isExpired(pk.id), giftOnly = pk.openWithAny===false, have = ACC.typedPacks(pk.id);
   var badge = giftOnly ? '<span class="pktag gift">Admin gift only</span>' : pk.validUntil ? '<span class="pktag limited">Limited</span>' : '';
