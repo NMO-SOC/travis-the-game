@@ -128,6 +128,7 @@ A.loadPacks = async function(){
       return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null};
     });
   }catch(e){ A.packs = []; }
+  changed();
 };
 A.openPack = async function(packId){
   var cards = await call(client().rpc('open_pack', {p_pack:packId}));
