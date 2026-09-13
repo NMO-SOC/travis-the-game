@@ -303,6 +303,11 @@ var ACT = {
    var f = await pickFriend(t, 'Excursion: who gets +2 ATK?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
    if(!f) return false;
    f.atkGame += 2;
+   /* Excursion Knox's whole gimmick: this card also gives it a Shield. */
+   if(f.c.id==='excursion-knox' && !f.shield){
+    f.shield = true;
+    log(pn(t)+' plays '+card('Excursion')+': '+nm(f)+' gets +2 ATK and a Shield.'); return true;
+   }
    log(pn(t)+' plays '+card('Excursion')+': '+nm(f)+' gets +2 ATK.'); return true;
   }},
  'DLC':{
@@ -399,6 +404,32 @@ function houseCard(n){
  };
 }
 ['Waratah Spirit','Grevillea Spirit','Acacia Spirit','Banksia Spirit'].forEach(function(n){ ACT[n] = houseCard(n); });
+/* ---- Daily Org pack ---- */
+ACT['Classroom Change'] = {
+ can:function(t){ return allUnits().some(function(u){ return !u.ko && u.shield; }); },
+ ai:function(t){ return living(1-t).filter(function(e){ return e.shield; }).length*2 - living(t).filter(function(f){ return f.shield; }).length*1.5; },
+ run:async function(t){
+  log(pn(t)+' plays '+card('Classroom Change')+': every Shield drops.');
+  allUnits().forEach(function(u){ if(!u.ko) u.shield = false; }); return true;
+ }};
+ACT['Compass Is Down'] = {
+ can:function(t){ return living(0).length>0 || living(1).length>0; },
+ ai:function(t){ return living(1-t).length*1.6 - living(t).length*1.4; },
+ run:async function(t){
+  log(pn(t)+' plays '+card('Compass Is Down')+': nobody can log in. Every character skips its next turn.');
+  living(0).concat(living(1)).forEach(function(u){ stun(u); }); return true;
+ }};
+ACT['S1-4'] = {
+ can:function(t){ return living(1-t).length>0; },
+ ai:function(t){ return living(1-t).some(function(e){ return e.hp<=5 && !e.shield; }) ? 9 : 4; },
+ run:async function(t){
+  var e = await pickUnit(t, 'S1-4: deal 5 damage to whom?', living(1-t), function(e){ return hitScore(5, e); }, true);
+  if(!e) return false;
+  log(pn(t)+' plays '+card('S1-4')+' on '+nm(e)+'.');
+  await damage(e, 5);
+  if(!e.ko) stun(e);
+  return true;
+ }};
 async function playCard(t, i, u){
   var c = G.hands[t][i];
   G.hands[t].splice(i,1);

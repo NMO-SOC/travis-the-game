@@ -50,7 +50,13 @@ party:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" 
 waratah:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#C8102E"/><path d="M32 8c3 7 3 11 0 15-3-4-3-8 0-15zM56 32c-7 3-11 3-15 0 4-3 8-3 15 0zM32 56c-3-7-3-11 0-15 3 4 3 8 0 15zM8 32c7-3 11-3 15 0-4 3-8 3-15 0z" fill="#fff" fill-opacity=".38"/><circle cx="32" cy="32" r="7" fill="#fff" fill-opacity=".55"/></svg>',
 grevillea:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#1C4E9C"/><path d="M14 26c8-4 14-4 18 2 4-8 12-10 20-6M14 40c8 4 14 4 18-2 4 8 12 10 20 6" stroke="#fff" stroke-opacity=".45" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
 acacia:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#F5B301"/><circle cx="22" cy="24" r="5" fill="#fff" fill-opacity=".4"/><circle cx="38" cy="20" r="4" fill="#fff" fill-opacity=".4"/><circle cx="44" cy="34" r="5" fill="#fff" fill-opacity=".4"/><circle cx="28" cy="42" r="4.5" fill="#fff" fill-opacity=".4"/><circle cx="42" cy="46" r="3.5" fill="#fff" fill-opacity=".4"/></svg>',
-banksia:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#2E7D32"/><path d="M32 10v44M22 18l10 6 10-6M20 30l12 6 12-6M22 42l10 6 10-6" stroke="#fff" stroke-opacity=".4" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+banksia:'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" fill="#2E7D32"/><path d="M32 10v44M22 18l10 6 10-6M20 30l12 6 12-6M22 42l10 6 10-6" stroke="#fff" stroke-opacity=".4" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+/* Daily Org pack. */
+thermo:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="26" y="8" width="12" height="34" rx="6"/><circle cx="32" cy="50" r="8"/><path d="M32 42v8"/></svg>',
+pd:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M26 6l6 8 6-8"/><rect x="18" y="16" width="28" height="40" rx="4"/><circle cx="32" cy="32" r="7"/><path d="M24 48h16"/></svg>',
+doorswap:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="10" width="20" height="44"/><path d="M36 20h18M48 20l-6-6M48 20l-6 6"/><path d="M36 44h18M48 44l-6-6M48 44l-6 6"/></svg>',
+compassdown:'<svg viewBox="0 0 64 64" fill="none" stroke="#5F8F35" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="26" cy="26" r="18"/><path d="M32 16l-9 9 3 9 9-3z"/><path d="M46 46l12 12M58 46L46 58"/></svg>',
+referral:'<svg viewBox="0 0 64 64" fill="none" stroke="#0B2545" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="10" width="36" height="46" rx="3"/><path d="M25 10V6h14v4"/><path d="M32 24v14"/><circle cx="32" cy="44" r="2" fill="#0B2545" stroke="none"/></svg>'
 };
 
 /* an = Power name, a = Power text (once per game). */
@@ -84,6 +90,9 @@ var chars=[
  {n:"Sea Lion Knox",r:"Colony Enforcer",i:"sealion",hp:20,atk:5,spd:5,an:"Beach Charge",a:"Attack one enemy for double damage.",f:"The whole colony moves when he does.",set:"field-season",img:"images/field-season/sea-lion-knox.jpg"},
  {n:"Research Vessel Knox",r:"Southern Ocean Transit",i:"vessel",hp:23,atk:4,spd:4,an:"All Hands",a:"Every character on your team heals 2 HP.",f:"Six weeks at sea. Forty thousand photos of seals.",set:"field-season",img:"images/field-season/research-vessel-knox.jpg"},
  /* End of Year pack. Limited: only while packs.valid_until hasn't passed. */
+ {n:"Sick Day Knox",r:"Called One In",i:"thermo",hp:17,atk:3,spd:3,an:"Miraculous Recovery",a:"Heal this character back to full HP.",f:"Front office rang at 8:05am. Nobody believed the cough.",set:"daily-org",img:"images/daily-org/sick-day-knox.jpg"},
+ {n:"Excursion Knox",r:"Clipboard Custody",i:"bus",hp:20,atk:4,spd:6,an:"Head Count",a:"Draw 2 action cards.",f:"Counted to twenty-eight four times. Got twenty-eight each time. Gets a Shield when you play Excursion on it.",set:"daily-org",img:"images/daily-org/excursion-knox.jpg"},
+ {n:"PD Knox",r:"Whole Staff Session",i:"pd",hp:22,atk:4,spd:4,an:"Mandatory Session",a:"Choose an enemy. It skips its next turn.",f:"Third acronym of the slide. Everyone still nodding.",set:"daily-org",img:"images/daily-org/pd-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:18,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
  {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
@@ -117,13 +126,17 @@ var acts=[
  {n:"Waratah Spirit",i:"waratah",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Waratah Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/waratah-spirit.svg"},
  {n:"Grevillea Spirit",i:"grevillea",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Grevillea Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/grevillea-spirit.svg"},
  {n:"Acacia Spirit",i:"acacia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Acacia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/acacia-spirit.svg"},
- {n:"Banksia Spirit",i:"banksia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Banksia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/banksia-spirit.svg"}
+ {n:"Banksia Spirit",i:"banksia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Banksia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/banksia-spirit.svg"},
+ /* Daily Org pack. */
+ {n:"Classroom Change",i:"doorswap",t:"Instant",a:"Every character on both teams loses their Shield.",x:0,set:"daily-org"},
+ {n:"Compass Is Down",i:"compassdown",t:"Instant",a:"Every character on both teams skips their next turn.",x:0,set:"daily-org"},
+ {n:"S1-4",i:"referral",t:"Instant",a:"Deal 5 damage to one enemy. It skips its next turn.",x:0,set:"daily-org"}
 ];
 
 /* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
 var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
-  {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'spirit-week', name:'Spirit Week'},
+  {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
   {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
 ];
 
@@ -144,7 +157,8 @@ var SIG_FX = {
  'Harbour Seal Knox':'shield', 'Sports Carnival Knox':undefined, 'Conference Knox':'stun', 'Yard Duty Knox':'unshield',
  'Swimming Carnival Knox':undefined, 'SOC&rsquo;s Got Talent Knox':undefined,
  'Fur Seal Knox':'stun', 'Weddell Seal Knox':'shield', 'Sea Lion Knox':undefined, 'Research Vessel Knox':'heal',
- 'Graduation Knox':'shield', 'Yearbook Knox':'stun', 'Staff Party Knox':'heal'
+ 'Graduation Knox':'shield', 'Yearbook Knox':'stun', 'Staff Party Knox':'heal',
+ 'Sick Day Knox':'heal', 'Excursion Knox':'draw', 'PD Knox':'stun'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
