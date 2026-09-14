@@ -113,8 +113,23 @@ function queue(){
 function maxMissing(t){ return living(t).reduce(function(m,u){ return Math.max(m, u.max-u.hp); }, 0); }
 function now(){ return Date.now(); }
 
+/* Chairman Knox: 1 for everything alone; own three and every copy plays as 10 for everything instead.
+   Computed once per team at team-select time (see chairmanEmpoweredFor/G.chairmanEmpowered) rather
+   than read live here, for the same reason house-card bonuses are — see houseOwnedFor. */
+function chairmanVariant(base, empowered){
+  if(!empowered) return base;
+  var v = {}; for(var k in base) v[k] = base[k];
+  v.hp = 10; v.atk = 10; v.spd = 10;
+  v.atks = [
+    {n:'Jab', dmg:10, a:'A quick, reliable strike.'},
+    {n:base.an, dmg:14, a:'A harder hit. No other effect.'},
+    {n:'Overdrive', dmg:20, fx:'recoil', a:'This character takes 7 HP of recoil.'}
+  ];
+  return v;
+}
 function newUnit(ci, team, foil){
-  var c = chars[ci];
+  var base = chars[ci];
+  var c = base.id==='chairman-knox' ? chairmanVariant(base, !!(G.chairmanEmpowered && G.chairmanEmpowered[team])) : base;
   return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:c.hp, spd:c.spd, foil:!!foil,
     ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand()};
 }
@@ -267,12 +282,22 @@ function gameEnded(){
   if(CFG.stake>0 && stakeEligible()){
     var g = G, stake = CFG.stake, won = G.winner===me;
     G.wagerPending = true; CFG.stake = 0;
-    ACC.wager(stake, won, CFG.mode, CFG.diff).then(function(r){ if(g===G){ G.wagerPending=false; G.wagerResult=r; render(); } })
-      .catch(function(e){ if(g===G){ G.wagerPending=false; G.wagerResult={error:(e&&e.message)||String(e)}; render(); } });
+    ACC.wager(stake, won, CFG.mode, CFG.diff).then(function(r){
+      if(g===G){ G.wagerPending=false; G.wagerResult=r; render(); }
+      if(CFG.mode==='online' && r && r.won) rollChairmanChase(g);
+    }).catch(function(e){ if(g===G){ G.wagerPending=false; G.wagerResult={error:(e&&e.message)||String(e)}; render(); } });
   }
   if(!ACC || !ACC.user || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g2 = G;
-  ACC.recordWin().then(function(got){ if(g2===G){ G.reward = got; render(); } });
+  ACC.recordWin().then(function(got){
+    if(g2===G){ G.reward = got; render(); }
+    if(CFG.mode==='online' && got) rollChairmanChase(g2);
+  });
+}
+/* Chairman Knox's 1-in-100 online-win chase (see account.js A.rollChairmanWin). Only ever attempted
+   after a real online-battle pack win, never CPU, never on a wager loss. */
+function rollChairmanChase(g){
+  ACC.rollChairmanWin().then(function(got){ if(got && g===G){ G.chairmanWon = true; render(); } });
 }
 function strikeTargets(u){ return foes(u); }
 /* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays tapped next round. */
@@ -420,6 +445,9 @@ function houseOwnedFor(){
   var m = {};
   HOUSE_CARDS.forEach(function(n){ m[n] = (typeof ACC!=='undefined' && ACC && ACC.available && ACC.user) ? Math.max(1, ACC.qty(ACTD[n].id, false)) : 1; });
   return m;
+}
+function chairmanEmpoweredFor(){
+  return !!(typeof ACC!=='undefined' && ACC && ACC.available && ACC.user && ACC.qty('chairman-knox', false)>=3);
 }
 function houseCard(n){
  return {
@@ -679,6 +707,7 @@ function beginBattle(setup){
     ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
   }
   G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
+  G.chairmanEmpowered = setup.chairmanEmpowered || [chairmanEmpoweredFor(), chairmanEmpoweredFor()];
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -933,8 +962,9 @@ function overlays(){
                : G.wagerResult.error ? '<p class="reward dim">High Stakes wager failed: '+esc(G.wagerResult.error)+'</p>'
                : G.wagerResult.won ? '<p class="reward">&#9889; High Stakes paid off &mdash; a bonus '+(G.wagerResult.pack==='any' ? 'pack' : packName(G.wagerResult.pack)+' pack')+'!</p>'
                : '<p class="reward dim">High Stakes: lost your '+G.wagerResult.lost+' Grant Points.</p>';
+    var chairman = G.chairmanWon ? '<p class="reward chairman">&#9733; 1 in 100 &mdash; that pack held a Chairman Knox! Check your Collection.</p>' : '';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
-    o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward+wager
+    o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward+wager+chairman
       +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
   } else if(G.oppGone && !G.over){
     o += '<div class="ov soft"><div class="panel"><div class="eyebrow">Connection</div><h2>'+pname(1-CFG.me)+' left the game</h2><p>The match can&rsquo;t continue. No result is recorded.</p>'
@@ -942,6 +972,19 @@ function overlays(){
   }
   if(G.zoomOpen && !o) o += '<div class="ov zoomov" data-a="unzoom">'+zoomBlock()+'</div>';
   return o;
+}
+/* A once-only welcome for Chairman Knox (see account.js A.claimChairmanGift). Shown across any
+   screen except mid-battle/deal, exactly once, the first time a player is ever signed in after this
+   shipped — the server enforces the "once" part; this just presents it. */
+function chairmanGiftHtml(){
+  if(!M.chairmanGift || G.phase==='battle' || G.phase==='deal') return '';
+  var c = chars.filter(function(x){ return x.id==='chairman-knox'; })[0];
+  return '<div class="ov" data-a="noop"><div class="panel chairmangift" data-a="noop"><div class="eyebrow">A gift, once only</div><h2>Chairman Knox</h2>'
+   +'<div class="card big">'+charFace(c)+'</div>'
+   +'<ul class="kw" style="text-align:left"><li>On its own, Chairman Knox is the <b>weakest card in the game</b> &mdash; 1 HP, 1 ATK, 1 SPD.</li>'
+   +'<li>Collect <b>three</b> and every copy you own plays as <b>10 for everything</b> instead &mdash; wildly overpowered.</li>'
+   +'<li>It can never be bought or sold. The only other way to get one: a <b>1-in-100 chance</b> on any pack you win from an <b>online battle</b> (CPU wins never drop it).</li></ul>'
+   +'<button class="btn gold big" data-a="chairmangiftclose">Got it</button></div></div>';
 }
 function rulesHtml(){
   if(!G.showRules) return '';
@@ -1125,6 +1168,7 @@ function submitAuth(){
     if(up) await ACC.signUp(u, p); else await ACC.signIn(u, p);
     M.form = {}; goScreen('menu');
     if(up) M.note = 'Welcome! Your welcome pack is waiting.';
+    if(ACC.justGiftedChairman){ M.chairmanGift = true; ACC.justGiftedChairman = false; }
   });
 }
 
@@ -1223,9 +1267,13 @@ function renderCollection(){
     var list = packCards(pk.id), have = list.filter(function(c){ return ACC.qty(c.id,false)>0; }).length;
     return '<h3 class="sec">'+pk.name+' pack <span class="count'+(have===list.length?' ok':'')+'">'+have+' / '+list.length+' collected</span></h3>'+grid(list);
   }).join('');
+  var chairmanQty = ACC.qty('chairman-knox', false);
+  var chairman = chairmanQty>0 ? '<h3 class="sec">Chairman Knox <span class="count'+(chairmanQty>=3?' ok':'')+'">'+chairmanQty+' owned'+(chairmanQty>=3?' &middot; EMPOWERED':'')+'</span></h3>'
+    +'<p class="hint">1 HP/ATK/SPD alone. Own three and every copy becomes 10 for everything. Never for sale &mdash; only a once-only gift, or a 1-in-100 chance on any pack won from an online battle.</p>'+grid([chars.filter(function(c){ return c.id==='chairman-knox'; })[0]]) : '';
   return pageTop('Collection')+'<div class="panel-pg wide">'
     +'<div class="statline"><span><b>'+ACC.profile.grant_points+'</b> Grant Points</span><span>Commons 8 &middot; Foils 15 &middot; New characters 20</span></div>'
     + msgs()
+    + chairman
     + packs
     +'<h3 class="sec">Foils</h3><p class="hint">Foils play exactly like the normal card. They just shine.</p>'+grid(baseChars, true)
     +'<h3 class="sec">Starter characters</h3>'+grid(baseChars)
@@ -1329,8 +1377,8 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; }
 };
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
-function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], actions:t.actions, houseOwned:houseOwnedFor()}; }
-function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], actions:t.actions, houseOwned:t.houseOwned||{}}; }
+function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
+function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
 /* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
    an invite can be accepted from anywhere, with no menu visit in between to have set one. */
 function connect(code, role){
@@ -1383,7 +1431,8 @@ function beginOnline(m, me){
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
   startWithTeams({teams:[t[0].chars, t[1].chars], foils:[t[0].chars.map(function(ci){ return t[0].foils.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].foils.indexOf(chars[ci].id)>=0; })],
-    actions:[t[0].actions, t[1].actions], houseOwned:[t[0].houseOwned, t[1].houseOwned]}, m.seed, m.first);
+    actions:[t[0].actions, t[1].actions], houseOwned:[t[0].houseOwned, t[1].houseOwned],
+    chairmanEmpowered:[t[0].chairmanEmpowered, t[1].chairmanEmpowered]}, m.seed, m.first);
 }
 function renderLobby(){
   var body = '';
@@ -1468,6 +1517,7 @@ function activityLine(row){
   var d = row.detail || {}, who = '<b>'+esc(row.username)+'</b>';
   switch(row.kind){
     case 'pack_won':
+      if(d.pack==='chairman-knox') return who+(d.source==='gift' ? ' received the Chairman Knox gift &#9733;' : ' pulled a <b>Chairman Knox</b> &#9733; <small>1 in 100</small>');
       return who+' won a '+(d.pack==='any' ? 'pack' : packName(d.pack)+' pack')+(d.source==='wager' ? ' <small>&middot; High Stakes</small>' : '');
     case 'wager_lost':
       return who+' lost '+d.stake+' GP on a High Stakes gamble';
@@ -1751,7 +1801,7 @@ function paint(){
   G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
   // Keep typing focus across re-renders (the whole screen is rebuilt each time).
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
-  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner();
+  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
@@ -1888,6 +1938,7 @@ function onClick(e){
     case 'mute': AUDIO.muted = !AUDIO.muted; try{ localStorage.setItem('travis.mute', AUDIO.muted?'1':'0'); }catch(e){} render(); break;
     case 'rules': G.showRules = true; render(); break;
     case 'rulesoff': G.showRules = false; render(); break;
+    case 'chairmangiftclose': M.chairmanGift = false; render(); break;
     case 'noop': break;
   }
 }
@@ -1922,6 +1973,7 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
       ACC.init(function(){
         if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
         if(ACC.user) ACC.loadActivity(80).then(function(rows){ M.activity = rows || []; if(G.phase!=='battle') render(); });
+        if(ACC.justGiftedChairman){ M.chairmanGift = true; ACC.justGiftedChairman = false; }
         if(G.phase!=='battle') render();
       });
     }

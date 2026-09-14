@@ -42,9 +42,21 @@ A.init = async function(onChange){
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
-    if(A.user){ await A.load(); A.touch(); }
+    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); }
   }catch(e){ A.user = null; }
   A.ready = true; changed();
+};
+/* A once-only free Chairman Knox for every player, past and future, the first time they're ever
+   signed in after this shipped — server-enforced (profiles.chairman_gifted), so it can only ever be
+   granted once no matter how many times this runs. Sets A.justGiftedChairman so the UI can show the
+   one-time explanation; missing until upgrade-14 is run, in which case this silently does nothing. */
+A.justGiftedChairman = false;
+A.claimChairmanGift = async function(){
+  if(!A.user) return;
+  try{
+    var got = await call(client().rpc('claim_chairman_gift'));
+    if(got){ A.justGiftedChairman = true; await A.refresh(); }
+  }catch(e){}
 };
 A.signUp = async function(username, password){
   var u = clean(username);
@@ -54,12 +66,12 @@ A.signUp = async function(username, password){
   if(!free) throw new Error('That username is taken.');
   var d = await call(client().auth.signUp({email:emailFor(u), password:password, options:{data:{username:u}}}));
   if(!d.session) throw new Error('Account made, but sign-in is waiting on email confirmation. Ask the admin to turn off &ldquo;Confirm email&rdquo; in Supabase.');
-  A.user = d.user; await A.load(); A.touch(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
 };
 A.signIn = async function(username, password){
   var u = clean(username);
   var d = await call(client().auth.signInWithPassword({email:emailFor(u), password:password}));
-  A.user = d.user; await A.load(); A.touch(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
 };
 A.signOut = async function(){
   A.leaveLobby();
@@ -109,12 +121,12 @@ A.price = function(c, foil){ return foil ? 15 : c.set==='base' ? 0 : chars.index
 A.canBuy = function(c, foil){
   if(!A.profile) return false;
   if(foil) return c.set==='base' && chars.indexOf(c)>=0 && !A.ownsFoil(c.id);
-  if(c.set==='base' || c.set==='legendary') return false;   // legendary is pull- or gift-only, never for sale
+  if(c.set==='base' || c.set==='legendary' || c.id==='chairman-knox') return false;   // legendary and Chairman Knox are pull- or gift-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 /* Sell price is half the buy price. Starter (base, non-foil) cards can't be sold — everyone already owns them free. */
 A.sellPrice = function(c, foil){ return foil ? 7 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 10 : 4; };
-A.canSell = function(c, foil){ return !!A.profile && (foil ? A.ownsFoil(c.id) : c.set!=='base' && qty(c.id,false)>0); };
+A.canSell = function(c, foil){ return !!A.profile && c.id!=='chairman-knox' && (foil ? A.ownsFoil(c.id) : c.set!=='base' && qty(c.id,false)>0); };
 A.sellCard = async function(id, foil){ await call(client().rpc('sell_card', {card:id, is_foil:!!foil})); await A.refresh(); };
 
 /* ---------------- packs ----------------
@@ -147,6 +159,13 @@ A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:
 A.recordWin = async function(){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return null; } };
 /* High Stakes: a second, uncapped way to earn a pack, at the cost of the Grant Points staked on a loss.
    Resolves to {won, pack} on a win or {won:false, lost, grant_points} on a loss. */
+/* Chairman Knox's only other source: a 1-in-100 chance whenever a pack is actually won from an
+   online battle (a free daily win or a High Stakes win alike) — never CPU, never purchasable, never
+   part of any pack's normal odds table. Resolves to true only on the rare hit. */
+A.rollChairmanWin = async function(){
+  if(!A.user) return false;
+  try{ var got = await call(client().rpc('roll_chairman_win')); if(got) await A.refresh(); return !!got; }catch(e){ return false; }
+};
 A.wager = async function(stake, won, mode, difficulty){
   var got = await call(client().rpc('wager_battle', {p_stake:stake, p_won:!!won, p_mode:mode, p_difficulty:difficulty||null}));
   await A.refresh();

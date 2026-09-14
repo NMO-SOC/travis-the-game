@@ -108,6 +108,11 @@ var chars=[
  {n:"Woodstock Knox",r:"Three Days of Peace and Music",i:"mic",hp:16,atk:3,spd:5,an:"Peace Sign",a:"Also gives this character a Shield.",f:"Missed the mud. Never missed a chord.",set:"knox-of-history",img:"images/knox-of-history/woodstock-knox.jpg"},
  {n:"WW1 Knox",r:"Over the Top",i:"whistle",hp:22,atk:5,spd:4,an:"No Man&rsquo;s Land",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Wrote home every week. The trench never wrote back.",set:"knox-of-history",img:"images/knox-of-history/ww1-knox.jpg"},
  {n:"WW2 Knox",r:"D-Day Veteran",i:"whistle",hp:23,atk:5,spd:4,an:"D-Day",a:"Also makes the target skip its next turn.",f:"Landed on the beach. Left with the medal.",set:"knox-of-history",img:"images/knox-of-history/ww2-knox.jpg"},
+ /* Chairman Knox — a once-only gift to every player, and otherwise only a 1-in-100 chance on any
+    pack won from an online battle. Never sold in a pack, never for sale. On its own it's the weakest
+    card in the game (1 HP, 1 ATK, 1 SPD) — but own three and every copy becomes 10 for everything.
+    See newUnit() in play.js for the collect-three swap; nothing here reflects it. */
+ {n:"Chairman Knox",r:"Cult of Personality",i:"star",hp:1,atk:1,spd:1,an:"Little Red Book",a:"A harder hit. No other effect.",f:"One portrait is a curiosity. Three is a cult.",set:"chairman",img:"images/chairman-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:18,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
  {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
@@ -178,7 +183,8 @@ var SIG_FX = {
  'Barbarian Knox':undefined, 'Caesar Knox':'stun', 'Crusader Knox':'shield', 'Great Depression Knox':'draw',
  'Napoleon Knox':'stun', 'Pharaoh Knox':'heal', 'Pirate Knox':'unshield', 'Samurai Knox':undefined,
  'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
- 'WW1 Knox':'unshield', 'WW2 Knox':'stun'
+ 'WW1 Knox':'unshield', 'WW2 Knox':'stun',
+ 'Chairman Knox':undefined
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
