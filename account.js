@@ -84,7 +84,12 @@ A.load = async function(){
   var c = client();
   var r = await Promise.all([
     call(c.from('profiles').select('*').eq('id', A.user.id).maybeSingle()),
-    call(c.from('collection').select('card_id,foil,qty')),
+    // 'gold' is missing until upgrade-15 is run; fall back to reading without it rather than failing
+    // login for everyone in the meantime (every row is then just treated as not-gold).
+    c.from('collection').select('card_id,foil,gold,qty').then(function(x){
+      if(!x.error) return x.data;
+      return c.from('collection').select('card_id,foil,qty').then(function(y){ return (y.data||[]).map(function(r){ r.gold = false; return r; }); });
+    }, function(){ return []; }),
     call(c.from('decks').select('*').order('updated_at', {ascending:false})),
     // Missing until upgrade-4 is run; treat that as "no specific-type packs" rather than failing the login.
     c.from('pack_stock').select('pack_id,qty').then(function(x){ return x.error ? [] : x.data; }, function(){ return []; })
@@ -110,24 +115,34 @@ A.canOpen = function(id){
 };
 A.refresh = async function(){ if(A.user){ await A.load(); changed(); } };
 
-/* ---------------- ownership ---------------- */
-function qty(id, foil){ return A.collection.filter(function(r){ return r.card_id===id && !!r.foil===!!foil; }).reduce(function(s,r){ return s+r.qty; }, 0); }
+/* ---------------- ownership ----------------
+   finish: 'normal' (default), 'foil' or 'gold'. Foil and gold are two different rare finishes any
+   character can have — never both on the same copy — and, since upgrade-15, neither is purchasable:
+   the only way to get either is a pack (Holo guarantees a foil, Legendary guarantees a gold). */
+function qty(id, foil){ return A.collection.filter(function(r){ return r.card_id===id && !!r.foil===!!foil && !r.gold; }).reduce(function(s,r){ return s+r.qty; }, 0); }
+function qtyGold(id){ return A.collection.filter(function(r){ return r.card_id===id && r.gold; }).reduce(function(s,r){ return s+r.qty; }, 0); }
 A.qty = qty;
+A.qtyGold = qtyGold;
 A.ownsChar = function(c){ return c.set==='base' || qty(c.id,false)>0; };
 A.ownsFoil = function(id){ return qty(id,true)>0; };
+A.ownsGold = function(id){ return qtyGold(id)>0; };
 /* Most copies of an action card a deck may hold: 3, and never more than you own for pack cards. */
 A.actionLimit = function(a){ return a.set==='base' ? 3 : Math.min(3, qty(a.id,false)); };
-A.price = function(c, foil){ return foil ? 15 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 20 : 8; };
-A.canBuy = function(c, foil){
-  if(!A.profile) return false;
-  if(foil) return c.set==='base' && chars.indexOf(c)>=0 && !A.ownsFoil(c.id);
-  if(c.set==='base' || c.set==='legendary' || c.id==='chairman-knox') return false;   // legendary and Chairman Knox are pull- or gift-only, never for sale
+A.price = function(c){ return c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 20 : 8; };
+A.canBuy = function(c, finish){
+  if(!A.profile || finish==='foil' || finish==='gold') return false;   // pull- or gift-only, never for sale
+  if(c.set==='base' || c.id==='chairman-knox') return false;
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
-/* Sell price is half the buy price. Starter (base, non-foil) cards can't be sold — everyone already owns them free. */
-A.sellPrice = function(c, foil){ return foil ? 7 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 10 : 4; };
-A.canSell = function(c, foil){ return !!A.profile && c.id!=='chairman-knox' && (foil ? A.ownsFoil(c.id) : c.set!=='base' && qty(c.id,false)>0); };
-A.sellCard = async function(id, foil){ await call(client().rpc('sell_card', {card:id, is_foil:!!foil})); await A.refresh(); };
+/* Sell price is half the buy price. Starter (base, normal) cards can't be sold — everyone already owns them free. */
+A.sellPrice = function(c, finish){ return (finish==='foil' || finish==='gold') ? 7 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 10 : 4; };
+A.canSell = function(c, finish){
+  if(!A.profile || c.id==='chairman-knox') return false;
+  if(finish==='foil') return A.ownsFoil(c.id);
+  if(finish==='gold') return A.ownsGold(c.id);
+  return c.set!=='base' && qty(c.id,false)>0;
+};
+A.sellCard = async function(id, finish){ await call(client().rpc('sell_card', {card:id, is_foil:finish==='foil', is_gold:finish==='gold'})); await A.refresh(); };
 
 /* ---------------- packs ----------------
    Pack names and odds come from the database (packs, pack_odds) so the odds shown are the odds used.
@@ -151,7 +166,7 @@ A.loadPacks = async function(){
 A.openPack = async function(packId){
   var cards = await call(client().rpc('open_pack', {p_pack:packId}));
   await A.refresh();
-  return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
+  return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, gold:x.gold, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
 };
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
 /* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
@@ -174,7 +189,7 @@ A.wager = async function(stake, won, mode, difficulty){
 
 /* ---------------- decks ---------------- */
 A.saveDeck = async function(d){
-  var row = {name:d.name, characters:d.characters, actions:d.actions, foils:d.foils||[]};
+  var row = {name:d.name, characters:d.characters, actions:d.actions, foils:d.foils||[], golds:d.golds||[]};
   if(d.id) await call(client().from('decks').update(row).eq('id', d.id));
   else await call(client().from('decks').insert(row));
   await A.refresh();

@@ -115,13 +115,11 @@ var chars=[
  {n:"Chairman Knox",r:"Cult of Personality",i:"star",hp:1,atk:1,spd:1,an:"Little Red Book",a:"A harder hit. No other effect.",f:"One portrait is a curiosity. Three is a cult.",set:"chairman",img:"images/chairman-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:18,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
- {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
- /* Legendary pack. Gold editions of fan-favourite Knoxes — same stats and attacks as the original, just rarer and shinier. */
- {n:"Golden Doctor Knox",r:"Legendary Edition",i:"seal",hp:22,atk:5,spd:4,an:"Peer Review",a:"",f:"The four hundred pages, bound in gold.",set:"legendary",like:"doctor-knox",img:"images/legendary/doctor-knox.jpg"},
- {n:"Golden Beer Frog Knox",r:"Legendary Edition",i:"frog",hp:16,atk:3,spd:9,an:"Amphibious Assault",a:"",f:"Legend. Menace. Frog. Now with a finish to match.",set:"legendary",like:"beer-frog-knox",img:"images/legendary/beer-frog-knox.jpg"},
- {n:"Golden Elephant Seal Knox",r:"Legendary Edition",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"",f:"Two tonnes of disapproval, entirely in gold leaf.",set:"legendary",like:"elephant-seal-knox",img:"images/legendary/elephant-seal-knox.jpg"},
- {n:"Golden Leopard Seal Knox",r:"Legendary Edition",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"",f:"Smiles like that for a reason. Glints, too.",set:"legendary",like:"leopard-seal-knox",img:"images/legendary/leopard-seal-knox.jpg"},
- {n:"Golden Emeritus Knox",r:"Legendary Edition",i:"laurel",hp:16,atk:7,spd:3,an:"Tenure",a:"",f:"Retired. Not finished. Now in gold.",set:"legendary",like:"emeritus-knox",img:"images/legendary/emeritus-knox.jpg"}
+ {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"}
+ /* Gold used to be five separate hand-authored "Golden X" cards here (set:'legendary'). It's now a
+    generic finish any character can have — see collection.gold / deck.golds — so they're retired;
+    upgrade-15-foil-gold-economy.sql folds anyone's existing golden-* ownership into the original
+    card as a gold copy. */
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -204,11 +202,4 @@ chars.forEach(function(c){
     {n:c.an, dmg:sig, fx:fx, a:FX_TEXT[fx||'plain'](sigN)},
     {n:'Overdrive', dmg:over, fx:'recoil', a:FX_TEXT.recoil(overN)}
   ];
-});
-/* Golden (legendary) characters play identically to the original they're a gold edition of — only the
-   look and rarity differ — so their attacks are copied over rather than generated a second time. */
-chars.filter(function(c){ return c.like; }).forEach(function(c){
-  var orig = chars.filter(function(o){ return o.id===c.like || o.n===c.like; })[0];
-  if(!orig) return;
-  c.atks = orig.atks; c.a = orig.a;
 });

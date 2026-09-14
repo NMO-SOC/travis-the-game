@@ -127,10 +127,10 @@ function chairmanVariant(base, empowered){
   ];
   return v;
 }
-function newUnit(ci, team, foil){
+function newUnit(ci, team, foil, gold){
   var base = chars[ci];
   var c = base.id==='chairman-knox' ? chairmanVariant(base, !!(G.chairmanEmpowered && G.chairmanEmpowered[team])) : base;
-  return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:c.hp, spd:c.spd, foil:!!foil,
+  return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:c.hp, spd:c.spd, foil:!!foil, gold:!!gold,
     ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand()};
 }
 
@@ -708,7 +708,7 @@ function beginBattle(setup){
   }
   G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
   G.chairmanEmpowered = setup.chairmanEmpowered || [chairmanEmpoweredFor(), chairmanEmpoweredFor()];
-  G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i]); }); });
+  G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i], setup.golds && setup.golds[t] && setup.golds[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
     var names = (setup.actions && setup.actions[t]) || baseActions();
@@ -730,11 +730,12 @@ function startWithTeams(setup, seed, first){
 function deckTeam(deck, ids){
   return {chars:ids.map(function(id){ return CHARID[id]; }),
           foils:ids.map(function(id){ return (deck.foils||[]).indexOf(id)>=0; }),
+          golds:ids.map(function(id){ return (deck.golds||[]).indexOf(id)>=0; }),
           actions:deck.actions.map(function(id){ return ACTID[id].n; })};
 }
 function randomTeam(n, exclude){
   var pool = shuffle(BASE_CHARS.filter(function(i){ return (exclude||[]).indexOf(i)<0; }));
-  return {chars:pool.slice(0, n), foils:[], actions:null};
+  return {chars:pool.slice(0, n), foils:[], golds:[], actions:null};
 }
 
 /* ---------------- card faces ---------------- */
@@ -756,9 +757,10 @@ function charFace(c, o){
   var moves = c.atks.map(function(mv){
     return '<p class="mv"><b>'+mv.n+'</b><span class="mvdmg" title="Damage">'+mv.dmg+'</span><br><span class="fl">'+mv.a+'</span></p>';
   }).join('');
-  return '<div class="face f-'+col+(o.foil?' foil':'')+'">'
-   +'<div class="tl"><span class="tn">'+c.n+'</span>'+(c.set==='legendary' ? '<span class="setmark legend" title="Legendary &mdash; a rare bonus on any battle-win pack">Legendary</span>'
-     : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '')+'</div>'
+  var tag = o.gold ? '<span class="setmark legend" title="Gold &mdash; a rare cosmetic finish, only from a guaranteed-gold pack like Legendary">Gold</span>'
+    : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '';
+  return '<div class="face f-'+col+(o.foil?' foil':'')+(o.gold?' gilt':'')+'">'
+   +'<div class="tl"><span class="tn">'+c.n+'</span>'+tag+'</div>'
    +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
@@ -806,7 +808,7 @@ function unitCard(u){
     body = backFace() + (dmg>0 && !u.ko ? '<span class="dmgb">&minus;'+dmg+'</span>' : '');
   } else {
     var pct = Math.max(0, Math.min(100, u.hp/u.max*100));
-    body = charFace(u.c, {foil:u.foil, hp:u.hp, hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb'+(pct<=30?' low':'')+'"><i style="width:'+pct+'%"></i></div>'});
+    body = charFace(u.c, {foil:u.foil, gold:u.gold, hp:u.hp, hpCls:u.hp<u.max?' hurt':'', bar:'<div class="hpb'+(pct<=30?' low':'')+'"><i style="width:'+pct+'%"></i></div>'});
   }
   return '<button class="'+cls+'" style="'+f.style+'" data-a="unit" data-v="'+u.id+'" aria-label="'+(hid?'Face-down card':u.c.n)+'">'
    + body + '<div class="chips">'+chips(u)+'</div>' + (u.ko ? '<div class="kotag">Knocked out</div>' : '')
@@ -911,7 +913,7 @@ function zoomBlock(){
     var u = unitById(z.id);
     if(u && hidden(u)){ html = '<div class="card big">'+backFace()+'</div>'; cap = 'Face-down. Revealed when it first acts.'; }
     else if(u){
-      html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {foil:u.foil, hp:u.hp, hpCls:u.hp<u.max?' hurt':''})+'</div>';
+      html = '<div class="card big'+(u.ko?' ko':'')+'">'+charFace(u.c, {foil:u.foil, gold:u.gold, hp:u.hp, hpCls:u.hp<u.max?' hurt':''})+'</div>';
       cap = pname(u.team)+' &middot; HP '+u.hp+'/'+u.max+(u.ko?' &middot; knocked out':'');
     }
     if(u){ var ua = unitActions(u); btn = ua.btn; if(ua.cap) cap = ua.cap; }
@@ -924,7 +926,7 @@ function zoomBlock(){
       cap = canPlayNow(c) ? 'Tap the card in your hand again, or press Play.' : '<span class="why">'+cardReason(c)+'</span>';
     }
   } else if(z && z.k==='ci'){
-    html = '<div class="card big">'+charFace(chars[z.ci], {foil:z.foil})+'</div>';
+    html = '<div class="card big">'+charFace(chars[z.ci], {foil:z.foil, gold:z.gold})+'</div>';
   } else if(z && z.k==='an'){
     html = '<div class="card big">'+actFace(z.n)+'</div>';
   }
@@ -1173,12 +1175,12 @@ function submitAuth(){
 }
 
 /* ---- packs ---- */
-function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil}) : actFace(x.card.n); }
+function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil, gold:x.gold}) : actFace(x.card.n); }
 function pct(x){ var v = x*100; return (v>0 && v<1 ? '&lt;1' : Math.round(v))+'%'; }
 function packCards(id){ return chars.concat(acts).filter(function(c){ return c.set===id; }); }
 function packOption(pk, p){
-  var o = pk.odds, fresh = (o.rare||0)+(o.common||0)+(o.foil||0), atLeastOne = 1-Math.pow(1-fresh, 3);
-  var odds = [['Starter card', o.starter, '1 Grant Point, since you already have it'], ['New character', o.rare], ['New action card', o.common], ['Foil starter character', o.foil]]
+  var o = pk.odds, fresh = (o.rare||0)+(o.common||0)+(o.foil||0)+(o.gold||0), atLeastOne = 1-Math.pow(1-fresh, 3);
+  var odds = [['Starter card', o.starter, '1 Grant Point, since you already have it'], ['New character', o.rare], ['New action card', o.common], ['Foil character', o.foil], ['Gold character', o.gold]]
     .filter(function(r){ return r[1]>0; })
     .map(function(r){ return '<li><span>'+r[0]+(r[2] ? ' <small>('+r[2]+')</small>' : '')+'</span><b>'+pct(r[1])+'</b></li>'; }).join('');
   var inside = packCards(pk.id).map(function(c){
@@ -1209,8 +1211,8 @@ function renderPacks(){
       var up = r.shown[i], f = fxFor('rv'+i);
       var tag = !up ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
         : x.dupe ? '<span class="rtag dupe">Duplicate &middot; +'+x.points+' Grant Points</span>'
-        : '<span class="rtag new">'+(x.foil?'New foil!':'New!')+'</span>';
-      return '<div class="rslot"><button class="card rcard'+(up?' up':'')+(x.foil&&up?' shine':'')+f.cls+'" style="'+f.style+'" data-a="rv" data-v="'+i+'" aria-label="'+(up?x.card.n:'Face-down card')+'">'+(up?packCardFace(x):backFace())+'</button>'+tag+'</div>';
+        : '<span class="rtag new">'+(x.gold?'New gold!':x.foil?'New foil!':'New!')+'</span>';
+      return '<div class="rslot"><button class="card rcard'+(up?' up':'')+((x.foil||x.gold)&&up?' shine':'')+f.cls+'" style="'+f.style+'" data-a="rv" data-v="'+i+'" aria-label="'+(up?x.card.n:'Face-down card')+'">'+(up?packCardFace(x):backFace())+'</button>'+tag+'</div>';
     }).join('')+'</div>'
     +'<div class="row">'+(r.shown.every(Boolean) ? '<button class="btn gold" data-a="rvdone">Done</button>' : '<button class="btn" data-a="rvall">Reveal all</button>')+'</div>';
   } else if(!ACC.packs.length){
@@ -1241,42 +1243,53 @@ function openPack(packId){
 }
 function flipReveal(i){
   var r = M.reveal; if(!r) return;
-  if(r.shown[i]){ var x = r.cards[i]; G.zoom = chars.indexOf(x.card)>=0 ? {k:'ci', ci:chars.indexOf(x.card), foil:x.foil} : {k:'an', n:x.card.n}; G.zoomOpen = true; render(); return; }
+  if(r.shown[i]){ var x = r.cards[i]; G.zoom = chars.indexOf(x.card)>=0 ? {k:'ci', ci:chars.indexOf(x.card), foil:x.foil, gold:x.gold} : {k:'an', n:x.card.n}; G.zoomOpen = true; render(); return; }
   r.shown[i] = true; fxc('rv'+i, 'flip', 700); render();
 }
 
 /* ---- collection ---- */
-function collTile(c, foil){
+/* finish: 'normal' (default), 'foil' or 'gold'. Foil/gold tiles are ownership-only — never buyable,
+   see ACC.canBuy — and sit right next to a card's normal tile instead of off in a separate section,
+   so where a card can be foiled or gilded is visible right where the card itself lives. */
+function collTile(c, finish){
   var isChar = chars.indexOf(c)>=0, owned, label;
-  if(foil){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil'; }
+  if(finish==='foil'){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil &middot; Holo pack only'; }
+  else if(finish==='gold'){ owned = ACC.ownsGold(c.id); label = owned ? 'Gold owned' : 'Gold &middot; Legendary pack only'; }
   else if(c.set==='base'){ owned = true; label = isChar ? 'Starter card' : '3 in every deck'; }
-  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : c.set==='legendary' ? 'Battle-win bonus' : 'Pack card'; }
+  else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : 'Pack card'; }
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
-  var price = ACC.price(c, foil), buy = ACC.canBuy(c, foil)
-    ? '<button class="btn sm buy" data-a="buy" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(ACC.profile.grant_points>=price&&!M.busy?'':' disabled')+'>Buy &middot; '+price+' GP</button>' : '';
-  var sellPrice = ACC.sellPrice(c, foil), sell = ACC.canSell(c, foil)
-    ? '<button class="btn sm sell" data-a="sell" data-v="'+c.id+'" data-f="'+(foil?1:0)+'"'+(M.busy?' disabled':'')+'>Sell &middot; +'+sellPrice+' GP</button>' : '';
-  var face = isChar ? charFace(c, {foil:foil}) : actFace(c.n);
-  var zv = isChar ? 'c:'+chars.indexOf(c)+(foil?':f':'') : 'a:'+c.n;
-  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(foil&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+c.n+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
+  var price = ACC.price(c), buy = ACC.canBuy(c, finish)
+    ? '<button class="btn sm buy" data-a="buy" data-v="'+c.id+'" data-fin="'+finish+'"'+(ACC.profile.grant_points>=price&&!M.busy?'':' disabled')+'>Buy &middot; '+price+' GP</button>' : '';
+  var sellPrice = ACC.sellPrice(c, finish), sell = ACC.canSell(c, finish)
+    ? '<button class="btn sm sell" data-a="sell" data-v="'+c.id+'" data-fin="'+finish+'"'+(M.busy?' disabled':'')+'>Sell &middot; +'+sellPrice+' GP</button>' : '';
+  var face = isChar ? charFace(c, {foil:finish==='foil', gold:finish==='gold'}) : actFace(c.n);
+  var zv = isChar ? 'c:'+chars.indexOf(c)+(finish==='foil'?':f':finish==='gold'?':g':'') : 'a:'+c.n;
+  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(finish!=='normal'&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+c.n+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
 }
 function renderCollection(){
   var baseChars = chars.filter(function(c){ return c.set==='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
-  var grid = function(list, foil){ return '<div class="grid">'+list.map(function(c){ return collTile(c, foil); }).join('')+'</div>'; };
-  var packs = PACKS.map(function(pk){
-    var list = packCards(pk.id), have = list.filter(function(c){ return ACC.qty(c.id,false)>0; }).length;
+  /* Every character gets a normal tile plus, right alongside it, a foil and a gold tile (owned or
+     not) — actions never get foil/gold. */
+  var grid = function(list){ return '<div class="grid">'+list.map(function(c){
+      var isChar = chars.indexOf(c)>=0;
+      return collTile(c, 'normal') + (isChar ? collTile(c, 'foil') + collTile(c, 'gold') : '');
+    }).join('')+'</div>'; };
+  var packs = PACKS.filter(function(pk){ return pk.id!=='holo' && pk.id!=='legendary' && pk.id!=='chairman'; }).map(function(pk){
+    var list = packCards(pk.id);
+    if(!list.length) return '';
+    var have = list.filter(function(c){ return ACC.qty(c.id,false)>0; }).length;
     return '<h3 class="sec">'+pk.name+' pack <span class="count'+(have===list.length?' ok':'')+'">'+have+' / '+list.length+' collected</span></h3>'+grid(list);
   }).join('');
   var chairmanQty = ACC.qty('chairman-knox', false);
   var chairman = chairmanQty>0 ? '<h3 class="sec">Chairman Knox <span class="count'+(chairmanQty>=3?' ok':'')+'">'+chairmanQty+' owned'+(chairmanQty>=3?' &middot; EMPOWERED':'')+'</span></h3>'
-    +'<p class="hint">1 HP/ATK/SPD alone. Own three and every copy becomes 10 for everything. Never for sale &mdash; only a once-only gift, or a 1-in-100 chance on any pack won from an online battle.</p>'+grid([chars.filter(function(c){ return c.id==='chairman-knox'; })[0]]) : '';
+    +'<p class="hint">1 HP/ATK/SPD alone. Own three and every copy becomes 10 for everything. Never for sale &mdash; only a once-only gift, or a 1-in-100 chance on any pack won from an online battle.</p>'
+    +'<div class="grid">'+collTile(chars.filter(function(c){ return c.id==='chairman-knox'; })[0], 'normal')+'</div>' : '';
   return pageTop('Collection')+'<div class="panel-pg wide">'
-    +'<div class="statline"><span><b>'+ACC.profile.grant_points+'</b> Grant Points</span><span>Commons 8 &middot; Foils 15 &middot; New characters 20</span></div>'
+    +'<div class="statline"><span><b>'+ACC.profile.grant_points+'</b> Grant Points</span><span>Commons 8 &middot; New characters 20</span></div>'
     + msgs()
     + chairman
     + packs
-    +'<h3 class="sec">Foils</h3><p class="hint">Foils play exactly like the normal card. They just shine.</p>'+grid(baseChars, true)
-    +'<h3 class="sec">Starter characters</h3>'+grid(baseChars)
+    +'<h3 class="sec">Starter characters</h3><p class="hint">Every character here — and everywhere above — can also come as a foil (Holo pack) or gold (Legendary pack). Neither can be bought; both are shown alongside the normal card either way.</p>'+grid(baseChars)
     +'<h3 class="sec">Starter action cards</h3>'+grid(baseActs)
     +'</div></div>';
 }
@@ -1287,7 +1300,7 @@ function deckToEdit(d){
   var counts = {};
   (d ? d.actions : []).forEach(function(id){ counts[id] = (counts[id]||0)+1; });
   if(!d) for(var k in STARTER_ACTIONS) counts[k] = STARTER_ACTIONS[k];
-  return {id:d?d.id:null, characters:d?d.characters.slice():[], foils:d?(d.foils||[]).slice():[], counts:counts};
+  return {id:d?d.id:null, characters:d?d.characters.slice():[], foils:d?(d.foils||[]).slice():[], golds:d?(d.golds||[]).slice():[], counts:counts};
 }
 function editTotal(e){ var n=0; for(var k in e.counts) n += e.counts[k]; return n; }
 function renderDecks(){
@@ -1306,9 +1319,10 @@ function renderDeckEdit(){
   var e = M.edit, total = editTotal(e), nc = e.characters.length;
   var owned = chars.filter(function(c){ return ACC.ownsChar(c); });
   var charTiles = owned.map(function(c){
-    var on = e.characters.indexOf(c.id)>=0, foil = on && e.foils.indexOf(c.id)>=0;
-    return '<div class="tile"><button class="card coll pickable'+(on?' sel':'')+(foil?' shine':'')+'" data-a="dchar" data-v="'+c.id+'" aria-pressed="'+on+'">'+charFace(c, {foil:foil})+'</button>'
-      +(on && ACC.ownsFoil(c.id) ? '<button class="btn sm" data-a="dfoil" data-v="'+c.id+'">'+(foil?'&#10022; Foil on':'Use foil')+'</button>' : '')+'</div>';
+    var on = e.characters.indexOf(c.id)>=0, foil = on && e.foils.indexOf(c.id)>=0, gold = on && e.golds.indexOf(c.id)>=0;
+    return '<div class="tile"><button class="card coll pickable'+(on?' sel':'')+((foil||gold)?' shine':'')+'" data-a="dchar" data-v="'+c.id+'" aria-pressed="'+on+'">'+charFace(c, {foil:foil, gold:gold})+'</button>'
+      +(on && ACC.ownsFoil(c.id) ? '<button class="btn sm" data-a="dfoil" data-v="'+c.id+'">'+(foil?'&#10022; Foil on':'Use foil')+'</button>' : '')
+      +(on && ACC.ownsGold(c.id) ? '<button class="btn sm" data-a="dgold" data-v="'+c.id+'">'+(gold?'&#10022; Gold on':'Use gold')+'</button>' : '')+'</div>';
   }).join('');
   var actRows = acts.map(function(a){
     var lim = ACC.actionLimit(a), n = e.counts[a.id]||0;
@@ -1330,7 +1344,9 @@ function saveDeck(){
   if(!name){ M.err = 'Give the deck a name.'; render(); return; }
   var actions = []; acts.forEach(function(a){ for(var i=0;i<(e.counts[a.id]||0);i++) actions.push(a.id); });
   busy(async function(){
-    await ACC.saveDeck({id:e.id, name:name.slice(0,30), characters:e.characters, actions:actions, foils:e.foils.filter(function(id){ return e.characters.indexOf(id)>=0; })});
+    await ACC.saveDeck({id:e.id, name:name.slice(0,30), characters:e.characters, actions:actions,
+      foils:e.foils.filter(function(id){ return e.characters.indexOf(id)>=0; }),
+      golds:e.golds.filter(function(id){ return e.characters.indexOf(id)>=0; })});
     goScreen('decks'); M.note = 'Deck saved.';
   });
 }
@@ -1346,7 +1362,7 @@ function renderPick(){
   var p = G.pick, d = p.deck;
   var tiles = d.characters.map(function(id){
     var c = chars[CHARID[id]], on = p.chosen.indexOf(id)>=0;
-    return '<button class="card deal up'+(on?' sel':'')+'" data-a="pchar" data-v="'+id+'" aria-pressed="'+on+'">'+charFace(c, {foil:(d.foils||[]).indexOf(id)>=0})+'</button>';
+    return '<button class="card deal up'+(on?' sel':'')+'" data-a="pchar" data-v="'+id+'" aria-pressed="'+on+'">'+charFace(c, {foil:(d.foils||[]).indexOf(id)>=0, gold:(d.golds||[]).indexOf(id)>=0})+'</button>';
   }).join('');
   return topbar(p.title||'Choose your team')+'<div class="pg"><div class="panel-pg wide">'
     +'<p class="prompt">Choose <b>'+p.n+'</b> of your six characters from <b>'+esc(d.name)+'</b>. '+p.chosen.length+' / '+p.n+' chosen.</p>'
@@ -1363,7 +1379,7 @@ function startFromMenu(){
   if(!deck){ startGame(); return; }
   teamPick(deck, CFG.size, 'Choose your team', function(me){
     var cpu = randomTeam(CFG.size);
-    startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, []], actions:[me.actions, null]});
+    startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
   });
 }
 
@@ -1377,8 +1393,8 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; }
 };
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
-function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
-function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
+function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
+function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
 /* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
    an invite can be accepted from anywhere, with no menu visit in between to have set one. */
 function connect(code, role){
@@ -1431,6 +1447,7 @@ function beginOnline(m, me){
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
   startWithTeams({teams:[t[0].chars, t[1].chars], foils:[t[0].chars.map(function(ci){ return t[0].foils.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].foils.indexOf(chars[ci].id)>=0; })],
+    golds:[t[0].chars.map(function(ci){ return t[0].golds.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].golds.indexOf(chars[ci].id)>=0; })],
     actions:[t[0].actions, t[1].actions], houseOwned:[t[0].houseOwned, t[1].houseOwned],
     chairmanEmpowered:[t[0].chairmanEmpowered, t[1].chairmanEmpowered]}, m.seed, m.first);
 }
@@ -1523,7 +1540,7 @@ function activityLine(row){
       return who+' lost '+d.stake+' GP on a High Stakes gamble';
     case 'pack_opened': {
       var pulls = (d.cards||[]).filter(function(x){ return !x.starter && !x.dupe; }).map(function(x){
-        var c = CARDID[x.id]; return c ? c.n+(x.foil?' (foil)':'') : x.id;
+        var c = CARDID[x.id]; return c ? c.n+(x.gold?' (gold)':x.foil?' (foil)':'') : x.id;
       });
       return who+' opened a '+esc(d.pack)+' pack'+(pulls.length ? ' <small>&middot; pulled '+pulls.join(', ')+'</small>' : '');
     }
@@ -1850,17 +1867,17 @@ function onClick(e){
     case 'rv': flipReveal(+v); break;
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;
-    case 'buy': { var f = el.getAttribute('data-f')==='1'; busy(async function(){ await ACC.buyCard(v, f); M.note = 'Added to your collection.'; }); break; }
+    case 'buy': { busy(async function(){ await ACC.buyCard(v, false); M.note = 'Added to your collection.'; }); break; }
     case 'sell': {
-      var sf = el.getAttribute('data-f')==='1', sc = chars.filter(function(x){ return x.id===v; })[0] || acts.filter(function(x){ return x.id===v; })[0];
-      var pts = sc ? ACC.sellPrice(sc, sf) : 0;
-      if(typeof confirm==='function' && !confirm('Sell this'+(sf?' foil':'')+' card for '+pts+' Grant Points? You’ll need to get it again to use it.')) break;
-      busy(async function(){ await ACC.sellCard(v, sf); M.note = 'Sold for '+pts+' Grant Points.'; });
+      var sfin = el.getAttribute('data-fin')||'normal', sc = chars.filter(function(x){ return x.id===v; })[0] || acts.filter(function(x){ return x.id===v; })[0];
+      var pts = sc ? ACC.sellPrice(sc, sfin) : 0;
+      if(typeof confirm==='function' && !confirm('Sell this'+(sfin!=='normal'?' '+sfin:'')+' card for '+pts+' Grant Points? You’ll need to get it again to use it.')) break;
+      busy(async function(){ await ACC.sellCard(v, sfin); M.note = 'Sold for '+pts+' Grant Points.'; });
       break;
     }
     case 'czoom': {
       var parts = v.split(':');
-      G.zoom = parts[0]==='c' ? {k:'ci', ci:+parts[1], foil:parts[2]==='f'} : {k:'an', n:parts.slice(1).join(':')};
+      G.zoom = parts[0]==='c' ? {k:'ci', ci:+parts[1], foil:parts[2]==='f', gold:parts[2]==='g'} : {k:'an', n:parts.slice(1).join(':')};
       G.zoomOpen = true; render(); break;
     }
     case 'decknew': M.edit = deckToEdit(null); M.form.deckname = 'My deck'; goScreen('deckedit'); break;
@@ -1875,7 +1892,8 @@ function onClick(e){
       if(k>=0) e2.characters.splice(k,1); else if(e2.characters.length<6) e2.characters.push(v);
       render(); break;
     }
-    case 'dfoil': { var fl = M.edit.foils, fk = fl.indexOf(v); if(fk>=0) fl.splice(fk,1); else fl.push(v); render(); break; }
+    case 'dfoil': { var fl = M.edit.foils, fk = fl.indexOf(v); if(fk>=0) fl.splice(fk,1); else { fl.push(v); var gk1 = M.edit.golds.indexOf(v); if(gk1>=0) M.edit.golds.splice(gk1,1); } render(); break; }
+    case 'dgold': { var gl = M.edit.golds, gk = gl.indexOf(v); if(gk>=0) gl.splice(gk,1); else { gl.push(v); var fk2 = M.edit.foils.indexOf(v); if(fk2>=0) M.edit.foils.splice(fk2,1); } render(); break; }
     case 'dact': { var cn = M.edit.counts; cn[v] = Math.max(0, (cn[v]||0) + (+el.getAttribute('data-d'))); render(); break; }
     case 'decksave': saveDeck(); break;
     case 'pchar': {

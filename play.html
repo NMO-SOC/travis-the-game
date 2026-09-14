@@ -94,6 +94,13 @@ b.t0,b.t1,.who{color:var(--tc)}
 .face.foil .art{box-shadow:0 0 0 .6cqw rgba(0,0,0,.65),0 0 2cqw rgba(255,255,255,.4)}
 @keyframes holo{0%{background-position:0% 50%}100%{background-position:200% 50%}}
 @media (prefers-reduced-motion:reduce){.face.foil::after{animation:none}}
+/* gold finish: a warm metallic sheen, any character — distinct from the rainbow foil above */
+.face.gilt{position:relative}
+.face.gilt::after{content:"";position:absolute;inset:0;z-index:4;pointer-events:none;mix-blend-mode:overlay;opacity:.7;border-radius:inherit;
+  background:repeating-linear-gradient(115deg,#fff9e0 0%,#f0cd6c 18%,#8a6516 36%,#f0cd6c 54%,#fff9e0 72%);
+  background-size:220% 220%;animation:holo 5.5s linear infinite}
+.face.gilt .art{box-shadow:0 0 0 .6cqw rgba(0,0,0,.65),0 0 2cqw rgba(240,205,108,.6)}
+@media (prefers-reduced-motion:reduce){.face.gilt::after{animation:none}}
 .art::before{content:"";position:absolute;inset:0;background:
   radial-gradient(circle at 18% 22%,rgba(255,255,255,.55) 0 .4cqw,transparent .6cqw),
   radial-gradient(circle at 78% 30%,rgba(255,255,255,.45) 0 .35cqw,transparent .55cqw),
