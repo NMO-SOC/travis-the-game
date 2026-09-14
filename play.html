@@ -388,6 +388,9 @@ b.t0,b.t1,.who{color:var(--tc)}
 .panel h2{font-family:var(--title);font-weight:700;font-size:22px;line-height:1.25;margin:8px 0 16px;color:var(--ink)}
 .panel h2.t0,.panel h2.t1{font-size:44px;color:var(--tc)}
 .panel p{color:var(--ink-soft);font-size:17px}
+/* A real card (.tx's move list is a <p> per move) shown inside a .panel — e.g. the Chairman Knox gift
+   modal — would otherwise inherit the generic panel-copy color above instead of the card's own. */
+.panel .tx p{color:inherit;font-size:inherit}
 .opts{display:grid;gap:10px;margin-bottom:12px}
 .opts.cardopts{display:flex;flex-wrap:wrap;justify-content:center;gap:14px}
 .card.optc{--cw:clamp(130px,26vw,190px);transition:transform .2s,box-shadow .2s}
@@ -542,7 +545,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .panel.chairmangift .kw{text-align:left;font-size:14.5px;line-height:1.5;border-top:1px solid rgba(214,178,90,.3);padding-top:10px;list-style:none;margin:0 0 16px;padding-left:0}
 .panel.chairmangift .kw li{margin-bottom:10px;padding-left:1.2em;position:relative}
 .panel.chairmangift .kw li::before{content:'\2605';position:absolute;left:0;color:var(--gold)}
-.panel.chairmangift b{color:var(--gold-2)}
+.panel.chairmangift .kw b{color:var(--gold-2)}
 .panel.chairmangift .btn{width:100%}
 /* collection & deck-builder grids */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:14px 10px;margin-bottom:6px}
