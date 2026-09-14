@@ -11,6 +11,7 @@ var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
 var CHARID = {}; chars.forEach(function(c,i){ CHARID[c.id] = i; });
 var ACTD = {}; acts.forEach(function(a){ ACTD[a.n] = a; });
 var ACTID = {}; acts.forEach(function(a){ ACTID[a.id] = a; });
+var CARDID = {}; chars.concat(acts).forEach(function(c){ CARDID[c.id] = c; });
 var BASE_CHARS = chars.map(function(_,i){ return i; }).filter(function(i){ return chars[i].set==='base'; });
 var ACC = (typeof window!=='undefined' && window.TravisAccount) || null;
 
@@ -650,7 +651,11 @@ function baseActions(){ var l = []; acts.forEach(function(a){ for(var k=0;k<a.x;
 function beginBattle(setup){
   setup = setup || {teams:G.deal.picks};
   G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
+  var freshGame = !G.startedAt;
   G.startedAt = G.startedAt || Date.now();
+  if(freshGame && ACC && ACC.user && (CFG.mode==='cpu' || CFG.mode==='online')){
+    ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
+  }
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -1018,6 +1023,7 @@ function renderMenu(){
    +'<p class="tag">Specimens of Travis Knox. A shuffled deck. You never know who you&rsquo;ll get.</p>'
    + accountStrip()
    + onlinePlayersBlock()
+   + activityFeed()
    + leaderboardTeaser()
    +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
@@ -1039,7 +1045,7 @@ function renderMenu(){
 
 /* ================= accounts, packs, collection, decks, online ================= */
 /* M holds screen state that survives G being replaced (forms, messages, the pack being revealed, the deck being edited). */
-var M = {form:{}, err:'', note:'', busy:false, authMode:'in', deckSel:'random', reveal:null, opening:null, edit:null};
+var M = {form:{}, err:'', note:'', busy:false, authMode:'in', deckSel:'random', reveal:null, opening:null, edit:null, activity:[]};
 try{ M.deckSel = localStorage.getItem('travis.deck') || 'random'; }catch(e){}
 var L = {stage:'choose'};   // online lobby state
 
@@ -1413,6 +1419,46 @@ function loadLeaderboard(){
   }, function(e){ M.board = {state:'error', msg:(e && e.message) || String(e)}; render(); });
 }
 /* A compact top-3 box on the main menu; the full table lives on its own screen. */
+/* ---- live activity feed: everyone's packs, opens and battles, with an exact clock time ----
+   Rows come from the server (see supabase/upgrade-13-activity-feed.sql) and stream in live over
+   Realtime (ACC.onActivity), so this needs no polling. */
+function timeExact(ts){
+  var d = new Date(ts);
+  return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+function activityLine(row){
+  var d = row.detail || {}, who = '<b>'+esc(row.username)+'</b>';
+  switch(row.kind){
+    case 'pack_won':
+      return who+' won a '+(d.pack==='any' ? 'pack' : packName(d.pack)+' pack')+(d.source==='wager' ? ' <small>&middot; High Stakes</small>' : '');
+    case 'wager_lost':
+      return who+' lost '+d.stake+' GP on a High Stakes gamble';
+    case 'pack_opened': {
+      var pulls = (d.cards||[]).filter(function(x){ return !x.starter && !x.dupe; }).map(function(x){
+        var c = CARDID[x.id]; return c ? c.n+(x.foil?' (foil)':'') : x.id;
+      });
+      return who+' opened a '+esc(d.pack)+' pack'+(pulls.length ? ' <small>&middot; pulled '+pulls.join(', ')+'</small>' : '');
+    }
+    case 'game_start': {
+      var vs = d.mode==='online' ? 'a game vs '+esc(d.opponent) : (d.difficulty ? d.difficulty[0].toUpperCase()+d.difficulty.slice(1) : 'a') + ' CPU game';
+      return who+' started '+vs+' <small>&middot; '+d.size+'v'+d.size+'</small>';
+    }
+    case 'game_end': {
+      var verb = d.result==='draw' ? 'drew' : d.result==='win' ? 'won' : 'lost';
+      var against = d.mode==='online' ? 'vs '+esc(d.opponent) : 'vs CPU';
+      return who+' '+verb+' '+against+' <small>&middot; '+d.rounds+' round'+(d.rounds===1?'':'s')+'</small>';
+    }
+    default: return who+' &mdash; '+esc(row.kind);
+  }
+}
+function activityFeed(){
+  if(!ACC || !ACC.user) return '';
+  var rows = M.activity || [];
+  if(!rows.length) return '<div class="group"><div class="gl">Activity</div><p class="muted">Nothing yet &mdash; open a pack or start a game.</p></div>';
+  return '<div class="group"><div class="gl">Activity <small>&middot; live</small></div><ul class="feed">'+rows.map(function(r){
+      return '<li><span class="ftime" title="'+esc(new Date(r.created_at).toString())+'">'+timeExact(r.created_at)+'</span><span class="fline">'+activityLine(r)+'</span></li>';
+    }).join('')+'</ul></div>';
+}
 function onlinePlayersBlock(){
   if(!ACC || !ACC.user) return '';
   var people = (M.online || []).slice().sort(function(a,b){ return String(a.username).localeCompare(b.username); });
@@ -1794,8 +1840,13 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
     if(ACC){
       ACC.onLobbyChange(function(people){ M.online = people; if(G.phase!=='battle' && G.phase!=='deal') render(); });
       ACC.onInvite(function(inv){ M.incomingInvite = inv; render(); });
+      ACC.onActivity(function(row){
+        M.activity = [row].concat(M.activity || []).slice(0, 40);
+        if(G.phase!=='battle' && G.phase!=='deal') render();
+      });
       ACC.init(function(){
         if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
+        if(ACC.user) ACC.loadActivity(30).then(function(rows){ M.activity = rows || []; if(G.phase!=='battle') render(); });
         if(G.phase!=='battle') render();
       });
     }

@@ -63,6 +63,7 @@ A.signIn = async function(username, password){
 };
 A.signOut = async function(){
   A.leaveLobby();
+  if(activityCh){ try{ client().removeChannel(activityCh); }catch(e){} activityCh = null; }
   try{ await client().auth.signOut(); }catch(e){}
   A.user = null; A.profile = null; A.collection = []; A.decks = []; A.stock = {}; changed();
 };
@@ -79,6 +80,7 @@ A.load = async function(){
   A.stock = {}; (r[3] || []).forEach(function(s){ if(s.qty>0) A.stock[s.pack_id] = s.qty; });
   if(!A.profile) throw new Error('This login has no player profile. Ask the admin to check the database setup.');
   A.joinLobby();
+  A.watchActivity();
 };
 /* Packs come in two kinds: any-type packs (profile.packs, from wins), opened as whichever pack you
    choose, and packs of one specific type (A.stock[packId], given by an admin). */
@@ -166,6 +168,29 @@ A.logGame = function(g){
   if(!A.user) return;
   client().rpc('log_game', {p_mode:g.mode, p_difficulty:g.difficulty||null, p_size:g.size, p_result:g.result,
     p_rounds:g.rounds||0, p_seconds:g.seconds||0, p_opponent:g.opponent||null, p_deck:g.deck||null}).then(function(){}, function(){});
+};
+A.logGameStart = function(mode, difficulty, size, opponent){
+  if(!A.user) return;
+  client().rpc('log_game_start', {p_mode:mode, p_difficulty:difficulty||null, p_size:size, p_opponent:opponent||null}).then(function(){}, function(){});
+};
+
+/* ---------------- activity feed ----------------
+   Everyone's packs, opens and battles, live. Only the security-definer functions above (record_win,
+   open_pack, log_game, log_game_start, wager_battle) ever write a row — RLS blocks direct inserts,
+   so nothing shown here can be a client-spoofed entry. Missing until upgrade-13 is run. */
+var activityCh = null, onActivity = function(){};
+A.loadActivity = async function(limit){
+  try{ return await call(client().from('activity').select('*').order('created_at', {ascending:false}).order('id', {ascending:false}).limit(limit||30)); }
+  catch(e){ return []; }
+};
+A.onActivity = function(fn){ onActivity = fn || function(){}; };
+A.watchActivity = function(){
+  if(activityCh || !client()) return;
+  activityCh = client().channel('activity-feed')
+    .on('postgres_changes', {event:'INSERT', schema:'public', table:'activity'}, function(msg){
+      try{ onActivity(msg.new); }catch(e){}
+    })
+    .subscribe();
 };
 
 /* ---------------- admin ---------------- */
