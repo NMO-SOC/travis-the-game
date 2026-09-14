@@ -93,6 +93,21 @@ var chars=[
  {n:"Sick Day Knox",r:"Called One In",i:"thermo",hp:17,atk:3,spd:3,an:"Miraculous Recovery",a:"Heal this character back to full HP.",f:"Front office rang at 8:05am. Nobody believed the cough.",set:"daily-org",img:"images/daily-org/sick-day-knox.jpg"},
  {n:"Excursion Knox",r:"Clipboard Custody",i:"bus",hp:20,atk:4,spd:6,an:"Head Count",a:"Draw 2 action cards.",f:"Counted to twenty-eight four times. Got twenty-eight each time. Gets a Shield when you play Excursion on it.",set:"daily-org",img:"images/daily-org/excursion-knox.jpg"},
  {n:"PD Knox",r:"Whole Staff Session",i:"pd",hp:22,atk:4,spd:4,an:"Mandatory Session",a:"Choose an enemy. It skips its next turn.",f:"Third acronym of the slide. Everyone still nodding.",set:"daily-org",img:"images/daily-org/pd-knox.jpg"},
+ /* Knox of History pack. */
+ {n:"Barbarian Knox",r:"Warlord of the Steppe",i:"star",hp:24,atk:7,spd:2,an:"War Cry",a:"A harder hit. No other effect.",f:"Diplomacy is a club he hasn&rsquo;t tried yet.",set:"knox-of-history",img:"images/knox-of-history/barbarian-knox.jpg"},
+ {n:"Caesar Knox",r:"Emperor of Rome",i:"laurel",hp:23,atk:5,spd:4,an:"Veni Vidi Vici",a:"Also makes the target skip its next turn.",f:"Crossed the Rubicon. Now crossing the car park.",set:"knox-of-history",img:"images/knox-of-history/caesar-knox.jpg"},
+ {n:"Crusader Knox",r:"Holy Charge",i:"flag",hp:26,atk:5,spd:3,an:"Shield Wall",a:"Also gives this character a Shield.",f:"Rode a very long way to argue about real estate.",set:"knox-of-history",img:"images/knox-of-history/crusader-knox.jpg"},
+ {n:"Great Depression Knox",r:"Wall Street Wolf",i:"suit",hp:19,atk:4,spd:4,an:"Buy the Dip",a:"Also draws an action card.",f:"Bought the top. Sold the bottom. Still smoking a cigar.",set:"knox-of-history",img:"images/knox-of-history/great-depression-knox.jpg"},
+ {n:"Napoleon Knox",r:"Emperor of the French",i:"flag",hp:22,atk:5,spd:3,an:"Grand Arm&eacute;e",a:"Also makes the target skip its next turn.",f:"Never lost a battle in his own retelling.",set:"knox-of-history",img:"images/knox-of-history/napoleon-knox.jpg"},
+ {n:"Pharaoh Knox",r:"God-King of the Nile",i:"star",hp:28,atk:4,spd:2,an:"Divine Mandate",a:"Also heals this character 2 HP.",f:"Built for eternity. Running fifteen minutes late.",set:"knox-of-history",img:"images/knox-of-history/pharaoh-knox.jpg"},
+ {n:"Pirate Knox",r:"Scourge of the Seven Seas",i:"wave",hp:18,atk:6,spd:5,an:"Boarding Party",a:"First strips the target&rsquo;s Shield, if it has one.",f:"All the charisma of a man who has never read the fine print.",set:"knox-of-history",img:"images/knox-of-history/pirate-knox.jpg"},
+ {n:"Samurai Knox",r:"Blade of Bushido",i:"star",hp:21,atk:6,spd:5,an:"Iaijutsu Strike",a:"A harder hit. No other effect.",f:"Followed the code. The code did not follow him back.",set:"knox-of-history",img:"images/knox-of-history/samurai-knox.jpg"},
+ {n:"Spartan Knox",r:"This Is Sparta",i:"laurel",hp:27,atk:5,spd:3,an:"Phalanx",a:"Also gives this character a Shield.",f:"This. Is. The Debbie Locco Centre.",set:"knox-of-history",img:"images/knox-of-history/spartan-knox.jpg"},
+ {n:"Tech Bro Knox",r:"Disruptor-in-Chief",i:"cd",hp:17,atk:3,spd:6,an:"Series A",a:"Also draws an action card.",f:"Disrupting industries he does not understand.",set:"knox-of-history",img:"images/knox-of-history/tech-bro-knox.jpg"},
+ {n:"Washington Knox",r:"First in War, First in Peace",i:"flag",hp:24,atk:4,spd:3,an:"Crossing the Delaware",a:"Also heals this character 2 HP.",f:"Cannot tell a lie. Excellent at cutting down cherry trees and budgets.",set:"knox-of-history",img:"images/knox-of-history/washington-knox.jpg"},
+ {n:"Woodstock Knox",r:"Three Days of Peace and Music",i:"mic",hp:16,atk:3,spd:5,an:"Peace Sign",a:"Also gives this character a Shield.",f:"Missed the mud. Never missed a chord.",set:"knox-of-history",img:"images/knox-of-history/woodstock-knox.jpg"},
+ {n:"WW1 Knox",r:"Over the Top",i:"whistle",hp:22,atk:5,spd:4,an:"No Man&rsquo;s Land",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Wrote home every week. The trench never wrote back.",set:"knox-of-history",img:"images/knox-of-history/ww1-knox.jpg"},
+ {n:"WW2 Knox",r:"D-Day Veteran",i:"whistle",hp:23,atk:5,spd:4,an:"D-Day",a:"Also makes the target skip its next turn.",f:"Landed on the beach. Left with the medal.",set:"knox-of-history",img:"images/knox-of-history/ww2-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:18,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
  {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
@@ -137,6 +152,7 @@ var acts=[
 var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
   {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
+  {id:'knox-of-history', name:'Knox of History'},
   {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
 ];
 
@@ -158,7 +174,11 @@ var SIG_FX = {
  'Swimming Carnival Knox':undefined, 'SOC&rsquo;s Got Talent Knox':undefined,
  'Fur Seal Knox':'stun', 'Weddell Seal Knox':'shield', 'Sea Lion Knox':undefined, 'Research Vessel Knox':'heal',
  'Graduation Knox':'shield', 'Yearbook Knox':'stun', 'Staff Party Knox':'heal',
- 'Sick Day Knox':'heal', 'Excursion Knox':'draw', 'PD Knox':'stun'
+ 'Sick Day Knox':'heal', 'Excursion Knox':'draw', 'PD Knox':'stun',
+ 'Barbarian Knox':undefined, 'Caesar Knox':'stun', 'Crusader Knox':'shield', 'Great Depression Knox':'draw',
+ 'Napoleon Knox':'stun', 'Pharaoh Knox':'heal', 'Pirate Knox':'unshield', 'Samurai Knox':undefined,
+ 'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
+ 'WW1 Knox':'unshield', 'WW2 Knox':'stun'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
