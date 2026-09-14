@@ -64,6 +64,7 @@ A.signIn = async function(username, password){
 A.signOut = async function(){
   A.leaveLobby();
   if(activityCh){ try{ client().removeChannel(activityCh); }catch(e){} activityCh = null; }
+  if(battleCh){ try{ client().removeChannel(battleCh); }catch(e){} battleCh = null; }
   try{ await client().auth.signOut(); }catch(e){}
   A.user = null; A.profile = null; A.collection = []; A.decks = []; A.stock = {}; changed();
 };
@@ -81,6 +82,7 @@ A.load = async function(){
   if(!A.profile) throw new Error('This login has no player profile. Ask the admin to check the database setup.');
   A.joinLobby();
   A.watchActivity();
+  A.watchBattleFeed();
 };
 /* Packs come in two kinds: any-type packs (profile.packs, from wins), opened as whichever pack you
    choose, and packs of one specific type (A.stock[packId], given by an admin). */
@@ -192,6 +194,20 @@ A.watchActivity = function(){
     })
     .subscribe();
 };
+
+/* ---------------- live battle feed ----------------
+   Every line of every ongoing CPU/online battle, broadcast (not stored — there'd be far too many rows
+   to keep, and nobody needs to replay a finished game's blow-by-blow) to anyone with the app open, so
+   the home screen can show a genuinely live "what's happening right now" alongside the persisted feed. */
+var battleCh = null, onBattleLine = function(){};
+A.watchBattleFeed = function(){
+  if(battleCh || !client()) return;
+  battleCh = client().channel('battle-feed', {config:{broadcast:{self:false}}});
+  battleCh.on('broadcast', {event:'line'}, function(e){ try{ onBattleLine(e.payload); }catch(err){} });
+  battleCh.subscribe();
+};
+A.onBattleLine = function(fn){ onBattleLine = fn || function(){}; };
+A.broadcastBattleLine = function(payload){ if(battleCh) battleCh.send({type:'broadcast', event:'line', payload:payload}); };
 
 /* ---------------- admin ---------------- */
 A.adminOverview = function(){ return call(client().rpc('admin_overview')); };

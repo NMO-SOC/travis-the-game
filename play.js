@@ -179,7 +179,18 @@ function log(h, cls){
   h = h.replace(/(>You<\/b>) (plays|draws)/g, function(m, you, verb){ return you+' '+verb.slice(0,-1); });
   G.log.unshift({h:h, cls:cls||''});
   if(G.log.length>250) G.log.pop();
+  broadcastLog(h, cls);
   render();
+}
+/* Every line of a real CPU/online battle, live, to anyone with the app open (see activityFeed()).
+   Online games run the same deterministic logic on both peers, so only the host broadcasts —
+   otherwise every line would show twice, once from each side. */
+function broadcastLog(h, cls){
+  if(!ACC || !ACC.user || !ACC.profile || G.phase!=='battle') return;
+  if(CFG.mode==='cpu'){ /* the only local player */ }
+  else if(CFG.mode==='online' && CFG.me===0){ /* host only */ }
+  else return;
+  ACC.broadcastBattleLine({username:ACC.profile.username, h:h, cls:cls||'', mode:CFG.mode, ts:Date.now()});
 }
 /* One-shot visual effects. Each lives for `dur` ms; re-renders resume the animation via a negative delay. */
 function fxc(key, cls, dur, wait){ (G.fx=G.fx||[]).push({key:key, cls:cls, t0:now()+(wait||0), dur:dur+(wait||0)}); }
@@ -1448,6 +1459,8 @@ function activityLine(row){
       var against = d.mode==='online' ? 'vs '+esc(d.opponent) : 'vs CPU';
       return who+' '+verb+' '+against+' <small>&middot; '+d.rounds+' round'+(d.rounds===1?'':'s')+'</small>';
     }
+    case 'battle_line':
+      return who+': <span class="'+esc(d.cls||'')+'">'+d.h+'</span>';
     default: return who+' &mdash; '+esc(row.kind);
   }
 }
@@ -1842,6 +1855,11 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
       ACC.onInvite(function(inv){ M.incomingInvite = inv; render(); });
       ACC.onActivity(function(row){
         M.activity = [row].concat(M.activity || []).slice(0, 40);
+        if(G.phase!=='battle' && G.phase!=='deal') render();
+      });
+      ACC.onBattleLine(function(p){
+        M.activity = [{kind:'battle_line', username:p.username, detail:{h:p.h, cls:p.cls}, created_at:new Date(p.ts).toISOString()}]
+          .concat(M.activity || []).slice(0, 60);
         if(G.phase!=='battle' && G.phase!=='deal') render();
       });
       ACC.init(function(){
