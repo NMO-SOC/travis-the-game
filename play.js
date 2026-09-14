@@ -1506,12 +1506,15 @@ function activityFeed(){
    what a win actually pays out. Every pack with a positive win_weight is included: nothing is held back. */
 function winOdds(){
   var now = Date.now();
+  var byId = function(id){ return (ACC.packs||[]).filter(function(p){ return p.id===id; })[0]; };
   var pool = (ACC.packs || []).filter(function(p){
     return p.id!=='holo' && p.id!=='legendary' && p.winWeight>0 && (!p.validUntil || new Date(p.validUntil).getTime()>=now);
   });
   var total = pool.reduce(function(s,p){ return s+p.winWeight; }, 0);
-  var rows = pool.map(function(p){ return {name:p.name, pct: total ? (2/3)*(p.winWeight/total)*100 : 0}; });
-  rows.push({name:'Holo', pct:100/6}, {name:'Legendary', pct:100/6});
+  var rows = pool.map(function(p){ return {name:p.name, blurb:p.blurb, pct: total ? (2/3)*(p.winWeight/total)*100 : 0}; });
+  var holo = byId('holo'), legendary = byId('legendary');
+  rows.push({name:'Holo', pct:100/6, blurb:(holo && holo.blurb) || 'Every card is a foil of a starter character.'});
+  rows.push({name:'Legendary', pct:100/6, blurb:(legendary && legendary.blurb) || 'Gold editions of fan-favourite Knoxes.'});
   rows.sort(function(a,b){ return b.pct-a.pct; });
   return rows;
 }
@@ -1519,9 +1522,10 @@ function winOddsBlock(){
   if(!ACC || !ACC.user || !ACC.packs.length) return '';
   var rows = winOdds().map(function(r){
     var pct = r.pct.toFixed(1);
-    return '<li><div class="wtop"><span class="wname">'+esc(r.name)+'</span><span class="wpct">'+pct+'%</span></div><div class="wbar"><i style="width:'+pct+'%"></i></div></li>';
+    return '<li><div class="wtop"><span class="wname">'+esc(r.name)+'</span><span class="wpct">'+pct+'%</span></div><div class="wbar"><i style="width:'+pct+'%"></i></div>'
+      +(r.blurb ? '<p class="wblurb">'+esc(r.blurb)+'</p>' : '')+'</li>';
   }).join('');
-  return '<div class="group"><div class="gl">Win Odds</div><ul class="oddslist">'+rows+'</ul>'
+  return '<div class="group"><div class="gl">Win Odds</div><div class="oddsbox"><ul class="oddslist">'+rows+'</ul></div>'
     +'<p class="hint">Exact chance of each pack from any battle win &mdash; CPU, online, or High Stakes. Every pack is winnable; nothing is held back.</p></div>';
 }
 function onlinePlayersBlock(){
@@ -1907,17 +1911,17 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
       ACC.onLobbyChange(function(people){ M.online = people; if(G.phase!=='battle' && G.phase!=='deal') render(); });
       ACC.onInvite(function(inv){ M.incomingInvite = inv; render(); });
       ACC.onActivity(function(row){
-        M.activity = [row].concat(M.activity || []).slice(0, 40);
+        M.activity = [row].concat(M.activity || []).slice(0, 100);
         if(G.phase!=='battle' && G.phase!=='deal') render();
       });
       ACC.onBattleLine(function(p){
         M.activity = [{kind:'battle_line', username:p.username, detail:{h:p.h, cls:p.cls}, created_at:new Date(p.ts).toISOString()}]
-          .concat(M.activity || []).slice(0, 60);
+          .concat(M.activity || []).slice(0, 120);
         if(G.phase!=='battle' && G.phase!=='deal') render();
       });
       ACC.init(function(){
         if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
-        if(ACC.user) ACC.loadActivity(30).then(function(rows){ M.activity = rows || []; if(G.phase!=='battle') render(); });
+        if(ACC.user) ACC.loadActivity(80).then(function(rows){ M.activity = rows || []; if(G.phase!=='battle') render(); });
         if(G.phase!=='battle') render();
       });
     }

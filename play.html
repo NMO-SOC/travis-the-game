@@ -160,13 +160,16 @@ b.t0,b.t1,.who{color:var(--tc)}
   .home-right{order:3}
   .home-side{padding-top:0;margin-top:18px}
 }
-.oddslist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
-.oddslist li{display:flex;flex-direction:column;gap:3px}
-.oddslist .wtop{display:flex;justify-content:space-between;font-size:13px}
+.oddsbox{padding:16px 14px;background:rgba(0,0,0,.35);border-radius:10px;box-shadow:inset 0 0 0 1px rgba(214,178,90,.18)}
+.oddslist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:18px}
+.oddslist li{display:flex;flex-direction:column;gap:6px;padding-bottom:16px;border-bottom:1px solid rgba(214,178,90,.12)}
+.oddslist li:last-child{padding-bottom:0;border-bottom:0}
+.oddslist .wtop{display:flex;justify-content:space-between;font-size:14.5px}
 .oddslist .wname{color:var(--ink)}
 .oddslist .wpct{font-family:var(--title);font-weight:700;color:var(--gold-2)}
-.oddslist .wbar{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(214,178,90,.12)}
-.oddslist .wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:4px}
+.oddslist .wbar{height:10px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(214,178,90,.12)}
+.oddslist .wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:5px}
+.oddslist .wblurb{font-size:12.5px;color:var(--ink-soft);line-height:1.4}
 .menu{max-width:620px;margin:0 auto;text-align:center;padding-top:10px}
 .fan{position:relative;height:clamp(190px,34vw,260px);display:flex;justify-content:center;align-items:flex-end;margin:10px 0 0}
 .card.hero{--cw:clamp(96px,17vw,150px);margin:0 calc(var(--cw)*-.22);transform:translateY(var(--y)) rotate(var(--r));transform-origin:50% 130%;animation:heroIn .8s cubic-bezier(.2,.8,.2,1) backwards}
@@ -480,7 +483,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .who-am-i b{font-family:var(--title);font-size:17px;color:var(--gold-2)}
 .who-am-i span{font-size:13px;color:var(--ink-soft)}
 .acct-btns{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-left:auto}
-.feed{list-style:none;margin:0;padding:8px 12px;display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto;font-size:14px;background:rgba(0,0,0,.35);border-radius:10px;box-shadow:inset 0 0 0 1px rgba(214,178,90,.18)}
+.feed{list-style:none;margin:0;padding:10px 14px;display:flex;flex-direction:column;gap:11px;max-height:min(78vh,900px);overflow-y:auto;font-size:14px;background:rgba(0,0,0,.35);border-radius:10px;box-shadow:inset 0 0 0 1px rgba(214,178,90,.18)}
 .feed li{display:flex;gap:10px;align-items:baseline}
 .feed .ftime{flex:0 0 auto;font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:11px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .feed .fline{color:var(--ink)}
