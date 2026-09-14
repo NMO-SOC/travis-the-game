@@ -131,7 +131,7 @@ A.loadPacks = async function(){
     A.packs = (r[0]||[]).map(function(p){
       var rows = (r[1]||[]).filter(function(o){ return o.pack_id===p.id; }), total = rows.reduce(function(s,o){ return s+o.weight; }, 0), odds = {};
       rows.forEach(function(o){ odds[o.slot] = total ? o.weight/total : 0; });
-      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null};
+      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null, winWeight:p.win_weight||0};
     });
   }catch(e){ A.packs = []; }
   changed();

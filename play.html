@@ -149,6 +149,24 @@ b.t0,b.t1,.who{color:var(--tc)}
 .back .bw .l2{display:block;font-family:var(--title);font-weight:700;font-size:3.2cqw;letter-spacing:.4em;color:#c9a866;margin-top:1cqw}
 
 /* ============ menu ============ */
+.homegrid{display:grid;grid-template-columns:240px minmax(0,620px) 300px;gap:26px;align-items:start;justify-content:center;max-width:1220px;margin:0 auto}
+.home-side{padding-top:66px}
+.home-side .group{margin-bottom:0}
+.home-side:empty{display:none}
+@media (max-width:1080px){
+  .homegrid{grid-template-columns:minmax(0,620px);max-width:620px}
+  .menu{order:1}
+  .home-left{order:2}
+  .home-right{order:3}
+  .home-side{padding-top:0;margin-top:18px}
+}
+.oddslist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+.oddslist li{display:flex;flex-direction:column;gap:3px}
+.oddslist .wtop{display:flex;justify-content:space-between;font-size:13px}
+.oddslist .wname{color:var(--ink)}
+.oddslist .wpct{font-family:var(--title);font-weight:700;color:var(--gold-2)}
+.oddslist .wbar{height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;box-shadow:inset 0 0 0 1px rgba(214,178,90,.12)}
+.oddslist .wbar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold));border-radius:4px}
 .menu{max-width:620px;margin:0 auto;text-align:center;padding-top:10px}
 .fan{position:relative;height:clamp(190px,34vw,260px);display:flex;justify-content:center;align-items:flex-end;margin:10px 0 0}
 .card.hero{--cw:clamp(96px,17vw,150px);margin:0 calc(var(--cw)*-.22);transform:translateY(var(--y)) rotate(var(--r));transform-origin:50% 130%;animation:heroIn .8s cubic-bezier(.2,.8,.2,1) backwards}

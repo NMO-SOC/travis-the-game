@@ -1041,12 +1041,11 @@ function renderMenu(){
       + '</div>'+(decks.length ? '' : '<p class="hint">Build a deck to bring your own cards. <button class="lnk" data-a="go" data-v="decks">Decks</button></p>')+'</div>';
   }
   var go = CFG.mode==='online' ? 'Play Online' : 'Shuffle Up &amp; Deal';
-  return '<div class="menu"><div class="fan">'+hero+'</div>'
+  var menu = '<div class="menu"><div class="fan">'+hero+'</div>'
    +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
    +'<p class="tag">Specimens of Travis Knox. A shuffled deck. You never know who you&rsquo;ll get.</p>'
    + accountStrip()
    + onlinePlayersBlock()
-   + activityFeed()
    + leaderboardTeaser()
    +'<div class="group"><div class="gl">Opponent</div><div class="choices">'
    + o('mode','cpu','Versus CPU','Battle the computer') + o('mode','hot','Two Players','Pass the device')
@@ -1063,6 +1062,11 @@ function renderMenu(){
    + msgs()
    +'<button class="btn gold big" data-a="start">'+go+'</button>'
    +'<p class="foot"><button class="lnk" data-a="rules">How to play</button> <a href="index.html" target="_blank" rel="noopener">Printable deck</a></p>'
+   +'</div>';
+  return '<div class="homegrid">'
+   +'<aside class="home-side home-left">'+winOddsBlock()+'</aside>'
+   + menu
+   +'<aside class="home-side home-right">'+activityFeed()+'</aside>'
    +'</div>';
 }
 
@@ -1494,6 +1498,31 @@ function activityFeed(){
   return '<div class="group"><div class="gl">Activity <small>&middot; live</small></div><ul class="feed">'+rows.map(function(r){
       return '<li><span class="ftime" title="'+esc(new Date(r.created_at).toString())+'">'+timeExact(r.created_at)+'</span><span class="fline">'+activityLine(r)+'</span></li>';
     }).join('')+'</ul></div>';
+}
+/* ---- win odds: the exact, live chance of each pack from a battle win ----
+   Mirrors record_win()/wager_battle() exactly: a flat 1-in-3 shot at Holo or Legendary (split evenly),
+   and the remaining 2-in-3 shared among every other active, unexpired pack in proportion to its
+   win_weight — the same weight column those functions read, so this can never drift out of sync with
+   what a win actually pays out. Every pack with a positive win_weight is included: nothing is held back. */
+function winOdds(){
+  var now = Date.now();
+  var pool = (ACC.packs || []).filter(function(p){
+    return p.id!=='holo' && p.id!=='legendary' && p.winWeight>0 && (!p.validUntil || new Date(p.validUntil).getTime()>=now);
+  });
+  var total = pool.reduce(function(s,p){ return s+p.winWeight; }, 0);
+  var rows = pool.map(function(p){ return {name:p.name, pct: total ? (2/3)*(p.winWeight/total)*100 : 0}; });
+  rows.push({name:'Holo', pct:100/6}, {name:'Legendary', pct:100/6});
+  rows.sort(function(a,b){ return b.pct-a.pct; });
+  return rows;
+}
+function winOddsBlock(){
+  if(!ACC || !ACC.user || !ACC.packs.length) return '';
+  var rows = winOdds().map(function(r){
+    var pct = r.pct.toFixed(1);
+    return '<li><div class="wtop"><span class="wname">'+esc(r.name)+'</span><span class="wpct">'+pct+'%</span></div><div class="wbar"><i style="width:'+pct+'%"></i></div></li>';
+  }).join('');
+  return '<div class="group"><div class="gl">Win Odds</div><ul class="oddslist">'+rows+'</ul>'
+    +'<p class="hint">Exact chance of each pack from any battle win &mdash; CPU, online, or High Stakes. Every pack is winnable; nothing is held back.</p></div>';
 }
 function onlinePlayersBlock(){
   if(!ACC || !ACC.user) return '';
