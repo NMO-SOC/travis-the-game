@@ -449,16 +449,20 @@ function houseOwnedFor(){
 function chairmanEmpoweredFor(){
   return !!(typeof ACC!=='undefined' && ACC && ACC.available && ACC.user && ACC.qty('chairman-knox', false)>=3);
 }
+/* Originally +owned to ATK, HP and SPD at once — with four house cards, each ownable up to 3 copies
+   and each copy playable once, that could stack to a huge simultaneous buff on one character (see
+   Excursion for the comparable, intentionally single-stat, deck-capped-at-3 precedent this now
+   matches). Cut to ATK only, still capped at 3 by ownership (open_pack never lets qty exceed 3). */
 function houseCard(n){
  return {
   can:function(t){ return living(t).length>0; },
   ai:function(){ return 3.5; },
   run:async function(t){
-   var owned = (G.houseOwned && G.houseOwned[t] && G.houseOwned[t][n]) || 1;
+   var owned = Math.min(3, (G.houseOwned && G.houseOwned[t] && G.houseOwned[t][n]) || 1);
    var f = await pickFriend(t, n+': who gets the boost?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
    if(!f) return false;
-   f.atkGame += owned; f.max += owned; f.hp += owned; f.spd += owned;
-   log(pn(t)+' plays '+card(n)+': '+nm(f)+' gets +'+owned+' ATK, +'+owned+' HP and +'+owned+' SPD.');
+   f.atkGame += owned;
+   log(pn(t)+' plays '+card(n)+': '+nm(f)+' gets +'+owned+' ATK.');
    return true;
   }
  };

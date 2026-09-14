@@ -141,10 +141,10 @@ var acts=[
  /* Spirit Week pack. Action cards only, one per school house. Each gets stronger the more copies
     of itself you own (up to 3): choose a character on your team, it gets +1 ATK, +1 max HP and
     +1 SPD for the rest of the game for every copy you have. */
- {n:"Waratah Spirit",i:"waratah",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Waratah Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/waratah-spirit.svg"},
- {n:"Grevillea Spirit",i:"grevillea",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Grevillea Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/grevillea-spirit.svg"},
- {n:"Acacia Spirit",i:"acacia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Acacia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/acacia-spirit.svg"},
- {n:"Banksia Spirit",i:"banksia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK, +1 max HP and +1 SPD for the rest of the game, for every Banksia Spirit you own.",x:0,set:"spirit-week",img:"images/spirit-week/banksia-spirit.svg"},
+ {n:"Waratah Spirit",i:"waratah",t:"Instant",a:"Choose a character on your team. It gets +1 ATK for the rest of the game, for every Waratah Spirit you own (max 3).",x:0,set:"spirit-week",img:"images/spirit-week/waratah-spirit.svg"},
+ {n:"Grevillea Spirit",i:"grevillea",t:"Instant",a:"Choose a character on your team. It gets +1 ATK for the rest of the game, for every Grevillea Spirit you own (max 3).",x:0,set:"spirit-week",img:"images/spirit-week/grevillea-spirit.svg"},
+ {n:"Acacia Spirit",i:"acacia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK for the rest of the game, for every Acacia Spirit you own (max 3).",x:0,set:"spirit-week",img:"images/spirit-week/acacia-spirit.svg"},
+ {n:"Banksia Spirit",i:"banksia",t:"Instant",a:"Choose a character on your team. It gets +1 ATK for the rest of the game, for every Banksia Spirit you own (max 3).",x:0,set:"spirit-week",img:"images/spirit-week/banksia-spirit.svg"},
  /* Daily Org pack. */
  {n:"Classroom Change",i:"doorswap",t:"Instant",a:"Every character on both teams loses their Shield.",x:0,set:"daily-org"},
  {n:"Compass Is Down",i:"compassdown",t:"Instant",a:"Every character on both teams skips their next turn.",x:0,set:"daily-org"},
