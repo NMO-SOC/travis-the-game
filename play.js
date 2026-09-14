@@ -990,7 +990,8 @@ function stakeGroup(){
   var pts = ACC.profile.grant_points;
   var opt = function(v, label){
     var afford = v===0 || pts>=v;
-    return '<button class="choice'+(CFG.stake===v?' on':'')+'" data-a="cfg" data-k="stake" data-v="'+v+'"'+(afford?'':' disabled')+'><b>'+label+'</b><span>'+(v===0?'Just the free daily wins':'Win: bonus pack &middot; Lose: &minus;'+v+' GP')+'</span></button>';
+    var sub = v===0 ? 'Just the free daily wins' : afford ? 'Win: bonus pack &middot; Lose: &minus;'+v+' GP' : 'Need '+(v-pts)+' more GP';
+    return '<button class="choice'+(CFG.stake===v?' on':'')+'" data-a="cfg" data-k="stake" data-v="'+v+'"'+(afford?'':' disabled')+'><b>'+label+'</b><span>'+sub+'</span></button>';
   };
   return '<div class="group"><div class="gl">High Stakes <small>(optional)</small></div><div class="choices">'
     + opt(0,'Off') + opt(10,'Stake 10') + opt(25,'Stake 25') + opt(50,'Stake 50')
