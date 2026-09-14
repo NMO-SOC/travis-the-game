@@ -410,12 +410,23 @@ var ACT = {
 /* ---- Spirit Week pack: house-colour cards. Each gets stronger the more copies of itself you own
    (owned collection count, capped at 3 like any other action card). Playing one with no account
    context (e.g. a random CPU test team) treats it as a single copy. */
+var HOUSE_CARDS = ['Waratah Spirit','Grevillea Spirit','Acacia Spirit','Banksia Spirit'];
+/* Each player's own owned-copy counts, computed once on their own device (where ACC is genuinely
+   theirs) and carried on the wire with their team — never re-read live during the match. Online,
+   both peers run this same combat code independently; a live ACC.qty() lookup would read whichever
+   human is signed into THAT device, not whichever team is actually playing the card, so the two
+   sides would silently disagree on the bonus (and everything downstream of it) forever after. */
+function houseOwnedFor(){
+  var m = {};
+  HOUSE_CARDS.forEach(function(n){ m[n] = (typeof ACC!=='undefined' && ACC && ACC.available && ACC.user) ? Math.max(1, ACC.qty(ACTD[n].id, false)) : 1; });
+  return m;
+}
 function houseCard(n){
  return {
   can:function(t){ return living(t).length>0; },
   ai:function(){ return 3.5; },
   run:async function(t){
-   var owned = (typeof ACC!=='undefined' && ACC && ACC.available && ACC.user) ? Math.max(1, ACC.qty(ACTD[n].id, false)) : 1;
+   var owned = (G.houseOwned && G.houseOwned[t] && G.houseOwned[t][n]) || 1;
    var f = await pickFriend(t, n+': who gets the boost?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
    if(!f) return false;
    f.atkGame += owned; f.max += owned; f.hp += owned; f.spd += owned;
@@ -667,6 +678,7 @@ function beginBattle(setup){
   if(freshGame && ACC && ACC.user && (CFG.mode==='cpu' || CFG.mode==='online')){
     ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
   }
+  G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -1313,11 +1325,13 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; }
 };
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
-function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], actions:t.actions}; }
-function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], actions:t.actions}; }
+function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], actions:t.actions, houseOwned:houseOwnedFor()}; }
+function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], actions:t.actions, houseOwned:t.houseOwned||{}}; }
+/* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
+   an invite can be accepted from anywhere, with no menu visit in between to have set one. */
 function connect(code, role){
   NET.close(); NET.finished = false;
-  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, deck:chosenDeck(), size:role==='host'?CFG.size:null};
+  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
   G = {phase:'lobby', log:[], fx:[]};
   NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, error:function(m){ L.err = m; render(); }});
   render();
@@ -1334,8 +1348,12 @@ function onPresence(people){
   }
 }
 function pickOnline(){
+  if(ACC.decks.length && L.deck===undefined){ L.stage = 'deck'; render(); return; }
+  startTeamPick();
+}
+function startTeamPick(){
   L.stage = 'picking';
-  teamPick(L.deck, L.size, 'Versus '+esc(L.oppName||'your opponent'), function(team){
+  teamPick(L.deck || null, L.size, 'Versus '+esc(L.oppName||'your opponent'), function(team){
     L.myTeam = team;
     G = {phase:'lobby', log:[], fx:[]};
     if(L.role==='guest'){ L.stage = 'waiting'; NET.send({k:'team', team:teamToWire(team)}); }
@@ -1361,20 +1379,25 @@ function beginOnline(m, me){
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
   startWithTeams({teams:[t[0].chars, t[1].chars], foils:[t[0].chars.map(function(ci){ return t[0].foils.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].foils.indexOf(chars[ci].id)>=0; })],
-    actions:[t[0].actions, t[1].actions]}, m.seed, m.first);
+    actions:[t[0].actions, t[1].actions], houseOwned:[t[0].houseOwned, t[1].houseOwned]}, m.seed, m.first);
 }
 function renderLobby(){
-  var body = '', deck = L.deck || chosenDeck();
-  var deckLine = '<p class="hint">Your team: <b>'+(deck ? esc(deck.name) : 'Random deal')+'</b>. Change it on the <button class="lnk" data-a="menu">menu</button>.</p>';
+  var body = '';
   if(L.stage==='choose'){
     body = '<div class="lobby-grid"><div class="lobby-card"><h3>Create a game</h3><p>You&rsquo;ll get a code to send to your opponent. Format: <b>'+CFG.size+' v '+CFG.size+'</b>.</p><button class="btn gold" data-a="host">Create game</button></div>'
-      +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div></div>'+deckLine;
+      +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div></div>'
+      +'<p class="hint">You&rsquo;ll choose your team once you&rsquo;re matched up.</p>';
   } else if(L.stage==='hosting'){
     body = L.invitee
       ? '<p>Invite sent to <b>'+esc(L.invitee)+'</b>. Waiting for them to accept&hellip;</p>'
       : '<div class="codebox"><span class="eyebrow">Your game code</span><b>'+esc(L.code)+'</b></div><p>Send this code to your opponent. The game starts when they join.</p><p class="muted">Waiting&hellip;</p>';
   } else if(L.stage==='joining'){
     body = '<p>Joining <b>'+esc(L.code)+'</b>&hellip;</p><p class="muted">If nothing happens, check the code with your opponent.</p>';
+  } else if(L.stage==='deck'){
+    var dopt = function(v, label, sub){ return '<button class="choice" data-a="lobbydeck" data-v="'+v+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
+    body = '<p>Versus <b>'+esc(L.oppName||'your opponent')+'</b>. Choose your team.</p>'
+      +'<div class="choices">' + dopt('random', 'Random deal', 'Base cards, shuffled')
+      + ACC.decks.map(function(d){ return dopt(d.id, d.name, 'Saved deck'); }).join('') + '</div>';
   } else if(L.stage==='waiting'){
     body = '<p>Waiting for <b>'+esc(L.oppName||'your opponent')+'</b> to choose their team&hellip;</p>';
   }
@@ -1782,6 +1805,7 @@ function onClick(e){
     case 'lobby': if(needAccount()) break; openLobby(); break;
     case 'host': connect(ACC.makeCode(), 'host'); break;
     case 'join': { var code = normCode(M.form.code); if(!/^[A-Z]{4}-\d{2}$/.test(code)){ M.err=''; L.err = 'Codes look like ABCD-12.'; render(); break; } L.err=''; connect(code, 'guest'); break; }
+    case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
     case 'invite': {
       if(needAccount()) break;
       var icode = ACC.makeCode();
@@ -1803,7 +1827,7 @@ function onClick(e){
     case 'unit': {
       // Tapping a card acts on it: pick a target, or choose your character.
       var u = unitById(+v);
-      if(w && w.kind==='unit'){ if(w.ids.indexOf(+v)>=0){ G.zoomOpen = false; w.res(u); } break; }
+      if(w && w.kind==='unit'){ if(u && !u.ko && w.ids.indexOf(+v)>=0){ G.zoomOpen = false; w.res(u); } break; }
       if(u && selectable(u) && G.cur!==u){ G.cur = u; G.zoom = {k:'u', id:u.id}; render(); break; }
       G.zoom = {k:'u', id:+v}; G.zoomOpen = true; render();
       break;
