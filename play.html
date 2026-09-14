@@ -453,6 +453,10 @@ b.t0,b.t1,.who{color:var(--tc)}
 .info::after{content:'';position:absolute;inset:-9px}
 .pinfo em{font-style:normal;color:var(--gold-2);font-size:13px}
 .zoomov{display:none}
+/* .always: forced on regardless of viewport — screens with no battle rail to fall back on (Collection,
+   Packs, Decks, ...) use the same overlay to show a tapped card full-size, on any screen width. */
+.zoomov.always{display:flex;flex-direction:column}
+.zoomov.always .card.big{--cw:min(78vw,320px)}
 .err{white-space:pre-wrap;background:#300;border:1px solid var(--red);padding:10px;font-size:12px;overflow-x:auto;color:#fcc}
 
 /* ============ desktop battle arena: fills the window, nothing scrolls ============

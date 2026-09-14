@@ -300,8 +300,20 @@ function rollChairmanChase(g){
   ACC.rollChairmanWin().then(function(got){ if(got && g===G){ G.chairmanWon = true; render(); } });
 }
 function strikeTargets(u){ return foes(u); }
-/* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays tapped next round. */
-function stun(e){ if(!e.acted) e.acted = true; else e.skip = 1; }
+/* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays
+   tapped next round. Two guards on top, both against the same failure mode — a fast attacker locking
+   one target out of the game forever by re-stunning it the instant it's fresh each round: tank
+   characters (c.tank) can't be stunned at all, and anyone else gets one guaranteed free turn after
+   being stunned before they can be stunned again (stunGuard, cleared the moment they actually act —
+   see act()). Returns whether the stun actually landed, so callers can log accordingly. */
+function stun(e){
+  if(e.c.tank){ log(nm(e)+' can&rsquo;t be stunned.'); return false; }
+  if(e.stunGuard){ log(nm(e)+' shrugs it off &mdash; still recovering from the last stun.'); return false; }
+  if(!e.acted) e.acted = true; else e.skip = 1;
+  e.stunGuard = true;
+  log(nm(e)+' will miss its next turn.');
+  return true;
+}
 /* Run one of a character's three attacks against a target: damage, then its effect (if any). */
 async function performAttack(u, e, mv){
   var dmg = moveDamage(u, mv);
@@ -313,7 +325,7 @@ async function performAttack(u, e, mv){
   await damage(e, dmg);
   if(mv.fx==='heal') heal(u, Math.round(dmg*0.5));
   else if(mv.fx==='shield'){ u.shield = true; log(nm(u)+' raises a Shield.'); }
-  else if(mv.fx==='stun' && !e.ko){ stun(e); log(nm(e)+' will miss its next turn.'); }
+  else if(mv.fx==='stun' && !e.ko){ stun(e); }
   else if(mv.fx==='draw') drawCard(u.team, true);
   else if(mv.fx==='recoil'){ var r = Math.round(dmg*0.35); if(r>0) await damage(u, r); }
 }
@@ -371,8 +383,7 @@ var ACT = {
   run:async function(t){
    var e = await pickUnit(t, 'Detention: who skips their next turn?', living(1-t), function(e){ return effAtk(e)*2+(e.acted?0:3)-(e.skip?30:0); }, true);
    if(!e) return false;
-   stun(e);
-   log(pn(t)+' plays '+card('Detention')+': '+nm(e)+' skips its next turn.'); return true;
+   log(pn(t)+' plays '+card('Detention')+' on '+nm(e)+'.'); stun(e); return true;
   }},
  /* ---- pack action cards ---- */
  'Reports':{
@@ -520,7 +531,7 @@ function drawCard(t, force){
    one of its three attacks and a target, then it taps. You may also play one action card per turn.
    When every character has acted, a new round starts and everyone untaps. */
 function ready(t){ return living(t).filter(function(u){ return !u.acted; }); }
-function act(u){ u.acted = true; reveal(u); }
+function act(u){ u.acted = true; u.stunGuard = false; reveal(u); }
 
 async function humanTurn(t){
   while(true){
@@ -638,16 +649,23 @@ async function gameLoop(){
   try{
     G.turnOf = G.first!=null ? G.first : rand()<0.5 ? 0 : 1;
     log(pn(G.turnOf)+' '+(pname(G.turnOf)==='You'?'go':'goes')+' first.');
-    var next = G.turnOf;
+    /* Who leads each round alternates independently of how the previous round's turns landed. Every
+       format is an even number a side (3v3/4v4/6v6 = 6/8/12 turns a round), so without this the
+       alternation inside a round always hands the lead right back to whoever started it — one player
+       gets first-move advantage (finishing off a low-HP enemy before it can act, etc.) every single
+       round of the game, not just the first. */
+    var roundStarter = G.turnOf;
     while(true){
       startRound();
       await delay(250);
+      var next = roundStarter;
       while(ready(0).length || ready(1).length){
         var t = ready(next).length ? next : 1-next;
         await takeTurn(t);
         next = 1-t;
       }
       if(G.round>=99){ G.over=true; G.winner=-1; log('Ninety-nine rounds. Everyone goes home.', 'win'); gameEnded(); throw ABORT_OVER; }
+      roundStarter = 1-roundStarter;
     }
   } catch(e){
     if(e===ABORT_DEAD || g!==G) return;
@@ -790,6 +808,7 @@ function backFace(){
 function chips(u){
   var c = [];
   if(u.ko) return '';
+  if(u.c.tank) c.push(['Can&rsquo;t be stunned','g']);
   if(u.shield) c.push(['Shield','g']);
   if(u.atkGame>0) c.push(['+'+u.atkGame+' ATK','b']);
   if(u.atkGame<0) c.push(['&minus;'+(-u.atkGame)+' ATK','r']);
@@ -1252,13 +1271,19 @@ function flipReveal(i){
 }
 
 /* ---- collection ---- */
-/* finish: 'normal' (default), 'foil' or 'gold'. Foil/gold tiles are ownership-only — never buyable,
-   see ACC.canBuy — and sit right next to a card's normal tile instead of off in a separate section,
-   so where a card can be foiled or gilded is visible right where the card itself lives. */
-function collTile(c, finish){
-  var isChar = chars.indexOf(c)>=0, owned, label;
-  if(finish==='foil'){ owned = ACC.ownsFoil(c.id); label = owned ? 'Foil owned' : 'Foil &middot; Holo pack only'; }
-  else if(finish==='gold'){ owned = ACC.ownsGold(c.id); label = owned ? 'Gold owned' : 'Gold &middot; Legendary pack only'; }
+/* One tile per card — the finish shown is whichever is "best": foil beats gold beats a plain owned
+   copy beats not-owned-yet. Owning both foil and gold shows the foil (with a note that gold is also
+   in hand); nothing here hides that you own the other one, it just isn't a second tile to scan past. */
+function bestFinish(c){
+  if(chars.indexOf(c)<0) return 'normal';   // actions never have a foil/gold finish
+  if(ACC.ownsFoil(c.id)) return 'foil';
+  if(ACC.ownsGold(c.id)) return 'gold';
+  return 'normal';
+}
+function collTile(c){
+  var isChar = chars.indexOf(c)>=0, finish = bestFinish(c), owned, label;
+  if(finish==='foil'){ owned = true; label = 'Foil owned'+(ACC.ownsGold(c.id) ? ' &middot; gold also owned' : ''); }
+  else if(finish==='gold'){ owned = true; label = 'Gold owned'; }
   else if(c.set==='base'){ owned = true; label = isChar ? 'Starter card' : '3 in every deck'; }
   else if(isChar){ owned = ACC.qty(c.id,false)>0; label = owned ? 'Owned' : 'Pack card'; }
   else { var q = Math.min(3, ACC.qty(c.id,false)); owned = q>0; label = 'Owned '+q+' of 3'; }
@@ -1268,16 +1293,11 @@ function collTile(c, finish){
     ? '<button class="btn sm sell" data-a="sell" data-v="'+c.id+'" data-fin="'+finish+'"'+(M.busy?' disabled':'')+'>Sell &middot; +'+sellPrice+' GP</button>' : '';
   var face = isChar ? charFace(c, {foil:finish==='foil', gold:finish==='gold'}) : actFace(c.n);
   var zv = isChar ? 'c:'+chars.indexOf(c)+(finish==='foil'?':f':finish==='gold'?':g':'') : 'a:'+c.n;
-  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(finish!=='normal'&&owned?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+c.n+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
+  return '<div class="tile"><button class="card coll'+(owned?'':' locked')+(finish!=='normal'?' shine':'')+'" data-a="czoom" data-v="'+esc(zv)+'" aria-label="'+c.n+'">'+face+'</button><span class="tl-lbl">'+label+'</span>'+buy+sell+'</div>';
 }
 function renderCollection(){
   var baseChars = chars.filter(function(c){ return c.set==='base'; }), baseActs = acts.filter(function(a){ return a.set==='base'; });
-  /* Every character gets a normal tile plus, right alongside it, a foil and a gold tile (owned or
-     not) — actions never get foil/gold. */
-  var grid = function(list){ return '<div class="grid">'+list.map(function(c){
-      var isChar = chars.indexOf(c)>=0;
-      return collTile(c, 'normal') + (isChar ? collTile(c, 'foil') + collTile(c, 'gold') : '');
-    }).join('')+'</div>'; };
+  var grid = function(list){ return '<div class="grid">'+list.map(collTile).join('')+'</div>'; };
   var packs = PACKS.filter(function(pk){ return pk.id!=='holo' && pk.id!=='legendary' && pk.id!=='chairman'; }).map(function(pk){
     var list = packCards(pk.id);
     if(!list.length) return '';
@@ -1287,13 +1307,13 @@ function renderCollection(){
   var chairmanQty = ACC.qty('chairman-knox', false);
   var chairman = chairmanQty>0 ? '<h3 class="sec">Chairman Knox <span class="count'+(chairmanQty>=3?' ok':'')+'">'+chairmanQty+' owned'+(chairmanQty>=3?' &middot; EMPOWERED':'')+'</span></h3>'
     +'<p class="hint">1 HP/ATK/SPD alone. Own three and every copy becomes 10 for everything. Never for sale &mdash; only a once-only gift, or a 1-in-100 chance on any pack won from an online battle.</p>'
-    +'<div class="grid">'+collTile(chars.filter(function(c){ return c.id==='chairman-knox'; })[0], 'normal')+'</div>' : '';
+    +'<div class="grid">'+collTile(chars.filter(function(c){ return c.id==='chairman-knox'; })[0])+'</div>' : '';
   return pageTop('Collection')+'<div class="panel-pg wide">'
     +'<div class="statline"><span><b>'+ACC.profile.grant_points+'</b> Grant Points</span><span>Commons 8 &middot; New characters 20</span></div>'
     + msgs()
     + chairman
     + packs
-    +'<h3 class="sec">Starter characters</h3><p class="hint">Every character here — and everywhere above — can also come as a foil (Holo pack) or gold (Legendary pack). Neither can be bought; both are shown alongside the normal card either way.</p>'+grid(baseChars)
+    +'<h3 class="sec">Starter characters</h3><p class="hint">Every character here — and everywhere above — can also come as a foil (Holo pack) or gold (Legendary pack). Neither can be bought; a card shows its best finish if you own one, with a note if you own both.</p>'+grid(baseChars)
     +'<h3 class="sec">Starter action cards</h3>'+grid(baseActs)
     +'</div></div>';
 }

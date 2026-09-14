@@ -71,7 +71,7 @@ var chars=[
  {n:"Chaperone Knox",r:"Dance Floor Perimeter",i:"cap",hp:24,atk:4,spd:4,an:"Supervision Duty",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Leave room for the Journal of Marine Biology."},
  {n:"Field Researcher Knox",r:"Wetsuit &amp; Clipboard",i:"dart",hp:20,atk:5,spd:5,an:"Tag and Release",a:"Deal 4 damage to one enemy. It skips its next turn.",f:"Tag 041 has been recaptured four times. Rude."},
  {n:"Fire Drill Knox",r:"Evacuation Protocol",i:"exit",hp:21,atk:3,spd:7,an:"Orderly Exit",a:"Draw 2 action cards.",f:"Line up. Outside voices outside.",set:"socs-favourite"},
- {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"Heal this character back to full HP.",f:"Two tonnes of disapproval. Mostly nose."},
+ {n:"Elephant Seal Knox",r:"Beachmaster",i:"eseal",hp:30,atk:3,spd:2,an:"Beachmaster",a:"Heal this character back to full HP.",f:"Two tonnes of disapproval. Mostly nose.",tank:true},
  {n:"Leopard Seal Knox",r:"Apex Predator",i:"lseal",hp:14,atk:8,spd:5,an:"Ambush",a:"Attack one enemy for double damage.",f:"Smiles like that for a reason."},
  {n:"Staff Meeting Knox",r:"Any Other Business",i:"agenda",hp:22,atk:3,spd:4,an:"Agenda Item 14",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"&ldquo;Just quickly, before we finish&hellip;&rdquo;"},
  {n:"Parent-Teacher Knox",r:"Evening Session",i:"chat",hp:20,atk:4,spd:5,an:"Concerns Raised",a:"Swap this character&rsquo;s HP with one enemy&rsquo;s HP.",f:"Ten-minute slots. Forty-minute conversations.",set:"socs-favourite"},
@@ -86,7 +86,7 @@ var chars=[
  {n:"SOC&rsquo;s Got Talent Knox",r:"Crowd Favourite",i:"star",hp:18,atk:4,spd:5,an:"Encore",a:"Attack twice. Choose the enemy each time.",f:"The judges asked for more. The judges always ask for more.",set:"socs-favourite"},
  /* Field Season pack. */
  {n:"Fur Seal Knox",r:"Sub-Antarctic Specialist",i:"furseal",hp:19,atk:4,spd:6,an:"Territorial Bark",a:"Every enemy gets &minus;1 ATK for the rest of the game.",f:"Louder than the whole rookery combined.",set:"field-season",img:"images/field-season/fur-seal-knox.jpg"},
- {n:"Weddell Seal Knox",r:"Ice Hole Sentinel",i:"weddell",hp:25,atk:3,spd:3,an:"Breathing Hole",a:"This character gets a Shield and heals 3 HP.",f:"Files the ice hole under &ldquo;mine.&rdquo;",set:"field-season",img:"images/field-season/weddell-seal-knox.jpg"},
+ {n:"Weddell Seal Knox",r:"Ice Hole Sentinel",i:"weddell",hp:25,atk:3,spd:3,an:"Breathing Hole",a:"This character gets a Shield and heals 3 HP.",f:"Files the ice hole under &ldquo;mine.&rdquo;",set:"field-season",img:"images/field-season/weddell-seal-knox.jpg",tank:true},
  {n:"Sea Lion Knox",r:"Colony Enforcer",i:"sealion",hp:20,atk:5,spd:5,an:"Beach Charge",a:"Attack one enemy for double damage.",f:"The whole colony moves when he does.",set:"field-season",img:"images/field-season/sea-lion-knox.jpg"},
  {n:"Research Vessel Knox",r:"Southern Ocean Transit",i:"vessel",hp:23,atk:4,spd:4,an:"All Hands",a:"Every character on your team heals 2 HP.",f:"Six weeks at sea. Forty thousand photos of seals.",set:"field-season",img:"images/field-season/research-vessel-knox.jpg"},
  /* End of Year pack. Limited: only while packs.valid_until hasn't passed. */
@@ -99,7 +99,7 @@ var chars=[
  {n:"Crusader Knox",r:"Holy Charge",i:"flag",hp:26,atk:5,spd:3,an:"Shield Wall",a:"Also gives this character a Shield.",f:"Rode a very long way to argue about real estate.",set:"knox-of-history",img:"images/knox-of-history/crusader-knox.jpg"},
  {n:"Great Depression Knox",r:"Wall Street Wolf",i:"suit",hp:19,atk:4,spd:4,an:"Buy the Dip",a:"Also draws an action card.",f:"Bought the top. Sold the bottom. Still smoking a cigar.",set:"knox-of-history",img:"images/knox-of-history/great-depression-knox.jpg"},
  {n:"Napoleon Knox",r:"Emperor of the French",i:"flag",hp:22,atk:5,spd:3,an:"Grand Arm&eacute;e",a:"Also makes the target skip its next turn.",f:"Never lost a battle in his own retelling.",set:"knox-of-history",img:"images/knox-of-history/napoleon-knox.jpg"},
- {n:"Pharaoh Knox",r:"God-King of the Nile",i:"star",hp:28,atk:4,spd:2,an:"Divine Mandate",a:"Also heals this character 2 HP.",f:"Built for eternity. Running fifteen minutes late.",set:"knox-of-history",img:"images/knox-of-history/pharaoh-knox.jpg"},
+ {n:"Pharaoh Knox",r:"God-King of the Nile",i:"star",hp:28,atk:4,spd:2,an:"Divine Mandate",a:"Also heals this character 2 HP.",f:"Built for eternity. Running fifteen minutes late.",set:"knox-of-history",img:"images/knox-of-history/pharaoh-knox.jpg",tank:true},
  {n:"Pirate Knox",r:"Scourge of the Seven Seas",i:"wave",hp:18,atk:6,spd:5,an:"Boarding Party",a:"First strips the target&rsquo;s Shield, if it has one.",f:"All the charisma of a man who has never read the fine print.",set:"knox-of-history",img:"images/knox-of-history/pirate-knox.jpg"},
  {n:"Samurai Knox",r:"Blade of Bushido",i:"star",hp:21,atk:6,spd:5,an:"Iaijutsu Strike",a:"A harder hit. No other effect.",f:"Followed the code. The code did not follow him back.",set:"knox-of-history",img:"images/knox-of-history/samurai-knox.jpg"},
  {n:"Spartan Knox",r:"This Is Sparta",i:"laurel",hp:27,atk:5,spd:3,an:"Phalanx",a:"Also gives this character a Shield.",f:"This. Is. The Debbie Locco Centre.",set:"knox-of-history",img:"images/knox-of-history/spartan-knox.jpg"},
@@ -197,6 +197,10 @@ var FX_TEXT = {
 chars.forEach(function(c){
   var jab = c.atk, sig = Math.round(c.atk*1.4), over = Math.round(c.atk*2);
   var fx = SIG_FX[c.n], sigN = Math.round(sig*0.5), overN = Math.round(over*0.35);
+  /* A stun used to carry the same damage premium as every other signature (1.4x) on top of taking
+     the target's turn away — full damage AND full control, no tradeoff. Knock it back to Jab-level
+     damage: the control is the payoff now, not a bonus. */
+  if(fx==='stun') sig = jab;
   c.atks = [
     {n:'Jab', dmg:jab, a:'A quick, reliable strike.'},
     {n:c.an, dmg:sig, fx:fx, a:FX_TEXT[fx||'plain'](sigN)},

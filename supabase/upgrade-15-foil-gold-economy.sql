@@ -24,21 +24,35 @@ alter table public.pack_odds add constraint pack_odds_slot_check check (slot in 
 -- and rewrite any deck that used one to use the original with a golds entry instead. Running this
 -- twice is harmless — by the second run the golden-* rows are gone from collection/decks already.
 do $$
-declare pair record;
+declare
   pairs text[][] := array[
     array['golden-doctor-knox','doctor-knox'], array['golden-beer-frog-knox','beer-frog-knox'],
     array['golden-elephant-seal-knox','elephant-seal-knox'], array['golden-leopard-seal-knox','leopard-seal-knox'],
     array['golden-emeritus-knox','emeritus-knox']
   ];
   p text[];
+  d record;
+  filler text;
+  new_chars text[];
 begin
   foreach p slice 1 in array pairs loop
     insert into collection (user_id, card_id, foil, gold, qty)
       select user_id, p[2], false, true, qty from collection where card_id = p[1]
     on conflict (user_id, card_id, foil, gold) do update set qty = collection.qty + excluded.qty;
     delete from collection where card_id = p[1];
-    update decks set characters = array_replace(characters, p[1], p[2]), golds = array_append(golds, p[2])
-      where p[1] = any(characters);
+    -- One row per affected deck, so the rare case where a deck already has both the golden card AND
+    -- its original (array_replace would then create a duplicate, which check_deck rightly rejects)
+    -- can be handled by filling that slot with a different base character instead of just erroring.
+    for d in select * from decks where p[1] = any(characters) loop
+      if p[2] = any(d.characters) then
+        select c.id into filler from cards c
+          where c.kind = 'character' and c.rarity = 'base' and c.id <> all(d.characters) limit 1;
+        new_chars := array_replace(d.characters, p[1], filler);
+        update decks set characters = new_chars where id = d.id; -- golds untouched: filler isn't gold
+      else
+        update decks set characters = array_replace(d.characters, p[1], p[2]), golds = array_append(d.golds, p[2]) where id = d.id;
+      end if;
+    end loop;
   end loop;
 end $$;
 
