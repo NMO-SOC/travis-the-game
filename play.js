@@ -1093,12 +1093,28 @@ function stakeGroup(){
     + opt(0,'Off') + opt(10,'Stake 10') + opt(25,'Stake 25') + opt(50,'Stake 50')
     +'</div><p class="hint">Doesn&rsquo;t count against the five free wins a day &mdash; win and you get a bonus pack on top, lose and you forfeit the Grant Points.</p></div>';
 }
+/* The hero fan above the menu title rotates through the roster like a display case, instead of always
+   showing the same fixed five — picked fresh on load and again every so often (see heroRotate) by a
+   targeted DOM swap of just the .fan element, never a full render(), so it never interrupts anything
+   else on the page (see appendActivityRow for why that matters). */
+var HERO_POOL = chars.filter(function(c){ return c.id!=='chairman-knox'; }).map(function(c){ return c.n; });
+function pickHeroSet(){ return shuffle(HERO_POOL.slice()).slice(0, 5); }
+function heroFanHtml(){
+  return (M.heroSet || (M.heroSet = pickHeroSet())).map(function(n,i){
+    return '<div class="card hero" style="'+fanStyle(i,5,11)+'">'+charFace(chars[CHAR[n]])+'</div>';
+  }).join('');
+}
+function heroRotate(){
+  if(G.phase!=='menu' || !root) return;
+  var fan = root.querySelector('.fan');
+  if(!fan) return;
+  M.heroSet = pickHeroSet();
+  fan.innerHTML = heroFanHtml();
+}
 function renderMenu(){
   var on = function(k,v){ return String(CFG[k])===String(v) ? ' on' : ''; };
   var o = function(k,v,label,sub){ return '<button class="choice'+on(k,v)+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
-  var hero = ['Beer Frog Knox','Blue Suit Knox','Doctor Knox','Leopard Seal Knox','Family Man Knox'].map(function(n,i){
-    return '<div class="card hero" style="'+fanStyle(i,5,11)+'">'+charFace(chars[CHAR[n]])+'</div>';
-  }).join('');
+  var hero = heroFanHtml();
   var user = ACC && ACC.user && ACC.profile, decks = user ? ACC.decks : [];
   var deckGroup = '';
   if(user && CFG.mode!=='hot'){
@@ -1582,13 +1598,31 @@ function activityLine(row){
     default: return who+' &mdash; '+esc(row.kind);
   }
 }
+function activityRowHtml(r){
+  return '<span class="ftime" title="'+esc(new Date(r.created_at).toString())+'">'+timeExact(r.created_at)+'</span><span class="fline">'+activityLine(r)+'</span>';
+}
 function activityFeed(){
   if(!ACC || !ACC.user) return '';
   var rows = M.activity || [];
   if(!rows.length) return '<div class="group"><div class="gl">Activity</div><p class="muted">Nothing yet &mdash; open a pack or start a game.</p></div>';
   return '<div class="group"><div class="gl">Activity <small>&middot; live</small></div><ul class="feed">'+rows.map(function(r){
-      return '<li><span class="ftime" title="'+esc(new Date(r.created_at).toString())+'">'+timeExact(r.created_at)+'</span><span class="fline">'+activityLine(r)+'</span></li>';
+      return '<li>'+activityRowHtml(r)+'</li>';
     }).join('')+'</ul></div>';
+}
+/* Patches a new row straight into the live .feed DOM instead of going through render() — a full
+   render rebuilds the whole page's innerHTML, which loses the feed's scroll position (the list you
+   were reading jumps back to the top) and, worse, replays the hero fan's entrance animation since
+   those <div>s get torn down and recreated too, even though nothing about them changed. Activity and
+   battle lines are the most frequent thing that changes on this screen — sidestep both problems at
+   the source rather than trying to restore state after the fact. */
+function appendActivityRow(row, cap){
+  if(G.phase!=='menu' || !root) return;
+  var ul = root.querySelector('.feed');
+  if(!ul){ render(); return; }   // e.g. the very first row ever — the empty-state markup has no <ul> yet
+  var li = document.createElement('li');
+  li.innerHTML = activityRowHtml(row);
+  ul.insertBefore(li, ul.firstChild);
+  while(ul.children.length>cap) ul.removeChild(ul.lastChild);
 }
 /* ---- win odds: the exact, live chance of each pack from a battle win ----
    Mirrors record_win()/wager_battle() exactly: a flat 1-in-3 shot at Holo or Legendary (split evenly),
@@ -1840,10 +1874,15 @@ function fitZones(){
 function paint(){
   var t = now();
   G.fx = (G.fx||[]).filter(function(f){ return t-f.t0 <= f.dur; });
-  // Keep typing focus across re-renders (the whole screen is rebuilt each time).
+  // Keep typing focus and any scrolled-list position across re-renders (the whole screen is rebuilt
+  // each time) — most churn (activity feed, battle lines) now patches the DOM directly instead of
+  // going through here (see appendActivityRow), but this stays as a safety net for whatever still
+  // triggers a full render while, say, the activity feed is scrolled mid-read.
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
+  var feedEl = root.querySelector('.feed'), feedScroll = feedEl ? feedEl.scrollTop : null;
   root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
+  if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
   if(w && w.kind==='unit' && !w.scrolled){
@@ -1999,18 +2038,19 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
     el.addEventListener('input', onInput);
     el.addEventListener('keydown', onKey);
     if(typeof window!=='undefined') window.addEventListener('resize', function(){ requestAnimationFrame(fitZones); });
+    if(typeof window!=='undefined') window.setInterval(heroRotate, 8000);
     render();
     if(ACC){
       ACC.onLobbyChange(function(people){ M.online = people; if(G.phase!=='battle' && G.phase!=='deal') render(); });
       ACC.onInvite(function(inv){ M.incomingInvite = inv; render(); });
       ACC.onActivity(function(row){
         M.activity = [row].concat(M.activity || []).slice(0, 100);
-        if(G.phase!=='battle' && G.phase!=='deal') render();
+        appendActivityRow(row, 100);
       });
       ACC.onBattleLine(function(p){
-        M.activity = [{kind:'battle_line', username:p.username, detail:{h:p.h, cls:p.cls}, created_at:new Date(p.ts).toISOString()}]
-          .concat(M.activity || []).slice(0, 120);
-        if(G.phase!=='battle' && G.phase!=='deal') render();
+        var row = {kind:'battle_line', username:p.username, detail:{h:p.h, cls:p.cls}, created_at:new Date(p.ts).toISOString()};
+        M.activity = [row].concat(M.activity || []).slice(0, 120);
+        appendActivityRow(row, 120);
       });
       ACC.init(function(){
         if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
