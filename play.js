@@ -4,7 +4,7 @@
 
 var HAND_LIMIT = 3;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:6, speed:1, diff:'medium'};
+var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0};
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -245,13 +245,22 @@ function logResult(result){
     opponent:online ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU', deck:deck ? deck.name : 'Random deal'});
   M.board = null;   // XP just changed — refetch the leaderboard next time it's shown
 }
+/* High Stakes: a second, uncapped way to earn a pack (see stakeEligible), at the cost of the Grant
+   Points staked if you don't win. Independent of the five-a-day free win cap below. */
+function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && ((CFG.mode==='cpu' && CFG.diff==='hard') || CFG.mode==='online')); }
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
   logResult(G.winner<0 ? 'draw' : G.winner===me ? 'win' : 'loss');
+  if(CFG.stake>0 && stakeEligible()){
+    var g = G, stake = CFG.stake, won = G.winner===me;
+    G.wagerPending = true; CFG.stake = 0;
+    ACC.wager(stake, won, CFG.mode, CFG.diff).then(function(r){ if(g===G){ G.wagerPending=false; G.wagerResult=r; render(); } })
+      .catch(function(e){ if(g===G){ G.wagerPending=false; G.wagerResult={error:(e&&e.message)||String(e)}; render(); } });
+  }
   if(!ACC || !ACC.user || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
-  var g = G;
-  ACC.recordWin().then(function(got){ if(g===G){ G.reward = got; render(); } });
+  var g2 = G;
+  ACC.recordWin().then(function(got){ if(g2===G){ G.reward = got; render(); } });
 }
 function strikeTargets(u){ return foes(u); }
 /* "Skip": an untapped character is tapped now (loses this round's action); an already-tapped one stays tapped next round. */
@@ -891,8 +900,13 @@ function overlays(){
     var reward = G.reward===null ? '<p class="reward dim">You&rsquo;ve had today&rsquo;s five packs from wins. More tomorrow.</p>'
                : G.reward==='any' ? '<p class="reward">&#10022; You earned a pack! Open it from the menu.</p>'
                : G.reward ? '<p class="reward">&#10022; You earned a '+packName(G.reward)+' pack! Open it from the menu.</p>' : '';
+    var wager = G.wagerPending ? '<p class="reward dim">Settling your High Stakes wager&hellip;</p>'
+               : !G.wagerResult ? ''
+               : G.wagerResult.error ? '<p class="reward dim">High Stakes wager failed: '+esc(G.wagerResult.error)+'</p>'
+               : G.wagerResult.won ? '<p class="reward">&#9889; High Stakes paid off &mdash; a bonus '+(G.wagerResult.pack==='any' ? 'pack' : packName(G.wagerResult.pack)+' pack')+'!</p>'
+               : '<p class="reward dim">High Stakes: lost your '+G.wagerResult.lost+' Grant Points.</p>';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
-    o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward
+    o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward+wager
       +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
   } else if(G.oppGone && !G.over){
     o += '<div class="ov soft"><div class="panel"><div class="eyebrow">Connection</div><h2>'+pname(1-CFG.me)+' left the game</h2><p>The match can&rsquo;t continue. No result is recorded.</p>'
@@ -968,6 +982,20 @@ function renderDeal(){
    +'<div class="side"><div class="sl">Quick rules</div><ul class="how"><li>Players take turns. On your turn, tap one of your characters, then pick one of its <b>three attacks</b> and tap an enemy to hit it.</li><li>Each character acts once per round.</li><li>The green <b>HP</b> circle is health. Knock out all enemies to win.</li><li>Enemy cards stay face-down until they act.</li></ul><button class="btn sm" data-a="rules">Full rules</button></div>'
    +'</aside></div>' + o;
 }
+/* High Stakes: shown only where it's honoured server-side (see stakeEligible) — Hard CPU or Online.
+   A stake resets to Off whenever it stops being eligible, so a stray choice can't carry into a
+   game it doesn't apply to. */
+function stakeGroup(){
+  if(!stakeEligible()){ if(CFG.stake) CFG.stake = 0; return ''; }
+  var pts = ACC.profile.grant_points;
+  var opt = function(v, label){
+    var afford = v===0 || pts>=v;
+    return '<button class="choice'+(CFG.stake===v?' on':'')+'" data-a="cfg" data-k="stake" data-v="'+v+'"'+(afford?'':' disabled')+'><b>'+label+'</b><span>'+(v===0?'Just the free daily wins':'Win: bonus pack &middot; Lose: &minus;'+v+' GP')+'</span></button>';
+  };
+  return '<div class="group"><div class="gl">High Stakes <small>(optional)</small></div><div class="choices">'
+    + opt(0,'Off') + opt(10,'Stake 10') + opt(25,'Stake 25') + opt(50,'Stake 50')
+    +'</div><p class="hint">Doesn&rsquo;t count against the five free wins a day &mdash; win and you get a bonus pack on top, lose and you forfeit the Grant Points.</p></div>';
+}
 function renderMenu(){
   var on = function(k,v){ return String(CFG[k])===String(v) ? ' on' : ''; };
   var o = function(k,v,label,sub){ return '<button class="choice'+on(k,v)+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
@@ -997,6 +1025,7 @@ function renderMenu(){
    +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
      + o('diff','easy','Easy','Very forgiving') + o('diff','medium','Medium','Makes mistakes') + o('diff','hard','Hard','A fair fight')
      +'</div></div>' : '')
+   + stakeGroup()
    + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
    + o('size','6','6 v 6','Full squad') + o('size','4','4 v 4','Medium') + o('size','3','3 v 3','Quick game')
@@ -1632,7 +1661,7 @@ function onClick(e){
   if(!el || el.disabled) return;
   var a = el.getAttribute('data-a'), v = el.getAttribute('data-v'), w = G.wait;
   switch(a){
-    case 'cfg': CFG[el.getAttribute('data-k')] = el.getAttribute('data-k')==='size' ? +v : v; M.err=''; render(); break;
+    case 'cfg': { var ck = el.getAttribute('data-k'); CFG[ck] = (ck==='size' || ck==='stake') ? +v : v; M.err=''; render(); break; }
     case 'start': startFromMenu(); break;
     case 'menu': goScreen('menu'); break;
     /* ---- accounts & collection ---- */

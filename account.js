@@ -141,6 +141,13 @@ A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:
 /* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
    won, or null if today's five win-packs are already claimed. */
 A.recordWin = async function(){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return null; } };
+/* High Stakes: a second, uncapped way to earn a pack, at the cost of the Grant Points staked on a loss.
+   Resolves to {won, pack} on a win or {won:false, lost, grant_points} on a loss. */
+A.wager = async function(stake, won, mode, difficulty){
+  var got = await call(client().rpc('wager_battle', {p_stake:stake, p_won:!!won, p_mode:mode, p_difficulty:difficulty||null}));
+  await A.refresh();
+  return got;
+};
 
 /* ---------------- decks ---------------- */
 A.saveDeck = async function(d){
