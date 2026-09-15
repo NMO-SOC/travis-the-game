@@ -1433,7 +1433,7 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   send:function(p){ if(NET.conn) NET.conn.send(p); },
   next:function(cb){ if(NET.queue.length){ var v = NET.queue.shift(); setTimeout(function(){ cb(v); }, 0); } else NET.waiter = cb; },
   push:function(v){ if(NET.waiter){ var cb = NET.waiter; NET.waiter = null; cb(v); } else NET.queue.push(v); },
-  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; }
+  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); }
 };
 /* Spectating: a third party watches an in-progress online match. It reuses the exact same
    deterministic replay engine two real players use (see beginOnline/wait/remoteInput) — every
@@ -1534,13 +1534,31 @@ function beginOnline(m, me, spectating){
     golds:[t[0].chars.map(function(ci){ return t[0].golds.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].golds.indexOf(chars[ci].id)>=0; })],
     actions:[t[0].actions, t[1].actions], houseOwned:[t[0].houseOwned, t[1].houseOwned],
     chairmanEmpowered:[t[0].chairmanEmpowered, t[1].chairmanEmpowered]}, m.seed, m.first);
+  if(!spectating && ACC && ACC.announceMatch) ACC.announceMatch(L.code, {size:m.size, names:m.names});
+}
+/* Browsable spectate list: every online match currently announced in the shared lobby presence (see
+   ACC.announceMatch), deduped by code since both players in a match announce the same one. */
+function liveGamesHtml(){
+  var seen = {}, games = [];
+  (ACC.onlinePlayers()||[]).forEach(function(p){
+    if(!p.match || seen[p.match]) return;
+    seen[p.match] = true; games.push(p);
+  });
+  if(!games.length) return '<div class="lobby-live empty"><p class="muted">No one&rsquo;s playing online right now.</p></div>';
+  return '<div class="lobby-live"><h3>Watch a live match</h3><div class="lobby-grid">'
+   + games.map(function(p){
+       var info = p.info || {}, names = (info.names||[]).map(esc).join(' vs ') || 'Two players';
+       return '<div class="lobby-card"><h3>'+names+'</h3><p>'+(info.size||CFG.size)+' v '+(info.size||CFG.size)+'</p>'
+        +'<button class="btn" data-a="watchlive" data-v="'+esc(p.match)+'">Watch</button></div>';
+     }).join('') + '</div></div>';
 }
 function renderLobby(){
   var body = '';
   if(L.stage==='choose'){
     body = '<div class="lobby-grid"><div class="lobby-card"><h3>Create a game</h3><p>You&rsquo;ll get a code to send to your opponent. Format: <b>'+CFG.size+' v '+CFG.size+'</b>.</p><button class="btn gold" data-a="host">Create game</button></div>'
       +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div>'
-      +'<div class="lobby-card"><h3>Watch a game</h3><p>Spectate a match already underway &mdash; ask a player for their code.</p>'+field('wcode','Game code','text')+'<button class="btn" data-a="watch" data-submit>Watch</button></div></div>'
+      +'<div class="lobby-card"><h3>Have a code?</h3><p>Watch a match by code, if a player gave you one directly.</p>'+field('wcode','Game code','text')+'<button class="btn" data-a="watch" data-submit>Watch</button></div></div>'
+      +liveGamesHtml()
       +'<p class="hint">You&rsquo;ll choose your team once you&rsquo;re matched up.</p>';
   } else if(L.stage==='spectating'){
     body = '<p>Connecting to <b>'+esc(L.code)+'</b>&hellip;</p><p class="muted">Watching starts as soon as the players&rsquo; match is found.</p>';
@@ -2022,6 +2040,7 @@ function onClick(e){
       if(!/^[A-Z]{4}-\d{2}$/.test(wcode)){ M.err=''; L.err = 'Codes look like ABCD-12.'; render(); break; }
       L.err=''; spectate(wcode); break;
     }
+    case 'watchlive': if(needAccount()) break; if(v) spectate(v); break;
     case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
     case 'invite': {
       if(needAccount()) break;

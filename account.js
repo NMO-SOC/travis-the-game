@@ -289,6 +289,18 @@ A.leaveLobby = function(){
 A.onlinePlayers = function(){ return lobbyPeople; };
 A.onLobbyChange = function(fn){ onLobby = fn || function(){}; };
 A.onInvite = function(fn){ onInvite = fn || function(){}; };
+/* Re-tracks this player's lobby presence with which match they're currently in, so other signed-in
+   players browsing the lobby can spot and watch it without being told a code. Cleared (see
+   clearMatchAnnounce) the moment the match ends or is left — see NET.close() in play.js, the single
+   place every exit path already funnels through. */
+A.announceMatch = function(code, info){
+  if(!lobbyCh || !A.user || !A.profile) return;
+  try{ lobbyCh.track({id:A.user.id, username:A.profile.username, match:code, info:info||null}); }catch(e){}
+};
+A.clearMatchAnnounce = function(){
+  if(!lobbyCh || !A.user || !A.profile) return;
+  try{ lobbyCh.track({id:A.user.id, username:A.profile.username}); }catch(e){}
+};
 /* code: a match code already created with A.makeCode() and opened with A.openMatch(code, 'host', ...). */
 A.sendInvite = function(targetId, code, size){
   if(!lobbyCh || !A.user || !A.profile) return;
