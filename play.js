@@ -1349,6 +1349,19 @@ function renderCollection(){
 
 /* ---- decks ---- */
 var STARTER_ACTIONS = {cat:3, canteen:3, excursion:2, dlc:2, detention:2};
+/* Spirit Week's four house cards each already cap at 3 copies individually (see ACC.actionLimit),
+   but nothing stopped stacking multiple house types together — up to 12 of a 12-card action deck.
+   This caps the four of them combined at 3 total per deck, so a deck built before this rule shipped
+   can go over and needs fixing before it's playable — see deckInvalidReason. */
+var SPIRIT_IDS = ['waratah-spirit', 'grevillea-spirit', 'acacia-spirit', 'banksia-spirit'];
+var SPIRIT_LIMIT = 3;
+function spiritCount(actionIds){ return (actionIds||[]).filter(function(id){ return SPIRIT_IDS.indexOf(id)>=0; }).length; }
+function deckInvalidReason(d){
+  if(!d) return '';
+  var sc = spiritCount(d.actions);
+  if(sc>SPIRIT_LIMIT) return sc+' Spirit Week cards (Waratah/Grevillea/Acacia/Banksia combined) &mdash; max '+SPIRIT_LIMIT+' total.';
+  return '';
+}
 function deckToEdit(d){
   var counts = {};
   (d ? d.actions : []).forEach(function(id){ counts[id] = (counts[id]||0)+1; });
@@ -1358,7 +1371,9 @@ function deckToEdit(d){
 function editTotal(e){ var n=0; for(var k in e.counts) n += e.counts[k]; return n; }
 function renderDecks(){
   var list = ACC.decks.map(function(d){
-    return '<div class="deckrow"><div class="dinfo"><b>'+esc(d.name)+'</b><span>'+d.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(' &middot; ')+'</span></div>'
+    var dr = deckInvalidReason(d);
+    return '<div class="deckrow'+(dr?' invalid':'')+'"><div class="dinfo"><b>'+esc(d.name)+'</b><span>'+d.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(' &middot; ')+'</span>'
+      +(dr?'<p class="err-msg">Can&rsquo;t be played until fixed &mdash; '+dr+'</p>':'')+'</div>'
       +'<div class="row"><button class="btn sm" data-a="deckedit" data-v="'+d.id+'">Edit</button><button class="lnk" data-a="deckdel" data-v="'+d.id+'">Delete</button></div></div>';
   }).join('');
   return pageTop('Decks')+'<div class="panel-pg">'
@@ -1377,12 +1392,14 @@ function renderDeckEdit(){
       +(on && ACC.ownsFoil(c.id) ? '<button class="btn sm" data-a="dfoil" data-v="'+c.id+'">'+(foil?'&#10022; Foil on':'Use foil')+'</button>' : '')
       +(on && ACC.ownsGold(c.id) ? '<button class="btn sm" data-a="dgold" data-v="'+c.id+'">'+(gold?'&#10022; Gold on':'Use gold')+'</button>' : '')+'</div>';
   }).join('');
+  var spiritNow = spiritCount(SPIRIT_IDS.reduce(function(l,id){ for(var i=0;i<(e.counts[id]||0);i++) l.push(id); return l; }, []));
   var actRows = acts.map(function(a){
-    var lim = ACC.actionLimit(a), n = e.counts[a.id]||0;
+    var lim = ACC.actionLimit(a), n = e.counts[a.id]||0, isSpirit = SPIRIT_IDS.indexOf(a.id)>=0;
     if(lim<1 && !n) return '';
+    var plusOk = n<lim && total<12 && !(isSpirit && spiritNow>=SPIRIT_LIMIT);
     return '<div class="actrow"><button class="aname" data-a="czoom" data-v="a:'+esc(a.n)+'"><b>'+a.n+'</b><span>'+a.a+'</span></button>'
       +'<div class="stepper"><button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="-1"'+(n>0?'':' disabled')+'>&minus;</button><b>'+n+'</b>'
-      +'<button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="1"'+(n<lim&&total<12?'':' disabled')+'>+</button></div></div>';
+      +'<button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="1"'+(plusOk?'':' disabled')+'>+</button></div></div>';
   }).join('');
   return pageTop(e.id?'Edit deck':'New deck')+'<div class="panel-pg wide">'
     + field('deckname','Deck name','text')
@@ -1429,6 +1446,7 @@ function startFromMenu(){
   M.err = '';
   if(CFG.mode==='online'){ if(needAccount()) return; openLobby(); return; }
   var deck = CFG.mode==='cpu' ? chosenDeck() : null;
+  if(deck){ var dReason = deckInvalidReason(deck); if(dReason){ M.err = 'Can’t play with "'+deck.name+'" yet — '+dReason+' Fix it in Decks first.'; render(); return; } }
   if(!deck){ startGame(); return; }
   teamPick(deck, CFG.size, 'Choose your team', function(me){
     var cpu = randomTeam(CFG.size);
@@ -1494,7 +1512,17 @@ function onSpecPresence(people){
   var players = people.filter(function(p){ return p.role==='host' || p.role==='guest'; });
   if(G.phase==='battle' && !players.length && !NET.finished && !G.over){ G.oppGone = true; render(); }
 }
-function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
+/* t.foils/t.golds (from deckTeam/randomTeam) are boolean arrays parallel to t.chars — "is the character
+   at this slot foil/gold". teamFromWire's consumer (beginOnline) expects foils/golds as lists of
+   character ids instead, so it can look each team member up by id; convert here rather than sending
+   the booleans through unconverted, which silently dropped every foil/gold finish in online games
+   (indexOf(id) on an array of booleans never matches a string). */
+function teamToWire(t){
+  return {chars:t.chars.map(function(ci){ return chars[ci].id; }),
+    foils:t.chars.filter(function(ci,i){ return t.foils && t.foils[i]; }).map(function(ci){ return chars[ci].id; }),
+    golds:t.chars.filter(function(ci,i){ return t.golds && t.golds[i]; }).map(function(ci){ return chars[ci].id; }),
+    actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()};
+}
 function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
 /* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
    an invite can be accepted from anywhere, with no menu visit in between to have set one. */
@@ -2074,7 +2102,11 @@ function onClick(e){
       render();
       break;
     }
-    case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
+    case 'lobbydeck': {
+      var ld = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null);
+      if(ld){ var ldReason = deckInvalidReason(ld); if(ldReason){ L.err = 'Can’t play with "'+ld.name+'" yet — '+ldReason+' Fix it in Decks first.'; render(); break; } }
+      L.deck = ld; startTeamPick(); break;
+    }
     case 'invite': {
       if(needAccount()) break;
       var icode = ACC.makeCode();
