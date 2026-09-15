@@ -1544,7 +1544,7 @@ function liveGamesHtml(){
     if(!p.match || seen[p.match]) return;
     seen[p.match] = true; games.push(p);
   });
-  if(!games.length) return '<div class="lobby-live empty"><p class="muted">No one&rsquo;s playing online right now.</p></div>';
+  if(!games.length) return '<div class="lobby-live empty"><h3>Watch a live match</h3><p class="muted">No one&rsquo;s playing online right now &mdash; check back once a match is underway.</p></div>';
   return '<div class="lobby-live"><h3>Watch a live match</h3><div class="lobby-grid">'
    + games.map(function(p){
        var info = p.info || {}, names = (info.names||[]).map(esc).join(' vs ') || 'Two players';
