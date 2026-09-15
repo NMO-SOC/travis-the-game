@@ -279,6 +279,15 @@ function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
   logResult(G.winner<0 ? 'draw' : G.winner===me ? 'win' : 'loss');
+  if(CFG.story!=null){
+    var gs = G, ch = CFG.story;
+    if(G.winner===me && ACC && ACC.user && ACC.profile && (ACC.profile.story_chapter||0)===ch){
+      G.storySaving = true;
+      ACC.storyClear(ch).then(function(r){ if(gs===G){ G.storySaving = false; G.storyReward = r; render(); } },
+        function(e){ if(gs===G){ G.storySaving = false; G.storyReward = {error:(e&&e.message)||String(e)}; render(); } });
+    }
+    return;
+  }
   if(CFG.stake>0 && stakeEligible()){
     var g = G, stake = CFG.stake, won = G.winner===me;
     G.wagerPending = true; CFG.stake = 0;
@@ -384,6 +393,42 @@ var ACT = {
    var e = await pickUnit(t, 'Detention: who skips their next turn?', living(1-t), function(e){ return effAtk(e)*2+(e.acted?0:3)-(e.skip?30:0); }, true);
    if(!e) return false;
    log(pn(t)+' plays '+card('Detention')+' on '+nm(e)+'.'); stun(e); return true;
+  }},
+ /* ---- story action cards ---- */
+ 'Hall Pass':{
+  can:function(t){ return living(1-t).length>0; },
+  ai:function(t){ return living(1-t).some(function(e){ return e.hp<=6 && !e.shield; }) ? 8 : 4; },
+  run:async function(t){
+   var e = await pickUnit(t, 'Hall Pass: deal 6 damage to whom?', living(1-t), function(e){ return hitScore(6, e); }, true);
+   if(!e) return false;
+   log(pn(t)+' plays '+card('Hall Pass')+' on '+nm(e)+'.');
+   await damage(e, 6); return true;
+  }},
+ 'Staffroom Coffee':{
+  can:function(t){ return living(t).some(function(f){ return f.hp<f.max; }); },
+  ai:function(t){ return Math.min(4, maxMissing(t)); },
+  run:async function(t){
+   log(pn(t)+' plays '+card('Staffroom Coffee')+'.');
+   living(t).forEach(function(f){ heal(f, 4); }); return true;
+  }},
+ 'Relief Teacher':{
+  can:function(t){ return living(t).length>0; },
+  ai:function(){ return 4; },
+  run:async function(t){
+   var f = await pickFriend(t, 'Relief Teacher: who gets +3 ATK?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
+   if(!f) return false;
+   f.atkGame += 3;
+   log(pn(t)+' plays '+card('Relief Teacher')+': '+nm(f)+' gets +3 ATK.'); return true;
+  }},
+ 'Long Weekend':{
+  can:function(t){ return living(t).some(function(f){ return !f.shield || f.hp<f.max; }); },
+  ai:function(t){ return Math.min.apply(null, living(t).map(function(f){ return f.hp; }))<=10 ? 6 : 2; },
+  run:async function(t){
+   var f = await pickFriend(t, 'Long Weekend: who gets a Shield and 5 HP?', living(t).filter(function(f){ return !f.shield || f.hp<f.max; }), function(f){ return -f.hp; });
+   if(!f) return false;
+   f.shield = true;
+   log(pn(t)+' plays '+card('Long Weekend')+': '+nm(f)+' gets a Shield.');
+   heal(f, 5); return true;
   }},
  /* ---- pack action cards ---- */
  'Reports':{
@@ -992,8 +1037,18 @@ function overlays(){
                : '<p class="reward dim">High Stakes: lost your '+G.wagerResult.lost+' Grant Points.</p>';
     var chairman = G.chairmanWon ? '<p class="reward chairman">&#9733; 1 in 100 &mdash; that pack held a Chairman Knox! Check your Collection.</p>' : '';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
+    var menuBtn = '<button class="lnk" data-a="menu">Menu</button>';
+    if(CFG.story!=null){
+      var won = G.winner===me, sc = STORY[CFG.story], cleared = ACC && ACC.profile && (ACC.profile.story_chapter||0)>CFG.story;
+      reward = !won ? '' : G.storySaving ? '<p class="reward dim">Saving your progress&hellip;</p>'
+        : G.storyReward && G.storyReward.error ? '<p class="reward dim">Couldn&rsquo;t save progress: '+esc(G.storyReward.error)+'</p>'
+        : G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss ? ' Level '+sc.lvl+' complete.' : '')+'</p>' : '';
+      again = !won ? '<button class="btn gold big" data-a="storyplay" data-v="'+CFG.story+'">Retry</button>'
+        : cleared && STORY[CFG.story+1] ? '<button class="btn gold big" data-a="storyplay" data-v="'+(CFG.story+1)+'">Next chapter</button>' : '';
+      menuBtn = '<button class="lnk" data-a="go" data-v="story">Story</button>';
+    }
     o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward+wager+chairman
-      +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
+      +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button>'+menuBtn+'</div></div></div>';
   } else if(G.oppGone && !G.over){
     o += '<div class="ov soft"><div class="panel"><div class="eyebrow">Connection</div><h2>'+pname(1-CFG.me)+' left the game</h2><p>The match can&rsquo;t continue. No result is recorded.</p>'
       +'<div class="row"><button class="btn gold" data-a="lobby">Back to the lobby</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
@@ -1178,7 +1233,7 @@ function field(name, label, type, auto){
   return '<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+(type||'text')+'" autocomplete="'+(auto||'off')+'" autocapitalize="off" spellcheck="false" value="'+esc(M.form[name]||'')+'"></label>';
 }
 function msgs(){ return (M.err ? '<p class="err-msg">'+M.err+'</p>' : '') + (M.note ? '<p class="ok-msg">'+M.note+'</p>' : ''); }
-function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
+function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); CFG.story = null; M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
 function needAccount(){ if(ACC && ACC.user) return false; M.authMode='in'; goScreen('auth'); M.err='Sign in first.'; return true; }
 function chosenDeck(){ return ACC && ACC.user ? ACC.decks.filter(function(d){ return d.id===M.deckSel; })[0] || null : null; }
 async function busy(fn){
@@ -1196,7 +1251,7 @@ function accountStrip(){
   var p = ACC.profile;
   var np = ACC.totalPacks();
   return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+np+' pack'+(np===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
-    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button>'
+    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button><button class="btn sm" data-a="go" data-v="story">Story</button>'
     +(p.is_admin ? '<button class="btn sm" data-a="go" data-v="admin">Admin</button>' : '')
     +'<button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
@@ -1407,7 +1462,7 @@ function saveDeck(){
 /* ---- choosing which of a deck's six characters to field (3 v 3 and 4 v 4) ---- */
 function teamPick(deck, n, title, done){
   if(!deck){ done(randomTeam(n)); return; }
-  if(n>=6){ done(deckTeam(deck, deck.characters)); return; }
+  if(n>=deck.characters.length){ done(deckTeam(deck, deck.characters)); return; }
   G = {phase:'pick', log:[], fx:[], pick:{deck:deck, n:n, chosen:[], title:title, done:done}};
   render();
 }
@@ -1418,7 +1473,7 @@ function renderPick(){
     return '<button class="card deal up'+(on?' sel':'')+'" data-a="pchar" data-v="'+id+'" aria-pressed="'+on+'">'+charFace(c, {foil:(d.foils||[]).indexOf(id)>=0, gold:(d.golds||[]).indexOf(id)>=0})+'</button>';
   }).join('');
   return topbar(p.title||'Choose your team')+'<div class="pg"><div class="panel-pg wide">'
-    +'<p class="prompt">Choose <b>'+p.n+'</b> of your six characters from <b>'+esc(d.name)+'</b>. '+p.chosen.length+' / '+p.n+' chosen.</p>'
+    +'<p class="prompt">Choose <b>'+p.n+'</b> of your '+d.characters.length+' characters from <b>'+esc(d.name)+'</b>. '+p.chosen.length+' / '+p.n+' chosen.</p>'
     +'<div class="zone bottom pickzone">'+tiles+'</div>'
     +'<div class="row"><button class="btn gold big" data-a="pickdone"'+(p.chosen.length===p.n?'':' disabled')+'>Ready</button></div>'
     + msgs() + '</div></div>';
@@ -1434,6 +1489,40 @@ function startFromMenu(){
     var cpu = randomTeam(CFG.size);
     startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
   });
+}
+
+/* ---- story mode ---- */
+/* Your story roster: the starting three plus every character cleared so far; actions are the base deck
+   plus every story action card cleared so far. */
+function storyDeck(){
+  var got = STORY.slice(0, ACC.profile.story_chapter||0).map(function(s){ return CARDID[s.reward]; });
+  return {name:'Story roster', foils:[], golds:[],
+    characters:STORY_START.concat(got.filter(function(c){ return chars.indexOf(c)>=0; }).map(function(c){ return c.id; })),
+    actions:baseActions().map(function(n){ return ACTD[n].id; }).concat(got.filter(function(c){ return acts.indexOf(c)>=0; }).map(function(c){ return c.id; }))};
+}
+function storyPlay(i){
+  var s = STORY[i];
+  if(!s || needAccount() || i>(ACC.profile.story_chapter||0)) return;
+  CFG.mode = 'cpu'; CFG.stake = 0; CFG.size = s.size; CFG.diff = s.diff; CFG.story = i;
+  teamPick(storyDeck(), s.size, s.t, function(me){
+    startWithTeams({teams:[me.chars, s.foes.map(function(id){ return CHARID[id]; })], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
+  });
+}
+function renderStory(){
+  var done = ACC.profile.story_chapter||0;
+  var rows = STORY.map(function(s, i){
+    var head = !i || STORY[i-1].lvl!==s.lvl ? '<h3 class="sec">Level '+s.lvl+' &mdash; '+STORY_LEVELS[s.lvl-1]+'</h3>' : '';
+    var locked = i>done, foes = s.foes.map(function(id){ return CARDID[id].n; }).join(' &middot; ');
+    return head+'<div class="deckrow"><div class="dinfo"><b>'+(i<done ? '&#10003; ' : '')+(s.boss ? 'Boss: ' : '')+s.t+'</b>'
+      +'<span>'+(locked ? 'Locked &mdash; clear the chapter before it.' : s.txt)+'</span>'
+      +'<span>'+s.size+' v '+s.size+' &middot; '+s.diff+(locked ? '' : ' &middot; vs '+foes)+' &middot; Reward: '+CARDID[s.reward].n+'</span></div>'
+      +(locked ? '' : '<div class="row"><button class="btn sm'+(i===done ? ' gold' : '')+'" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button></div>')+'</div>';
+  }).join('');
+  return pageTop('Story')+'<div class="panel-pg">'
+    + msgs()
+    +'<p class="hint">Clear chapters in order. Each one adds a card to your collection and your story roster, and every level ends with a boss who joins you &mdash; usable in your own decks and online too.</p>'
+    + rows
+    +'</div></div>';
 }
 
 /* ---- online lobby ----
@@ -1919,11 +2008,11 @@ function renderAdmin(){
 
 function renderMeta(){
   var signedIn = ACC && ACC.user && ACC.profile;
-  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1};
+  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1, story:1};
   if(needs[G.phase] && !signedIn) return renderAuth();
   var html = G.phase==='auth' ? renderAuth() : G.phase==='packs' ? renderPacks() : G.phase==='collection' ? renderCollection()
     : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby()
-    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : renderPick();
+    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : G.phase==='story' ? renderStory() : renderPick();
   if(G.zoomOpen) html += '<div class="ov zoomov always" data-a="unzoom">'+zoomBlock()+'</div>';
   return html;
 }
@@ -1999,6 +2088,7 @@ function onClick(e){
   switch(a){
     case 'cfg': { var ck = el.getAttribute('data-k'); CFG[ck] = (ck==='size' || ck==='stake') ? +v : v; M.err=''; render(); break; }
     case 'start': startFromMenu(); break;
+    case 'storyplay': storyPlay(+v); break;
     case 'menu': goScreen('menu'); break;
     /* ---- accounts & collection ---- */
     case 'go':

@@ -115,11 +115,16 @@ var chars=[
  {n:"Chairman Knox",r:"Cult of Personality",i:"star",hp:1,atk:1,spd:1,an:"Little Red Book",a:"A harder hit. No other effect.",f:"One portrait is a curiosity. Three is a cult.",set:"chairman",img:"images/chairman-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:19,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
- {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"}
+ {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
  /* Gold used to be five separate hand-authored "Golden X" cards here (set:'legendary'). It's now a
     generic finish any character can have — see collection.gold / deck.golds — so they're retired;
     upgrade-15-foil-gold-economy.sql folds anyone's existing golden-* ownership into the original
     card as a gold copy. */
+ /* Story mode bosses — never in packs, never for sale. Beating one in Story adds it to your collection. */
+ {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:26,atk:5,spd:4,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",img:false},
+ {n:"Regional Director Knox",r:"Regional Office",i:"agenda",hp:27,atk:5,spd:5,an:"Strategic Plan",a:"Also gives this character a Shield.",f:"Has a lanyard for the lanyard.",set:"story",img:false},
+ {n:"Department Secretary Knox",r:"Head Office",i:"pass",hp:28,atk:6,spd:4,an:"Policy Review",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Your submission has been received and filed.",set:"story",img:false},
+ {n:"Minister Knox",r:"Minister for Education",i:"mic",hp:30,atk:6,spd:5,an:"Funding Announcement",a:"Also heals this character.",f:"&ldquo;Seals are, and always have been, a priority.&rdquo;",set:"story",img:false}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -148,7 +153,12 @@ var acts=[
  /* Daily Org pack. */
  {n:"Classroom Change",i:"doorswap",t:"Instant",a:"Every character on both teams loses their Shield.",x:0,set:"daily-org"},
  {n:"Compass Is Down",i:"compassdown",t:"Instant",a:"Every character on both teams skips their next turn.",x:0,set:"daily-org"},
- {n:"S1-4",i:"referral",t:"Instant",a:"Deal 5 damage to one enemy. It skips its next turn.",x:0,set:"daily-org"}
+ {n:"S1-4",i:"referral",t:"Instant",a:"Deal 5 damage to one enemy. It skips its next turn.",x:0,set:"daily-org"},
+ /* Story mode rewards. */
+ {n:"Hall Pass",i:"pass",t:"Instant",a:"Deal 6 damage to one enemy.",x:0,set:"story",img:false},
+ {n:"Staffroom Coffee",i:"snack",t:"Instant",a:"Heal every character on your team 4 HP.",x:0,set:"story",img:false},
+ {n:"Relief Teacher",i:"chat",t:"Instant",a:"One character on your team gets +3 ATK for the rest of the game.",x:0,set:"story",img:false},
+ {n:"Long Weekend",i:"kite",t:"Instant",a:"Give one character on your team a Shield and heal it 5 HP.",x:0,set:"story",img:false}
 ];
 
 /* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
@@ -156,13 +166,45 @@ var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
   {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
   {id:'knox-of-history', name:'Knox of History'},
-  {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
+  {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}, {id:'story', name:'Story'}
+];
+
+/* Story mode: 4 levels of 3 chapters, the last a boss. Beating a chapter (in order) grants its reward
+   into your real collection and story roster — the reward list is repeated server-side in
+   upgrade-16-story-mode.sql, keep the two in the same order. */
+var STORY_START = ['tadpole-knox','family-man-knox','field-researcher-knox'];
+var STORY_LEVELS = ['Term One','Term Two','Field Season','End of Year'];
+var STORY = [
+ {lvl:1, t:'First Day Nerves', size:3, diff:'easy', reward:'conference-knox', txt:'Travis signs in at reception. The staffroom has already formed opinions.',
+  foes:['chaperone-knox','staff-meeting-knox','emeritus-knox']},
+ {lvl:1, t:'Yard Duty Ambush', size:3, diff:'easy', reward:'hall-pass', txt:'Lunch. The quad. Three colleagues who swear it&rsquo;s your turn on duty.',
+  foes:['doctor-knox','director-knox','leopard-seal-knox']},
+ {lvl:1, t:'The Principal&rsquo;s Office', size:3, diff:'medium', reward:'principal-knox', boss:true, txt:'A note in your pigeonhole: &ldquo;See me.&rdquo; No time given. No reason given.',
+  foes:['principal-knox','seal-whisperer-knox','mixtape-knox']},
+ {lvl:2, t:'Parent-Teacher Night', size:4, diff:'medium', reward:'yard-duty-knox', txt:'Five-minute slots. Nobody has kept to five minutes since 1987.',
+  foes:['parent-teacher-knox','blue-suit-knox','elephant-seal-knox','beer-frog-knox']},
+ {lvl:2, t:'Sports Carnival', size:4, diff:'medium', reward:'staffroom-coffee', txt:'House colours, zinc cream, and a long jump pit full of grudges.',
+  foes:['sports-carnival-knox','swimming-carnival-knox','fire-drill-knox','socs-got-talent-knox']},
+ {lvl:2, t:'Regional Office', size:4, diff:'hard', reward:'regional-director-knox', boss:true, txt:'The Principal has escalated. Regional wants a word, and a spreadsheet.',
+  foes:['regional-director-knox','harbour-seal-knox','director-knox','staff-meeting-knox']},
+ {lvl:3, t:'Out on the Ice', size:6, diff:'medium', reward:'fur-seal-knox', txt:'Research leave, at last. The seals have been expecting you.',
+  foes:['weddell-seal-knox','sea-lion-knox','research-vessel-knox','elephant-seal-knox','leopard-seal-knox','harbour-seal-knox']},
+ {lvl:3, t:'Excursion Gone Wrong', size:6, diff:'medium', reward:'relief-teacher', txt:'The bus is here. The permission slips are not.',
+  foes:['excursion-knox','sick-day-knox','pd-knox','chaperone-knox','field-researcher-knox','seal-whisperer-knox']},
+ {lvl:3, t:'The Department', size:6, diff:'hard', reward:'department-secretary-knox', boss:true, txt:'Head Office has read your field report. All four hundred pages.',
+  foes:['department-secretary-knox','conference-knox','pd-knox','yearbook-knox','staff-meeting-knox','director-knox']},
+ {lvl:4, t:'History Repeats', size:6, diff:'hard', reward:'graduation-knox', txt:'The Year 9 history project got out of hand. It is now marching on the gym.',
+  foes:['caesar-knox','napoleon-knox','samurai-knox','spartan-knox','pirate-knox','washington-knox']},
+ {lvl:4, t:'Staff Party', size:6, diff:'hard', reward:'long-weekend', txt:'Last day of term. The karaoke machine has been booked since February.',
+  foes:['staff-party-knox','yearbook-knox','mixtape-knox','beer-frog-knox','tech-bro-knox','woodstock-knox']},
+ {lvl:4, t:'Parliament House', size:6, diff:'hard', reward:'minister-knox', boss:true, txt:'Everyone you beat this year has filed a complaint. The Minister will hear it personally.',
+  foes:['minister-knox','regional-director-knox','department-secretary-knox','principal-knox','blue-suit-knox','conference-knox']}
 ];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
-chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; c.img = c.img || 'images/'+c.id+'.jpg'; });
-acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; a.img = a.img || 'images/actions/'+a.id+'.jpg'; });
+chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; c.img = c.img===false ? null : c.img || 'images/'+c.id+'.jpg'; });
+acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; a.img = a.img===false ? null : a.img || 'images/actions/'+a.id+'.jpg'; });
 
 /* Each character has three attacks built from its base ATK: a plain Jab, its named signature move
    (keeps the card's old Power name, plus an optional simple effect), and a harder Overdrive that
@@ -182,7 +224,8 @@ var SIG_FX = {
  'Napoleon Knox':'stun', 'Pharaoh Knox':'heal', 'Pirate Knox':'unshield', 'Samurai Knox':undefined,
  'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
  'WW1 Knox':'unshield', 'WW2 Knox':'stun',
- 'Chairman Knox':undefined
+ 'Chairman Knox':undefined,
+ 'Principal Knox':'stun', 'Regional Director Knox':'shield', 'Department Secretary Knox':'unshield', 'Minister Knox':'heal'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
