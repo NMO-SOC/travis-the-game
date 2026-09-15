@@ -337,6 +337,9 @@ A.openMatch = function(code, role, handlers){
   /* A spectator joining mid-game broadcasts 'spec-join' asking for a full catch-up; only forwarded
      here so play.js (which owns the actual game state/history) can decide how to answer. */
   if(handlers.specJoin) ch.on('broadcast', {event:'spec-join'}, function(e){ handlers.specJoin(e.payload); });
+  /* Chat: open to everyone on the match channel — both players and any spectators — since it's just
+     a broadcast, not part of the ordered/replayed game-move stream. */
+  if(handlers.chat) ch.on('broadcast', {event:'chat'}, function(e){ handlers.chat(e.payload); });
   ch.on('presence', {event:'sync'}, function(){
     var st = ch.presenceState(), people = [];
     Object.keys(st).forEach(function(k){ if(st[k][0]) people.push(st[k][0]); });
@@ -351,6 +354,7 @@ A.openMatch = function(code, role, handlers){
     /* Unlike send(), not part of the ordered/nack'd 'm' stream — used only for the one-off spectator
        sync reply, which carries its own explicit backlog and doesn't need redelivery. */
     sendRaw:function(event, payload){ ch.send({type:'broadcast', event:event, payload:payload}); },
+    chat:function(text){ ch.send({type:'broadcast', event:'chat', payload:{from:A.user.id, name:A.profile.username, role:role, text:String(text).slice(0,300), ts:Date.now()}}); },
     close:function(){ closed = true; try{ c.removeChannel(ch); }catch(e){} }
   };
 };
@@ -363,6 +367,7 @@ A.openSpectate = function(code, handlers){
   var ch = c.channel('match-'+code, {config:{broadcast:{self:false}, presence:{key:A.user.id}}});
   ch.on('broadcast', {event:'spec-sync'}, function(e){ if(e.payload && e.payload.to===A.user.id) handlers.sync(e.payload); });
   ch.on('broadcast', {event:'m'}, function(e){ if(e.payload && handlers.live) handlers.live(e.payload.p); });
+  if(handlers.chat) ch.on('broadcast', {event:'chat'}, function(e){ handlers.chat(e.payload); });
   ch.on('presence', {event:'sync'}, function(){
     var st = ch.presenceState(), people = [];
     Object.keys(st).forEach(function(k){ if(st[k][0]) people.push(st[k][0]); });
@@ -374,7 +379,10 @@ A.openSpectate = function(code, handlers){
       ch.send({type:'broadcast', event:'spec-join', payload:{from:A.user.id, name:A.profile.username}});
     } else if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ handlers.error && handlers.error('Lost the connection to the game server.'); }
   });
-  return { close:function(){ try{ c.removeChannel(ch); }catch(e){} } };
+  return {
+    chat:function(text){ ch.send({type:'broadcast', event:'chat', payload:{from:A.user.id, name:A.profile.username, role:'spectator', text:String(text).slice(0,300), ts:Date.now()}}); },
+    close:function(){ try{ c.removeChannel(ch); }catch(e){} }
+  };
 };
 
 if(typeof window!=='undefined') window.TravisAccount = A;

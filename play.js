@@ -1032,6 +1032,15 @@ function topbar(extra){
    +'<button class="btn sm" data-a="mute" aria-label="'+(AUDIO.muted?'Unmute':'Mute')+' sound">'+(AUDIO.muted?'&#128264;':'&#128266;')+'</button>'
    +'<button class="btn sm" data-a="rules">How to play</button><button class="btn sm" data-a="menu">Menu</button></div></header>';
 }
+/* Open to both players and any spectators on the match — see A.openMatch/openSpectate's 'chat'
+   broadcast and NET.chatSend. Only shown once there's an actual match channel to talk on. */
+function chatHtml(){
+  if(CFG.mode!=='online') return '';
+  return '<div class="side chatbox"><div class="sl">Chat</div><div class="chatfeed">'
+   + (CHAT.length ? CHAT.map(function(m){ return '<p><b'+(m.role==='spectator'?' class="spec"':'')+'>'+esc(m.name||'?')+(m.role==='spectator'?' (watching)':'')+':</b> '+esc(m.text)+'</p>'; }).join('') : '<p class="muted">Say hello&hellip;</p>')
+   + '</div><div class="chat-input"><input name="chat" type="text" maxlength="300" autocomplete="off" placeholder="Say something&hellip;" value="'+esc(M.form.chat||'')+'">'
+   + '<button class="btn sm" data-a="chatsend" data-submit>Send</button></div></div>';
+}
 function renderBattle(){
   var me = viewer(), op = 1-me;
   var mf = fxFor('mat'), rb = fxFor('round');
@@ -1049,6 +1058,7 @@ function renderBattle(){
    + zoomBlock()
    +'<div class="side"><div class="sl">Still to act this round</div><ol class="order">'+orderHtml()+'</ol></div>'
    +'<div class="side"><div class="sl">Battle log</div><div class="log">'+G.log.map(function(l){ return '<p class="'+l.cls+'">'+l.h+'</p>'; }).join('')+'</div></div>'
+   + chatHtml()
    +'</aside></div>'
    +(G.error?'<pre class="err">'+G.error+'</pre>':'')
    + pickBar()
@@ -1433,8 +1443,21 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   send:function(p){ if(NET.conn) NET.conn.send(p); },
   next:function(cb){ if(NET.queue.length){ var v = NET.queue.shift(); setTimeout(function(){ cb(v); }, 0); } else NET.waiter = cb; },
   push:function(v){ if(NET.waiter){ var cb = NET.waiter; NET.waiter = null; cb(v); } else NET.queue.push(v); },
-  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); }
+  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; CHAT = []; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); },
+  chatSend:function(text){ if(NET.conn && NET.conn.chat) NET.conn.chat(text); }
 };
+/* Chat: open to both players and any spectators on the match channel (see A.openMatch/openSpectate's
+   'chat' broadcast). Kept outside G, not inside it, since G gets fully replaced across the
+   lobby->battle transition of the very same match (see beginOnline/startWithTeams) and chat should
+   survive that; NET.close() (the one choke point every match-exit path already runs through) is what
+   actually clears it. */
+var CHAT = [];
+function onChatMsg(p){
+  if(!p || !p.text) return;
+  CHAT.push(p);
+  if(CHAT.length>200) CHAT.shift();
+  render();
+}
 /* Spectating: a third party watches an in-progress online match. It reuses the exact same
    deterministic replay engine two real players use (see beginOnline/wait/remoteInput) — every
    decision, for both teams, is simply sourced from the network instead of a click. MATCHLOG/
@@ -1447,7 +1470,7 @@ function spectate(code){
   L = {stage:'spectating', code:code};
   G = {phase:'lobby', log:[], fx:[]};
   SPEC_READY = false; SPEC_LIVE_BUF = [];
-  NET.conn = ACC.openSpectate(code, {sync:onSpecSync, live:onSpecLive, presence:onSpecPresence,
+  NET.conn = ACC.openSpectate(code, {sync:onSpecSync, live:onSpecLive, presence:onSpecPresence, chat:onChatMsg,
     error:function(m){ L.err = m; render(); }});
   render();
 }
@@ -1479,7 +1502,7 @@ function connect(code, role){
   NET.close(); NET.finished = false;
   L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
   G = {phase:'lobby', log:[], fx:[]};
-  NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, error:function(m){ L.err = m; render(); }});
+  NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, chat:onChatMsg, error:function(m){ L.err = m; render(); }});
   render();
 }
 function onPresence(people){
@@ -1577,6 +1600,7 @@ function renderLobby(){
     body = '<p>Waiting for <b>'+esc(L.oppName||'your opponent')+'</b> to choose their team&hellip;</p>';
   }
   return pageTop('Play online')+'<div class="panel-pg">'+body+(L.err?'<p class="err-msg">'+L.err+'</p>':'')
+    +(L.stage!=='choose' && L.stage!=='spectating' ? chatHtml() : '')
     +(L.stage!=='choose' ? '<div class="row"><button class="lnk" data-a="lobby">Cancel</button></div>' : '')+'</div></div>';
 }
 function normCode(s){ s = String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); return s.length>4 ? s.slice(0,4)+'-'+s.slice(4) : s; }
@@ -1948,6 +1972,7 @@ function paint(){
   root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
+  var cf = root.querySelector('.chatfeed'); if(cf) cf.scrollTop = cf.scrollHeight;
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
   if(w && w.kind==='unit' && !w.scrolled){
@@ -2041,6 +2066,14 @@ function onClick(e){
       L.err=''; spectate(wcode); break;
     }
     case 'watchlive': if(needAccount()) break; if(v) spectate(v); break;
+    case 'chatsend': {
+      var chatTxt = (M.form.chat||'').trim();
+      if(!chatTxt) break;
+      NET.chatSend(chatTxt);
+      M.form.chat = '';
+      render();
+      break;
+    }
     case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
     case 'invite': {
       if(needAccount()) break;
@@ -2099,7 +2132,7 @@ function onClick(e){
 function onInput(e){ var t = e.target; if(t && t.name) M.form[t.name] = t.value; }
 function onKey(e){
   if(e.key!=='Enter' || !e.target || e.target.tagName!=='INPUT') return;
-  var row = e.target.closest('.formrow') || e.target.closest('.lobby-card'), b = (row || root).querySelector('[data-submit]');
+  var row = e.target.closest('.formrow') || e.target.closest('.lobby-card') || e.target.closest('.chatbox'), b = (row || root).querySelector('[data-submit]');
   if(b && !b.disabled){ e.preventDefault(); b.click(); }
 }
 
