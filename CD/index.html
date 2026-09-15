@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtual CD Player</title>
+  <style>
+    :root {
+      --bg: #0b0b12;
+      --panel: #151520;
+      --panel-2: #1d1d2b;
+      --text: #f4f1ea;
+      --muted: #b6b1a6;
+      --accent: #d4af37;
+      --accent-2: #8e44ad;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 20px 50px rgba(0,0,0,0.4);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Georgia, 'Times New Roman', serif;
+      background:
+        radial-gradient(circle at top, rgba(142,68,173,0.18), transparent 35%),
+        radial-gradient(circle at bottom right, rgba(212,175,55,0.12), transparent 30%),
+        linear-gradient(180deg, #0c0c14 0%, #090910 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .player {
+      width: min(1100px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .title-wrap h1 {
+      margin: 0;
+      font-size: clamp(1.6rem, 2vw, 2.2rem);
+      letter-spacing: 0.04em;
+    }
+
+    .title-wrap p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .badge {
+      border: 1px solid rgba(212,175,55,0.35);
+      color: var(--accent);
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 0;
+    }
+
+    .left,
+    .right {
+      padding: 28px;
+    }
+
+    .left {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-right: 1px solid var(--border);
+    }
+
+    .album-card {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    .art-frame {
+      position: relative;
+      width: min(100%, 430px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto 24px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #111;
+      box-shadow: 0 15px 30px rgba(0,0,0,0.35);
+    }
+
+    .art-frame img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .disc {
+      position: absolute;
+      width: 58%;
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      right: -10%;
+      top: 50%;
+      transform: translateY(-50%);
+      background:
+        radial-gradient(circle at center, #2d2d2d 0 6%, #999 6% 7%, transparent 7% 8%),
+        radial-gradient(circle at center, rgba(255,255,255,0.22), rgba(255,255,255,0.04) 45%, rgba(0,0,0,0.45) 70%),
+        conic-gradient(from 0deg, #cfcfcf, #8f8f8f, #e5e5e5, #8f8f8f, #d8d8d8);
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 10px 20px rgba(0,0,0,0.35);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .spinning {
+      animation: spin 5s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: translateY(-50%) rotate(0deg); }
+      to { transform: translateY(-50%) rotate(360deg); }
+    }
+
+    .meta h2 {
+      margin: 0 0 8px;
+      font-size: 1.6rem;
+    }
+
+    .meta .artist {
+      color: var(--accent);
+      font-size: 1rem;
+      margin-bottom: 14px;
+    }
+
+    .meta .description {
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 0.96rem;
+    }
+
+    .controls {
+      margin-top: 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #242437, #1a1a28);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(212,175,55,0.35);
+    }
+
+    button.primary {
+      background: linear-gradient(180deg, rgba(212,175,55,0.22), rgba(212,175,55,0.1));
+      border-color: rgba(212,175,55,0.3);
+    }
+
+    .progress-wrap {
+      margin-top: 20px;
+    }
+
+    .time-row {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .right h3 {
+      margin: 0 0 16px;
+      font-size: 1.2rem;
+      letter-spacing: 0.03em;
+    }
+
+    .tracklist {
+      display: grid;
+      gap: 10px;
+    }
+
+    .track {
+      width: 100%;
+      text-align: left;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.02);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .track-number {
+      color: var(--accent);
+      font-weight: bold;
+      min-width: 26px;
+    }
+
+    .track-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .track-title {
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track-file {
+      color: var(--muted);
+      font-size: 0.82rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .track.active {
+      border-color: rgba(212,175,55,0.35);
+      background: linear-gradient(180deg, rgba(212,175,55,0.12), rgba(255,255,255,0.03));
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .volume-row {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 70px 1fr;
+      gap: 12px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    audio { display: none; }
+
+    @media (max-width: 900px) {
+      .content {
+        grid-template-columns: 1fr;
+      }
+      .left {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="player">
+    <div class="header">
+      <div class="title-wrap">
+        <h1>Virtual CD Player</h1>
+        <p>A local-hosted album experience for your MP3 playlist</p>
+      </div>
+      <div class="badge">Localhost Edition</div>
+    </div>
+
+    <div class="content">
+      <section class="left">
+        <div class="album-card">
+          <div class="art-frame">
+            <img id="albumArt" src="cover.jpg" alt="Album cover art" />
+            <div id="disc" class="disc"></div>
+          </div>
+
+          <div class="meta">
+            <h2 id="albumTitle">Midnight Transmission</h2>
+            <div class="artist" id="albumArtist">Various Artists</div>
+            <div class="description" id="albumDescription">
+              Replace this text with your own album description, dedication, or a note explaining the mood of the playlist.
+            </div>
+          </div>
+
+          <div class="controls">
+            <button id="prevBtn">⏮ Previous</button>
+            <button id="playPauseBtn" class="primary">▶ Play</button>
+            <button id="nextBtn">⏭ Next</button>
+          </div>
+
+          <div class="progress-wrap">
+            <div class="time-row">
+              <span id="currentTime">0:00</span>
+              <span id="duration">0:00</span>
+            </div>
+            <input id="seekBar" type="range" min="0" max="100" value="0" />
+          </div>
+
+          <div class="volume-row">
+            <span>Volume</span>
+            <input id="volumeBar" type="range" min="0" max="1" step="0.01" value="0.85" />
+          </div>
+
+          <div class="footer-note">
+            Put this file in the same folder as your <strong>cover.jpg</strong> and your MP3 files, then edit the track list in the code below.
+          </div>
+        </div>
+      </section>
+
+      <section class="right">
+        <h3>Track Listing</h3>
+        <div id="trackList" class="tracklist"></div>
+      </section>
+    </div>
+  </div>
+
+  <audio id="audioPlayer"></audio>
+
+  <script>
+    const album = {
+      title: 'Midnight Transmission',
+      artist: 'Various Artists',
+      description: 'A moody late-night mix designed to feel like opening a jewel case and pressing play.',
+      cover: 'cover.jpg'
+    };
+
+    const tracks = [
+  { title: 'Blue Suit, Long Day', file: '1 - Blue Suit, Long Day.mp3' },
+  { title: 'Cold Water Quiet Fallout', file: '2 - Cold Water Quiet Fallout.mp3' },
+  { title: 'Holding It Together (Yeah Nah)', file: '3 - Holding It Together (Yeah Nah).mp3' },
+  { title: 'Fort Knox', file: '4 - Fort Knox.mp3' },
+  { title: 'Office Hours (Bill & Pete)', file: '5 - Office Hours (Bill & Pete).mp3' },
+  { title: 'Saturday Punt', file: '6 - Saturday Punt.mp3' },
+  { title: 'Detention Bell Blues', file: '7 - Detention Bell Blues.mp3' },
+  { title: 'Travis Knox, We Love You!', file: '8 - Travis Knox, We Love You!.mp3' }
+];
+
+    const audio = document.getElementById('audioPlayer');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const seekBar = document.getElementById('seekBar');
+    const volumeBar = document.getElementById('volumeBar');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const trackListEl = document.getElementById('trackList');
+    const disc = document.getElementById('disc');
+
+    let currentTrackIndex = 0;
+
+    document.getElementById('albumTitle').textContent = album.title;
+    document.getElementById('albumArtist').textContent = album.artist;
+    document.getElementById('albumDescription').textContent = album.description;
+    document.getElementById('albumArt').src = album.cover;
+
+    function formatTime(seconds) {
+      if (!isFinite(seconds)) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function renderTrackList() {
+      trackListEl.innerHTML = '';
+      tracks.forEach((track, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'track';
+        if (index === currentTrackIndex) btn.classList.add('active');
+        btn.innerHTML = `
+          <span class="track-number">${String(index + 1).padStart(2, '0')}</span>
+          <span class="track-info">
+            <span class="track-title">${track.title}</span>
+            <span class="track-file">${track.file}</span>
+          </span>
+          <span>▶</span>
+        `;
+        btn.addEventListener('click', () => {
+          currentTrackIndex = index;
+          loadTrack(true);
+        });
+        trackListEl.appendChild(btn);
+      });
+    }
+
+    function loadTrack(autoplay = false) {
+      const track = tracks[currentTrackIndex];
+      audio.src = track.file;
+      renderTrackList();
+      seekBar.value = 0;
+      currentTimeEl.textContent = '0:00';
+      durationEl.textContent = '0:00';
+
+      if (autoplay) {
+        audio.play();
+      }
+    }
+
+    function updatePlayButton() {
+      if (audio.paused) {
+        playPauseBtn.textContent = '▶ Play';
+        disc.classList.remove('spinning');
+      } else {
+        playPauseBtn.textContent = '⏸ Pause';
+        disc.classList.add('spinning');
+      }
+    }
+
+    playPauseBtn.addEventListener('click', async () => {
+      if (!audio.src) loadTrack(false);
+
+      if (audio.paused) {
+        try {
+          await audio.play();
+        } catch (error) {
+          console.error('Playback failed:', error);
+        }
+      } else {
+        audio.pause();
+      }
+      updatePlayButton();
+    });
+
+    prevBtn.addEventListener('click', () => {
+      currentTrackIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+      loadTrack(true);
+    });
+
+    nextBtn.addEventListener('click', () => {
+      currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+      loadTrack(true);
+    });
+
+    audio.addEventListener('loadedmetadata', () => {
+      durationEl.textContent = formatTime(audio.duration);
+      updatePlayButton();
+    });
+
+    audio.addEventListener('timeupdate', () => {
+      if (audio.duration) {
+        seekBar.value = (audio.currentTime / audio.duration) * 100;
+      }
+      currentTimeEl.textContent = formatTime(audio.currentTime);
+    });
+
+    audio.addEventListener('ended', () => {
+      currentTrackIndex = (currentTrackIndex + 1) % tracks.length;
+      loadTrack(true);
+    });
+
+    audio.addEventListener('play', updatePlayButton);
+    audio.addEventListener('pause', updatePlayButton);
+
+    seekBar.addEventListener('input', () => {
+      if (audio.duration) {
+        audio.currentTime = (seekBar.value / 100) * audio.duration;
+      }
+    });
+
+    volumeBar.addEventListener('input', () => {
+      audio.volume = Number(volumeBar.value);
+    });
+
+    audio.volume = Number(volumeBar.value);
+    renderTrackList();
+    loadTrack(false);
+  </script>
+</body>
+</html>

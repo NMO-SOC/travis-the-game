@@ -639,6 +639,7 @@ function startRound(){
     if(u.skip){ u.skip = 0; u.acted = true; log(nm(u)+' misses this round.'); return; }
     if(u.acted) fxc('u'+u.id, 'untap', 450);
     u.acted = false;
+    u.stunGuard = false;
   });
   log('Round '+G.round+' &mdash; everyone untaps.', 'round');
   fxc('round', 'bannerpop', 1500);
@@ -1214,7 +1215,7 @@ function submitAuth(){
 }
 
 /* ---- packs ---- */
-function packCardFace(x){ return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil, gold:x.gold}) : actFace(x.card.n); }
+function packCardFace(x){ if(!x.card) return actFace('Unknown card'); return chars.indexOf(x.card)>=0 ? charFace(x.card, {foil:x.foil, gold:x.gold}) : actFace(x.card.n); }
 function pct(x){ var v = x*100; return (v>0 && v<1 ? '&lt;1' : Math.round(v))+'%'; }
 function packCards(id){ return chars.concat(acts).filter(function(c){ return c.set===id; }); }
 function packOption(pk, p){
@@ -1248,10 +1249,10 @@ function renderPacks(){
   } else if(r){
     body = '<p class="revealof">'+r.pack+'</p><div class="reveal">'+r.cards.map(function(x,i){
       var up = r.shown[i], f = fxFor('rv'+i);
-      var tag = !up ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
+      var tag = !up ? '' : !x.card ? '' : x.starter ? '<span class="rtag dupe">Starter card &middot; +1 Grant Point</span>'
         : x.dupe ? '<span class="rtag dupe">Duplicate &middot; +'+x.points+' Grant Points</span>'
         : '<span class="rtag new">'+(x.gold?'New gold!':x.foil?'New foil!':'New!')+'</span>';
-      return '<div class="rslot"><button class="card rcard'+(up?' up':'')+((x.foil||x.gold)&&up?' shine':'')+f.cls+'" style="'+f.style+'" data-a="rv" data-v="'+i+'" aria-label="'+(up?x.card.n:'Face-down card')+'">'+(up?packCardFace(x):backFace())+'</button>'+tag+'</div>';
+      return '<div class="rslot"><button class="card rcard'+(up?' up':'')+((x.foil||x.gold)&&up?' shine':'')+f.cls+'" style="'+f.style+'" data-a="rv" data-v="'+i+'" aria-label="'+(up?(x.card?x.card.n:'Unknown card'):'Face-down card')+'">'+(up?packCardFace(x):backFace())+'</button>'+tag+'</div>';
     }).join('')+'</div>'
     +'<div class="row">'+(r.shown.every(Boolean) ? '<button class="btn gold" data-a="rvdone">Done</button>' : '<button class="btn" data-a="rvall">Reveal all</button>')+'</div>';
   } else if(!ACC.packs.length){
@@ -1282,7 +1283,7 @@ function openPack(packId){
 }
 function flipReveal(i){
   var r = M.reveal; if(!r) return;
-  if(r.shown[i]){ var x = r.cards[i]; G.zoom = chars.indexOf(x.card)>=0 ? {k:'ci', ci:chars.indexOf(x.card), foil:x.foil, gold:x.gold} : {k:'an', n:x.card.n}; G.zoomOpen = true; render(); return; }
+  if(r.shown[i]){ var x = r.cards[i]; if(!x.card) return; G.zoom = chars.indexOf(x.card)>=0 ? {k:'ci', ci:chars.indexOf(x.card), foil:x.foil, gold:x.gold} : {k:'an', n:x.card.n}; G.zoomOpen = true; render(); return; }
   r.shown[i] = true; fxc('rv'+i, 'flip', 700); render();
 }
 
