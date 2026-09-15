@@ -4,7 +4,7 @@
 
 var HAND_LIMIT = 3;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0};
+var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -72,11 +72,11 @@ function best(arr, ai){
 function bestIdx(arr, ai){ var b=best(arr.map(function(x,i){return {x:x,i:i};}), ai ? function(o){ return ai(o.x,o.i); } : null); return b.i; }
 
 function isCPU(t){ return CFG.mode==='sim' || (CFG.mode==='cpu' && t===1); }
-function isRemote(t){ return CFG.mode==='online' && t!==CFG.me; }
+function isRemote(t){ return CFG.mode==='online' && (CFG.spectating || t!==CFG.me); }
 function pname(t){
   if(CFG.mode==='cpu') return t===0 ? 'You' : 'CPU';
   if(CFG.mode==='sim') return 'CPU '+(t+1);
-  if(CFG.mode==='online') return t===CFG.me ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
+  if(CFG.mode==='online') return (!CFG.spectating && t===CFG.me) ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
   return 'Player '+(t+1);
 }
 function viewer(){
@@ -85,7 +85,7 @@ function viewer(){
   if(G.phase==='deal') return G.deal.turn;
   return handTeam();
 }
-function hidden(u){ return !u.revealed && u.team!==viewer(); }
+function hidden(u){ return !u.revealed && (CFG.spectating || u.team!==viewer()); }
 function nm(u){ return '<b class="t'+u.team+'">'+(hidden(u) ? 'a face-down card' : u.c.n)+'</b>'; }
 function reveal(u){
   if(u.revealed) return;
@@ -152,7 +152,7 @@ function wait(kind, data){
     for(var k in data) w[k]=data[k];
     w.res = function(v){
       if(G.wait!==w) return;
-      if(CFG.mode==='online') NET.send({k:'in', v:encodeInput(kind, v)});
+      if(CFG.mode==='online'){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
       G.wait=null; render(); res(v);
     };
     w.rej = function(e){ G.wait=null; render(); rej(e); };
@@ -256,7 +256,7 @@ function checkOver(){
   G.over = true; G.winner = a ? 0 : b ? 1 : -1;
   G.cur = null;
   var me = CFG.mode==='online' ? CFG.me : 0;
-  sfx(G.winner<0 ? 'lose' : (CFG.mode==='hot' || G.winner===me) ? 'win' : 'lose');
+  sfx(G.winner<0 ? 'lose' : (CFG.mode==='hot' || CFG.spectating || G.winner===me) ? 'win' : 'lose');
   log(G.winner<0 ? 'Both teams are knocked out. It&rsquo;s a draw.' : pn(G.winner)+' '+(pname(G.winner)==='You'?'win':'wins')+'!', 'win');
   gameEnded();
   throw ABORT_OVER;
@@ -264,7 +264,7 @@ function checkOver(){
 /* A signed-in player who wins against the CPU or online earns a pack (the server caps it at five a day). */
 /* Play history for the admin screen: one row per CPU/online game a signed-in player finishes or walks away from. */
 function logResult(result){
-  if(G.logged || !G.startedAt || !ACC || !ACC.user || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
+  if(G.logged || !G.startedAt || !ACC || !ACC.user || CFG.spectating || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   G.logged = true;
   var online = CFG.mode==='online', deck = online ? L.deck : chosenDeck();
   ACC.logGame({mode:CFG.mode, difficulty:CFG.diff, size:CFG.size, result:result, rounds:G.round,
@@ -274,7 +274,7 @@ function logResult(result){
 }
 /* High Stakes: a second, uncapped way to earn a pack (see stakeEligible), at the cost of the Grant
    Points staked if you don't win. Independent of the five-a-day free win cap below. */
-function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && ((CFG.mode==='cpu' && CFG.diff==='hard') || CFG.mode==='online')); }
+function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && !CFG.spectating && ((CFG.mode==='cpu' && CFG.diff==='hard') || CFG.mode==='online')); }
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
@@ -287,7 +287,7 @@ function gameEnded(){
       if(CFG.mode==='online' && r && r.won) rollChairmanChase(g);
     }).catch(function(e){ if(g===G){ G.wagerPending=false; G.wagerResult={error:(e&&e.message)||String(e)}; render(); } });
   }
-  if(!ACC || !ACC.user || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
+  if(!ACC || !ACC.user || CFG.spectating || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g2 = G;
   ACC.recordWin().then(function(got){
     if(g2===G){ G.reward = got; render(); }
@@ -678,6 +678,7 @@ async function gameLoop(){
 
 /* ---------------- setup: shuffle & deal ---------------- */
 function startGame(){
+  CFG.spectating = false;
   G = {phase:'deal', log:[], fx:[], uid:0, zoom:null, startedAt:Date.now(),
        charDeck:shuffle(BASE_CHARS.slice()),
        deal:{turn:0, picks:[[],[]], shown:[{},{}], mull:[1,1], pass:CFG.mode==='hot'}};
@@ -726,7 +727,7 @@ function beginBattle(setup){
   G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
   var freshGame = !G.startedAt;
   G.startedAt = G.startedAt || Date.now();
-  if(freshGame && ACC && ACC.user && (CFG.mode==='cpu' || CFG.mode==='online')){
+  if(freshGame && ACC && ACC.user && !CFG.spectating && (CFG.mode==='cpu' || CFG.mode==='online')){
     ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
   }
   G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
@@ -852,6 +853,7 @@ function fanStyle(i, n, spread){
 }
 function handHtml(t){
   var h = G.hands[t];
+  if(CFG.spectating) return oppHand(t);
   if(!h.length) return '<div class="hand empty"><span>No cards in hand</span></div>';
   return '<div class="hand">'+h.map(function(c,i){
     var f = fxFor('c'+c.uid), ok = canPlayNow(c);
@@ -976,7 +978,7 @@ function overlays(){
         }).join('')
       + '</div>'+(w.cancel?'<button class="lnk" data-a="cancel">Cancel</button>':'')+'</div></div>';
   } else if(G.over && !G.hideOver){
-    var me = CFG.mode==='online' ? CFG.me : 0, you = CFG.mode==='cpu' || CFG.mode==='online', title, sub;
+    var me = CFG.mode==='online' ? CFG.me : 0, you = (CFG.mode==='cpu' || CFG.mode==='online') && !CFG.spectating, title, sub;
     if(G.winner<0){ title='Stalemate'; sub='Nobody claims the grant.'; }
     else if(you){ title = G.winner===me ? 'Victory' : 'Defeat'; sub = G.winner===me ? 'The grant is yours.' : pname(G.winner)+' takes the grant.'; }
     else { title = pname(G.winner)+' Wins'; sub = 'The grant is theirs.'; }
@@ -1433,7 +1435,42 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   push:function(v){ if(NET.waiter){ var cb = NET.waiter; NET.waiter = null; cb(v); } else NET.queue.push(v); },
   close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; }
 };
+/* Spectating: a third party watches an in-progress online match. It reuses the exact same
+   deterministic replay engine two real players use (see beginOnline/wait/remoteInput) — every
+   decision, for both teams, is simply sourced from the network instead of a click. MATCHLOG/
+   LAST_START let the host hand a late-joining spectator the whole game so far (seed + every move
+   applied up to now); it then fast-replays that backlog (CFG.speed briefly 0) before continuing live. */
+var MATCHLOG = [], LAST_START = null, SPEC_READY = false, SPEC_LIVE_BUF = [];
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
+function spectate(code){
+  NET.close(); NET.finished = false;
+  L = {stage:'spectating', code:code};
+  G = {phase:'lobby', log:[], fx:[]};
+  SPEC_READY = false; SPEC_LIVE_BUF = [];
+  NET.conn = ACC.openSpectate(code, {sync:onSpecSync, live:onSpecLive, presence:onSpecPresence,
+    error:function(m){ L.err = m; render(); }});
+  render();
+}
+function onSpecSync(payload){
+  if(!payload || !payload.start){ L.err = 'That game isn’t running right now.'; render(); return; }
+  beginOnline(payload.start, 0, true);
+  var savedSpeed = CFG.speed || 1;
+  CFG.speed = 0;
+  (payload.log || []).forEach(function(v){ NET.push(v); });
+  SPEC_READY = true;
+  var buf = SPEC_LIVE_BUF; SPEC_LIVE_BUF = [];
+  buf.forEach(function(v){ NET.push(v); });
+  setTimeout(function(){ CFG.speed = savedSpeed; }, 300);
+}
+function onSpecLive(p){
+  if(!p || p.k!=='in') return;
+  if(!SPEC_READY){ SPEC_LIVE_BUF.push(p.v); return; }
+  NET.push(p.v);
+}
+function onSpecPresence(people){
+  var players = people.filter(function(p){ return p.role==='host' || p.role==='guest'; });
+  if(G.phase==='battle' && !players.length && !NET.finished && !G.over){ G.oppGone = true; render(); }
+}
 function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
 function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
 /* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
@@ -1442,11 +1479,11 @@ function connect(code, role){
   NET.close(); NET.finished = false;
   L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
   G = {phase:'lobby', log:[], fx:[]};
-  NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, error:function(m){ L.err = m; render(); }});
+  NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, error:function(m){ L.err = m; render(); }});
   render();
 }
 function onPresence(people){
-  var other = people.filter(function(p){ return p.id!==ACC.user.id; })[0];
+  var other = people.filter(function(p){ return p.id!==ACC.user.id && p.role!=='spectator'; })[0];
   if(G.phase==='battle'){ if(!other && !NET.finished && !G.over){ G.oppGone = true; render(); } return; }
   if(!other){ if(L.stage==='picking' || L.stage==='waiting'){ L.err = 'Your opponent left the lobby.'; render(); } return; }
   if(other.role===L.role){ L.err = 'Someone else is already using that code. Try another.'; render(); return; }
@@ -1474,17 +1511,23 @@ function maybeStart(){
   if(L.role!=='host' || !L.myTeam || !L.oppTeam) return;
   var seed = Math.floor(Math.random()*2147483647), first = Math.random()<0.5 ? 0 : 1;
   var msg = {k:'start', seed:seed, first:first, size:L.size, names:[ACC.profile.username, L.oppName], teams:[teamToWire(L.myTeam), L.oppTeam]};
+  LAST_START = msg;
   NET.send(msg);
   beginOnline(msg, 0);
 }
+function onSpecJoin(p){
+  if(L.role!=='host' || !LAST_START || !NET.conn || !NET.conn.sendRaw) return;
+  NET.conn.sendRaw('spec-sync', {to:p.from, start:LAST_START, log:MATCHLOG.slice()});
+}
 function onNet(m){
-  if(m.k==='in'){ NET.push(m.v); return; }
+  if(m.k==='in'){ NET.push(m.v); MATCHLOG.push(m.v); return; }
   if(m.k==='hello' && L.role==='guest'){ L.size = m.size; L.oppName = m.name; pickOnline(); return; }
   if(m.k==='team' && L.role==='host'){ L.oppTeam = m.team; maybeStart(); render(); return; }
-  if(m.k==='start' && L.role==='guest'){ beginOnline(m, 1); }
+  if(m.k==='start' && L.role==='guest'){ LAST_START = m; beginOnline(m, 1); }
 }
-function beginOnline(m, me){
-  CFG.mode = 'online'; CFG.me = me; CFG.size = m.size; CFG.names = m.names.map(esc);
+function beginOnline(m, me, spectating){
+  CFG.mode = 'online'; CFG.me = me; CFG.spectating = !!spectating; CFG.size = m.size; CFG.names = m.names.map(esc);
+  MATCHLOG = [];
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
   startWithTeams({teams:[t[0].chars, t[1].chars], foils:[t[0].chars.map(function(ci){ return t[0].foils.indexOf(chars[ci].id)>=0; }), t[1].chars.map(function(ci){ return t[1].foils.indexOf(chars[ci].id)>=0; })],
@@ -1496,8 +1539,11 @@ function renderLobby(){
   var body = '';
   if(L.stage==='choose'){
     body = '<div class="lobby-grid"><div class="lobby-card"><h3>Create a game</h3><p>You&rsquo;ll get a code to send to your opponent. Format: <b>'+CFG.size+' v '+CFG.size+'</b>.</p><button class="btn gold" data-a="host">Create game</button></div>'
-      +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div></div>'
+      +'<div class="lobby-card"><h3>Join a game</h3>'+field('code','Game code','text')+'<button class="btn gold" data-a="join" data-submit>Join</button></div>'
+      +'<div class="lobby-card"><h3>Watch a game</h3><p>Spectate a match already underway &mdash; ask a player for their code.</p>'+field('wcode','Game code','text')+'<button class="btn" data-a="watch" data-submit>Watch</button></div></div>'
       +'<p class="hint">You&rsquo;ll choose your team once you&rsquo;re matched up.</p>';
+  } else if(L.stage==='spectating'){
+    body = '<p>Connecting to <b>'+esc(L.code)+'</b>&hellip;</p><p class="muted">Watching starts as soon as the players&rsquo; match is found.</p>';
   } else if(L.stage==='hosting'){
     body = L.invitee
       ? '<p>Invite sent to <b>'+esc(L.invitee)+'</b>. Waiting for them to accept&hellip;</p>'
@@ -1970,6 +2016,12 @@ function onClick(e){
     case 'lobby': if(needAccount()) break; openLobby(); break;
     case 'host': connect(ACC.makeCode(), 'host'); break;
     case 'join': { var code = normCode(M.form.code); if(!/^[A-Z]{4}-\d{2}$/.test(code)){ M.err=''; L.err = 'Codes look like ABCD-12.'; render(); break; } L.err=''; connect(code, 'guest'); break; }
+    case 'watch': {
+      if(needAccount()) break;
+      var wcode = normCode(M.form.wcode);
+      if(!/^[A-Z]{4}-\d{2}$/.test(wcode)){ M.err=''; L.err = 'Codes look like ABCD-12.'; render(); break; }
+      L.err=''; spectate(wcode); break;
+    }
     case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
     case 'invite': {
       if(needAccount()) break;
@@ -2028,7 +2080,7 @@ function onClick(e){
 function onInput(e){ var t = e.target; if(t && t.name) M.form[t.name] = t.value; }
 function onKey(e){
   if(e.key!=='Enter' || !e.target || e.target.tagName!=='INPUT') return;
-  var row = e.target.closest('.formrow'), b = (row || root).querySelector('[data-submit]');
+  var row = e.target.closest('.formrow') || e.target.closest('.lobby-card'), b = (row || root).querySelector('[data-submit]');
   if(b && !b.disabled){ e.preventDefault(); b.click(); }
 }
 

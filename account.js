@@ -317,6 +317,9 @@ A.openMatch = function(code, role, handlers){
   ch.on('broadcast', {event:'nack'}, function(e){
     for(var i=e.payload.from;i<sent.length;i++) ch.send({type:'broadcast', event:'m', payload:sent[i]});
   });
+  /* A spectator joining mid-game broadcasts 'spec-join' asking for a full catch-up; only forwarded
+     here so play.js (which owns the actual game state/history) can decide how to answer. */
+  if(handlers.specJoin) ch.on('broadcast', {event:'spec-join'}, function(e){ handlers.specJoin(e.payload); });
   ch.on('presence', {event:'sync'}, function(){
     var st = ch.presenceState(), people = [];
     Object.keys(st).forEach(function(k){ if(st[k][0]) people.push(st[k][0]); });
@@ -328,8 +331,33 @@ A.openMatch = function(code, role, handlers){
   });
   return {
     send:function(p){ var m = {s:sent.length, p:p}; sent.push(m); ch.send({type:'broadcast', event:'m', payload:m}); },
+    /* Unlike send(), not part of the ordered/nack'd 'm' stream — used only for the one-off spectator
+       sync reply, which carries its own explicit backlog and doesn't need redelivery. */
+    sendRaw:function(event, payload){ ch.send({type:'broadcast', event:event, payload:payload}); },
     close:function(){ closed = true; try{ c.removeChannel(ch); }catch(e){} }
   };
+};
+/* Spectating: joins the same match channel as a non-participant (role 'spectator' in presence, so
+   the two real players can tell them apart from an opponent — see onPresence in play.js). Never
+   sends game moves; just asks for a catch-up snapshot on join, then listens for the same live move
+   broadcasts the players exchange. */
+A.openSpectate = function(code, handlers){
+  var c = client();
+  var ch = c.channel('match-'+code, {config:{broadcast:{self:false}, presence:{key:A.user.id}}});
+  ch.on('broadcast', {event:'spec-sync'}, function(e){ if(e.payload && e.payload.to===A.user.id) handlers.sync(e.payload); });
+  ch.on('broadcast', {event:'m'}, function(e){ if(e.payload && handlers.live) handlers.live(e.payload.p); });
+  ch.on('presence', {event:'sync'}, function(){
+    var st = ch.presenceState(), people = [];
+    Object.keys(st).forEach(function(k){ if(st[k][0]) people.push(st[k][0]); });
+    handlers.presence(people);
+  });
+  ch.subscribe(function(status){
+    if(status==='SUBSCRIBED'){
+      ch.track({id:A.user.id, username:A.profile.username, role:'spectator'});
+      ch.send({type:'broadcast', event:'spec-join', payload:{from:A.user.id, name:A.profile.username}});
+    } else if(status==='CHANNEL_ERROR' || status==='TIMED_OUT'){ handlers.error && handlers.error('Lost the connection to the game server.'); }
+  });
+  return { close:function(){ try{ c.removeChannel(ch); }catch(e){} } };
 };
 
 if(typeof window!=='undefined') window.TravisAccount = A;
