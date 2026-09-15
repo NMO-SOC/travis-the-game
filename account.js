@@ -123,6 +123,11 @@ function qty(id, foil){ return A.collection.filter(function(r){ return r.card_id
 function qtyGold(id){ return A.collection.filter(function(r){ return r.card_id===id && r.gold; }).reduce(function(s,r){ return s+r.qty; }, 0); }
 A.qty = qty;
 A.qtyGold = qtyGold;
+/* Total copies owned across all three finishes. Only Chairman Knox counts copies this way — every
+   other character just needs one copy to be "owned", with foil/gold as a cosmetic finish on top (see
+   bestFinish in play.js) — but Chairman's own mechanic (own three, any finish, and every copy you
+   hold empowers) cares about the raw count, not which finish each copy came in. */
+A.qtyTotal = function(id){ return qty(id,false) + qty(id,true) + qtyGold(id); };
 A.ownsChar = function(c){ return c.set==='base' || qty(c.id,false)>0; };
 A.ownsFoil = function(id){ return qty(id,true)>0; };
 A.ownsGold = function(id){ return qtyGold(id)>0; };

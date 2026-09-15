@@ -458,7 +458,7 @@ function houseOwnedFor(){
   return m;
 }
 function chairmanEmpoweredFor(){
-  return !!(typeof ACC!=='undefined' && ACC && ACC.available && ACC.user && ACC.qty('chairman-knox', false)>=3);
+  return !!(typeof ACC!=='undefined' && ACC && ACC.available && ACC.user && ACC.qtyTotal('chairman-knox')>=3);
 }
 /* Originally +owned to ATK, HP and SPD at once — with four house cards, each ownable up to 3 copies
    and each copy playable once, that could stack to a huge simultaneous buff on one character (see
@@ -1323,7 +1323,7 @@ function renderCollection(){
     var have = list.filter(function(c){ return ACC.qty(c.id,false)>0; }).length;
     return '<h3 class="sec">'+pk.name+' pack <span class="count'+(have===list.length?' ok':'')+'">'+have+' / '+list.length+' collected</span></h3>'+grid(list);
   }).join('');
-  var chairmanQty = ACC.qty('chairman-knox', false);
+  var chairmanQty = ACC.qtyTotal('chairman-knox');
   var chairman = chairmanQty>0 ? '<h3 class="sec">Chairman Knox <span class="count'+(chairmanQty>=3?' ok':'')+'">'+chairmanQty+' owned'+(chairmanQty>=3?' &middot; EMPOWERED':'')+'</span></h3>'
     +'<p class="hint">1 HP/ATK/SPD alone. Own three and every copy becomes 10 for everything. Never for sale &mdash; only a once-only gift, or a 1-in-100 chance on any pack won from an online battle.</p>'
     +'<div class="grid">'+collTile(chars.filter(function(c){ return c.id==='chairman-knox'; })[0])+'</div>' : '';
