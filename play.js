@@ -3,6 +3,12 @@
 'use strict';
 
 var HAND_LIMIT = 3;
+/* Attack cooldowns: values are internal "ticks" (decremented once per round in startRound, a move is
+   locked while its tick is >0), not turns-missed directly — a tick of N blocks the move for N-1 of the
+   unit's own future turns, since the round it's used in doesn't count. Jab (index 0) never cools down.
+   Signature (index 1): 1 turn cooldown. Overdrive (index 2): 2 turns cooldown. */
+var ATK_COOLDOWN = [0, 2, 3];
+var TURN_TIMER_MS = 7000;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
 var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
 var G = {phase:'menu', log:[], fx:[]};
@@ -131,7 +137,7 @@ function newUnit(ci, team, foil, gold){
   var base = chars[ci];
   var c = base.id==='chairman-knox' ? chairmanVariant(base, !!(G.chairmanEmpowered && G.chairmanEmpowered[team])) : base;
   return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:c.hp, spd:c.spd, foil:!!foil, gold:!!gold,
-    ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand()};
+    ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand(), atkCd:[0,0,0]};
 }
 
 /* ---------------- async plumbing ---------------- */
@@ -152,16 +158,29 @@ function wait(kind, data){
     for(var k in data) w[k]=data[k];
     w.res = function(v){
       if(G.wait!==w) return;
+      if(w.timer) clearTimeout(w.timer);
       if(CFG.mode==='online'){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
       G.wait=null; render(); res(v);
     };
-    w.rej = function(e){ G.wait=null; render(); rej(e); };
+    w.rej = function(e){ if(w.timer) clearTimeout(w.timer); G.wait=null; render(); rej(e); };
     G.wait = w; render();
+    /* Move timer: 'cmd' is the one wait() kind used for "what do you do this turn" (see humanTurn) —
+       run out the clock without picking an attack, playing a card, or ending your turn, and the turn
+       is forfeited for you. Scoped to this top-level decision only, not to a nested prompt like
+       choosing an attack's target — those re-arm a fresh 'cmd' wait as soon as you cancel back out. */
+    if(kind==='cmd' && CFG.mode!=='sim' && !G.over){
+      w.deadline = now() + TURN_TIMER_MS;
+      w.timer = setTimeout(function(){
+        if(G.wait!==w || G.over) return;
+        log(pn(data.team)+' ran out of time &mdash; turn forfeited.', 'turn');
+        w.res({t:'end', forced:true});
+      }, TURN_TIMER_MS);
+    }
   });
 }
 function encodeInput(kind, v){
   if(kind==='unit') return v ? v.id : null;
-  if(kind==='cmd') return {t:v.t, target:v.target, i:v.i, cur:G.cur ? G.cur.id : null};
+  if(kind==='cmd') return {t:v.t, target:v.target, i:v.i, cur:G.cur ? G.cur.id : null, forced:!!v.forced};
   return v;
 }
 function remoteInput(kind, data){
@@ -172,7 +191,7 @@ function remoteInput(kind, data){
       if(g!==G) return;
       G.wait = null;
       if(kind==='unit') v = v==null ? null : unitById(v);
-      else if(kind==='cmd'){ G.cur = v.cur==null ? null : unitById(v.cur); v = {t:v.t, target:v.target, i:v.i}; }
+      else if(kind==='cmd'){ G.cur = v.cur==null ? null : unitById(v.cur); v = {t:v.t, target:v.target, i:v.i, forced:!!v.forced}; }
       render(); res(v);
     });
   });
@@ -316,6 +335,8 @@ function stun(e){
 }
 /* Run one of a character's three attacks against a target: damage, then its effect (if any). */
 async function performAttack(u, e, mv){
+  var mi = u.c.atks.indexOf(mv);
+  if(mi>0 && ATK_COOLDOWN[mi]){ u.atkCd = u.atkCd || [0,0,0]; u.atkCd[mi] = ATK_COOLDOWN[mi]; }
   var dmg = moveDamage(u, mv);
   fxc('u'+u.id, 'lunge', 450);
   fxc('mat', 'clash', 260, 190);
@@ -540,8 +561,8 @@ async function humanTurn(t){
     if(G.acted && !cardsOk) return;
     var cmd = await wait('cmd', {team:t});
     var u = G.cur;
-    if(cmd.t==='end'){ if(G.acted) return; continue; }
-    if(cmd.t==='atk' && u && !G.acted){
+    if(cmd.t==='end'){ if(G.acted || cmd.forced) return; continue; }
+    if(cmd.t==='atk' && u && !G.acted && !(u.atkCd && u.atkCd[cmd.i]>0)){
       var mv = u.c.atks[cmd.i], dmg = moveDamage(u, mv);
       var e = await pickFoe(u, 'Attack with '+mv.n+' ('+dmg+' damage): tap an enemy', dmg);
       if(!e) continue;
@@ -589,16 +610,18 @@ function fxBonus(u, mv, e){
 function movePlan(u){
   var top = null, noise = diffNoise();
   u.c.atks.forEach(function(mv, i){
+    if(u.atkCd && u.atkCd[i]>0) return;
     var dmg = moveDamage(u, mv), foe = best(foes(u), function(e){ return hitScore(dmg, e)+fxBonus(u,mv,e)+rand()*noise; });
     var score = hitScore(dmg, foe) + fxBonus(u, mv, foe);
     if(!top || score>top.score) top = {i:i, mv:mv, foe:foe, score:score};
   });
   return top;
 }
-/* A fumble: the CPU ignores its own plan and just swings a random move at a random target. */
+/* A fumble: the CPU ignores its own plan and just swings a random (available) move at a random target. */
 function fumblePlan(u){
-  var mv = u.c.atks[Math.floor(rand()*u.c.atks.length)], list = foes(u);
-  return {i:0, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
+  var avail = u.c.atks.map(function(mv,i){ return i; }).filter(function(i){ return !(u.atkCd && u.atkCd[i]>0); });
+  var i = avail[Math.floor(rand()*avail.length)], mv = u.c.atks[i], list = foes(u);
+  return {i:i, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
 }
 function cpuPlan(u){
   var mp = rand()<diffCfg().fumble ? fumblePlan(u) : movePlan(u);
@@ -640,6 +663,7 @@ function startRound(){
     if(u.acted) fxc('u'+u.id, 'untap', 450);
     u.acted = false;
     u.stunGuard = false;
+    if(u.atkCd) u.atkCd = u.atkCd.map(function(v){ return v>0 ? v-1 : 0; });
   });
   log('Round '+G.round+' &mdash; everyone untaps.', 'round');
   fxc('round', 'bannerpop', 1500);
@@ -816,6 +840,7 @@ function chips(u){
   if(u.atkGame<0) c.push(['&minus;'+(-u.atkGame)+' ATK','r']);
   if(u.atkRound<0) c.push(['&minus;'+(-u.atkRound)+' ATK this round','r']);
   if(u.skip>0) c.push(['Skips turn','r']);
+  if(u.stunGuard) c.push(['Stunned last round &mdash; immune this round','g']);
   return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
 }
 function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
@@ -894,14 +919,21 @@ function pile(kind){
   var dp = G.discards[viewer()], top = dp[dp.length-1];
   return '<div class="pile disc" title="Your discard pile">'+(top ? '<div class="card">'+actFace(top.n)+'</div>' : '<div class="slot"></div>')+'<span class="pc">'+dp.length+'</span><small>Discard</small></div>';
 }
+function turnTimerHtml(){
+  var w = G.wait;
+  if(!w || w.kind!=='cmd' || !w.deadline) return '';
+  var remain = Math.max(0, w.deadline-now());
+  return '<div class="turntimer" title="Runs out of time and your turn is forfeited"><i style="animation-duration:'+remain+'ms"></i></div>';
+}
 function actionBar(){
   if(!myTurn()) return '<div class="actions idle"></div>';
-  var u = G.cur;
-  if(G.acted) return '<div class="actions"><button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
-  if(!u) return '<div class="actions idle"></div>';
-  return '<div class="actions">'
+  var u = G.cur, timer = turnTimerHtml();
+  if(G.acted) return '<div class="actions">'+timer+'<button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
+  if(!u) return '<div class="actions idle">'+timer+'</div>';
+  return '<div class="actions">'+timer
    + u.c.atks.map(function(mv, i){
-       return '<button class="btn act" data-a="cmd" data-v="atk" data-i="'+i+'"><i>&#9876;</i><b>'+mv.n+'</b><small>'+moveDamage(u,mv)+' damage'+(mv.fx?' &middot; '+FX_SHORT[mv.fx]:'')+'</small></button>';
+       var locked = u.atkCd && u.atkCd[i]>0;
+       return '<button class="btn act'+(locked?' locked':'')+'" data-a="cmd" data-v="atk" data-i="'+i+'"'+(locked?' disabled':'')+'><i>&#9876;</i><b>'+mv.n+'</b><small>'+(locked?'Cooling down &mdash; '+u.atkCd[i]+' round'+(u.atkCd[i]===1?'':'s'):moveDamage(u,mv)+' damage'+(mv.fx?' &middot; '+FX_SHORT[mv.fx]:''))+'</small></button>';
      }).join('')
    +'</div>';
 }
