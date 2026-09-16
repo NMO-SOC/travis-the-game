@@ -16,6 +16,7 @@
 -- Paste into Supabase → SQL Editor → Run. Safe to run more than once.
 
 alter table public.packs add column if not exists guarantee_own boolean not null default false;
+alter table public.profiles add column if not exists australiana_gifted boolean not null default false;
 
 insert into public.packs (id, name, blurb, sort, valid_until, open_with_any, guarantee_own) values
   ('australiana', 'Australiana', 'Six true-blue Knoxes. Guaranteed one every pack. Available until Sunday 11:59pm — gone after that.', 7, '2026-09-20 23:59:59+10', true, true)
@@ -32,6 +33,25 @@ insert into public.cards (id, kind, rarity, pack_id) values
   ('bushman-knox','character','rare','australiana'), ('first-fleet-knox','character','rare','australiana'),
   ('oakleigh-knox','character','rare','australiana')
 on conflict (id) do update set rarity = excluded.rarity, pack_id = excluded.pack_id;
+
+-- A once-only free Australiana pack (a specific-type pack_stock entry, not a generic token) for every
+-- player, past and future, the next time they sign in — same "once, no matter how many times this
+-- runs" pattern as claim_chairman_gift in upgrade-14.
+create or replace function public.claim_australiana_gift() returns boolean
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); uname text; got boolean;
+begin
+  if uid is null then raise exception 'Not signed in'; end if;
+  update profiles set australiana_gifted = true where id = uid and australiana_gifted = false returning true into got;
+  if got is distinct from true then return false; end if;
+  insert into pack_stock (user_id, pack_id, qty) values (uid, 'australiana', 1)
+    on conflict (user_id, pack_id) do update set qty = pack_stock.qty + 1;
+  select username into uname from profiles where id = uid;
+  insert into activity (user_id, username, kind, detail) values (uid, uname, 'pack_won', jsonb_build_object('pack', 'australiana', 'source', 'gift'));
+  return true;
+end $$;
+revoke all on function public.claim_australiana_gift() from public, anon;
+grant execute on function public.claim_australiana_gift() to authenticated;
 
 -- open_pack: the foil/gold pulls (kind = 'character', no pack_id filter — any character in the game
 -- is a candidate) exclude 'australiana' so those six never surface as a foil or gold anywhere but

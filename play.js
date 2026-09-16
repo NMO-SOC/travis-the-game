@@ -1078,6 +1078,21 @@ function chairmanGiftHtml(){
    +'<li>It can never be bought or sold. The only other way to get one: a <b>1-in-100 chance</b> on any pack you win from an <b>online battle</b> (CPU wins never drop it).</li></ul>'
    +'<button class="btn gold big" data-a="chairmangiftclose">Got it</button></div></div>';
 }
+/* A per-visit heads-up about the Australiana pack: shown once per page load (dismiss just hides it
+   for the rest of this session — it comes back on the next refresh), any time a signed-in player has
+   a pack still on offer, on any screen except mid-battle/deal. */
+function australianaBannerHtml(){
+  if(M.hideAustraliana || !ACC || !ACC.user || G.phase==='battle' || G.phase==='deal') return '';
+  var p = (ACC.packs||[]).filter(function(x){ return x.id==='australiana'; })[0];
+  if(!p || ACC.isExpired('australiana')) return '';
+  return '<div class="ov" data-a="noop"><div class="panel" data-a="noop"><div class="eyebrow">Limited pack</div><h2>Australiana is here</h2>'
+   +'<ul class="kw" style="text-align:left"><li>Six new true-blue Knoxes &mdash; three easier to pull, three rarer.</li>'
+   +'<li>Every Australiana pack is guaranteed at least one Australiana card.</li>'
+   +'<li>Available only until <b>Sunday 11:59pm</b> &mdash; gone after that.</li>'
+   +'<li>You&rsquo;ve been given <b>one free Australiana pack</b> &mdash; check your Packs screen.</li>'
+   +'<li>You can also <b>win a battle</b> (CPU or online) to earn another, then choose Australiana when you open it.</li></ul>'
+   +'<button class="btn gold big" data-a="australianaclose">Got it</button></div></div>';
+}
 function rulesHtml(){
   if(!G.showRules) return '';
   return '<div class="ov" data-a="rulesoff"><div class="panel rules" data-a="noop"><div class="eyebrow">How to play</div><h2>Travis: The Game</h2><ol>'
@@ -2061,7 +2076,7 @@ function paint(){
   // triggers a full render while, say, the activity feed is scrolled mid-read.
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
   var feedEl = root.querySelector('.feed'), feedScroll = feedEl ? feedEl.scrollTop : null;
-  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml();
+  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + australianaBannerHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
   var cf = root.querySelector('.chatfeed'); if(cf) cf.scrollTop = cf.scrollHeight;
@@ -2221,6 +2236,7 @@ function onClick(e){
     case 'rules': G.showRules = true; render(); break;
     case 'rulesoff': G.showRules = false; render(); break;
     case 'chairmangiftclose': M.chairmanGift = false; render(); break;
+    case 'australianaclose': M.hideAustraliana = true; render(); break;
     case 'noop': break;
   }
 }

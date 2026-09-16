@@ -42,7 +42,7 @@ A.init = async function(onChange){
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
-    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); }
+    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); }
   }catch(e){ A.user = null; }
   A.ready = true; changed();
 };
@@ -58,6 +58,13 @@ A.claimChairmanGift = async function(){
     if(got){ A.justGiftedChairman = true; await A.refresh(); }
   }catch(e){}
 };
+/* A once-only free Australiana pack (a specific-type pack, not a generic token) for every player,
+   past and future, the first time they're signed in after upgrade-16 — same server-enforced,
+   run-as-many-times-as-you-like pattern as claimChairmanGift above. */
+A.claimAustralianaGift = async function(){
+  if(!A.user) return;
+  try{ var got = await call(client().rpc('claim_australiana_gift')); if(got) await A.refresh(); }catch(e){}
+};
 A.signUp = async function(username, password){
   var u = clean(username);
   if(!USERNAME_RE.test(u)) throw new Error('Usernames are 3&ndash;20 characters: letters, numbers or _.');
@@ -66,12 +73,12 @@ A.signUp = async function(username, password){
   if(!free) throw new Error('That username is taken.');
   var d = await call(client().auth.signUp({email:emailFor(u), password:password, options:{data:{username:u}}}));
   if(!d.session) throw new Error('Account made, but sign-in is waiting on email confirmation. Ask the admin to turn off &ldquo;Confirm email&rdquo; in Supabase.');
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
 };
 A.signIn = async function(username, password){
   var u = clean(username);
   var d = await call(client().auth.signInWithPassword({email:emailFor(u), password:password}));
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
 };
 A.signOut = async function(){
   A.leaveLobby();
