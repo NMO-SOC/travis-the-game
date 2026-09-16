@@ -143,7 +143,7 @@ A.actionLimit = function(a){ return a.set==='base' ? 3 : Math.min(3, qty(a.id,fa
 A.price = function(c){ return c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 20 : 8; };
 A.canBuy = function(c, finish){
   if(!A.profile || finish==='foil' || finish==='gold') return false;   // pull- or gift-only, never for sale
-  if(c.set==='base' || c.id==='chairman-knox') return false;
+  if(c.set==='base' || c.id==='chairman-knox' || c.set==='australiana') return false;  // pack-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 /* Sell price is half the buy price. Starter (base, normal) cards can't be sold — everyone already owns them free. */

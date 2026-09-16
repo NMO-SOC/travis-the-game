@@ -34,6 +34,29 @@ insert into public.cards (id, kind, rarity, pack_id) values
   ('oakleigh-knox','character','rare','australiana')
 on conflict (id) do update set rarity = excluded.rarity, pack_id = excluded.pack_id;
 
+-- Australiana cards are pack-only, same as foils/golds — block buying them with Grant Points
+-- (selling is untouched: owning one from a pack and cashing it in later is still fine).
+create or replace function public.buy_card(card text, want_foil boolean) returns int
+language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); r text; k text; pk text; price int; cap int; owned int; left_pts int;
+begin
+  if want_foil then raise exception 'Foils only come from packs now — Holo guarantees one.'; end if;
+  select rarity, kind, pack_id into r, k, pk from cards where id = card;
+  if r is null then raise exception 'Unknown card'; end if;
+  if pk = 'australiana' then raise exception 'Australiana cards only come from packs.'; end if;
+  if r = 'common' then price := 8; cap := 3;
+  elsif r = 'rare' then price := 20; cap := 1;
+  else raise exception 'You already own every base card';
+  end if;
+  select coalesce(sum(qty), 0) into owned from collection where user_id = uid and card_id = card and not foil and not gold;
+  if owned >= cap then raise exception 'You already have as many as a deck can use'; end if;
+  update profiles set grant_points = grant_points - price where id = uid and grant_points >= price returning grant_points into left_pts;
+  if left_pts is null then raise exception 'Not enough Grant Points'; end if;
+  insert into collection (user_id, card_id, foil, gold, qty) values (uid, card, false, false, 1)
+    on conflict (user_id, card_id, foil, gold) do update set qty = collection.qty + 1;
+  return left_pts;
+end $$;
+
 -- A once-only free Australiana pack (a specific-type pack_stock entry, not a generic token) for every
 -- player, past and future, the next time they sign in — same "once, no matter how many times this
 -- runs" pattern as claim_chairman_gift in upgrade-14.

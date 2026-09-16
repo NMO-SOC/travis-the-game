@@ -1082,7 +1082,7 @@ function chairmanGiftHtml(){
    for the rest of this session — it comes back on the next refresh), any time a signed-in player has
    a pack still on offer, on any screen except mid-battle/deal. */
 function australianaBannerHtml(){
-  if(M.hideAustraliana || !ACC || !ACC.user || G.phase==='battle' || G.phase==='deal') return '';
+  if(M.hideAustraliana || !ACC || !ACC.user || G.phase==='battle' || G.phase==='deal' || M.opening || M.reveal) return '';
   var p = (ACC.packs||[]).filter(function(x){ return x.id==='australiana'; })[0];
   if(!p || ACC.isExpired('australiana')) return '';
   return '<div class="ov" data-a="noop"><div class="panel" data-a="noop"><div class="eyebrow">Limited pack</div><h2>Australiana is here</h2>'
