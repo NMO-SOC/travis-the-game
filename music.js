@@ -300,4 +300,10 @@
       audio.removeEventListener('loadedmetadata', once);
     });
   }
+
+  /* Lets play.js's in-battle theme system duck this player out of the way when an Australiana
+     battle theme starts. Resuming afterwards is left to the player tapping play again. */
+  window.TravisMusic = {
+    duck: function () { if (!audio.paused) audio.pause(); }
+  };
 })();

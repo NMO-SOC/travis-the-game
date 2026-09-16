@@ -13,6 +13,29 @@ var TURN_TIMER_MS = 15000;
 var TURN_TIMER_MS_CPU = 30000;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
 var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
+
+/* Australiana battle themes: attacking with one of these characters starts (or keeps) its song
+   looping for the whole game — no controls, ducking the persistent site player out of the way —
+   until the game ends or a different Australiana theme starts. Runs on every client identically
+   (performAttack replays the same on host and guest in an online match), so both players hear it
+   without any extra network message. */
+var BATTLE_THEME = {
+  'oakleigh-knox':'songs/AthinaMou.mp3', 'first-fleet-knox':'songs/BortanyBay.mp3', 'bushman-knox':'songs/WaltzingMatilda.mp3',
+  'bunnings-bbq-knox':'songs/DownUnder.mp3', 'outback-knox':'songs/DownUnder.mp3', 'surf-lifesaver-knox':'songs/DownUnder.mp3'
+};
+var battleAudio = null;
+function playBattleTheme(file){
+  if(!file || typeof document==='undefined') return;
+  if(battleAudio && battleAudio.getAttribute('data-file')===file) return;
+  if(!battleAudio){ battleAudio = document.createElement('audio'); battleAudio.loop = true; document.body.appendChild(battleAudio); }
+  if(window.TravisMusic) window.TravisMusic.duck();
+  battleAudio.setAttribute('data-file', file);
+  battleAudio.src = file;
+  battleAudio.play().catch(function(){});
+}
+function stopBattleTheme(){
+  if(battleAudio){ battleAudio.pause(); battleAudio.removeAttribute('data-file'); }
+}
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -280,6 +303,7 @@ function checkOver(){
   if(a && b) return;
   G.over = true; G.winner = a ? 0 : b ? 1 : -1;
   G.cur = null;
+  stopBattleTheme();
   var me = CFG.mode==='online' ? CFG.me : 0;
   sfx(G.winner<0 ? 'lose' : (CFG.mode==='hot' || CFG.spectating || G.winner===me) ? 'win' : 'lose');
   log(G.winner<0 ? 'Both teams are knocked out. It&rsquo;s a draw.' : pn(G.winner)+' '+(pname(G.winner)==='You'?'win':'wins')+'!', 'win');
@@ -344,6 +368,7 @@ async function performAttack(u, e, mv){
   var mi = u.c.atks.indexOf(mv);
   if(mi>0 && ATK_COOLDOWN[mi]){ u.atkCd = u.atkCd || [0,0,0]; u.atkCd[mi] = ATK_COOLDOWN[mi]; }
   var dmg = moveDamage(u, mv);
+  if(BATTLE_THEME[u.c.id]) playBattleTheme(BATTLE_THEME[u.c.id]);
   fxc('u'+u.id, 'lunge', 450);
   fxc('mat', 'clash', 260, 190);
   sfx(mv.fx==='heal' ? 'heal' : mv.fx==='shield' ? 'shield' : 'hit');
@@ -755,6 +780,7 @@ function baseActions(){ var l = []; acts.forEach(function(a){ for(var k=0;k<a.x;
 function beginBattle(setup){
   setup = setup || {teams:G.deal.picks};
   G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
+  stopBattleTheme();
   var freshGame = !G.startedAt;
   G.startedAt = G.startedAt || Date.now();
   if(freshGame && ACC && ACC.user && !CFG.spectating && (CFG.mode==='cpu' || CFG.mode==='online')){
