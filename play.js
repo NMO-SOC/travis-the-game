@@ -103,11 +103,17 @@ function best(arr, ai){
 function bestIdx(arr, ai){ var b=best(arr.map(function(x,i){return {x:x,i:i};}), ai ? function(o){ return ai(o.x,o.i); } : null); return b.i; }
 
 function isCPU(t){ return CFG.mode==='sim' || (CFG.mode==='cpu' && t===1); }
-function isRemote(t){ return CFG.mode==='online' && (CFG.spectating || t!==CFG.me); }
+/* Spectating (online OR a signed-in player's CPU game, broadcast the same way — see beginBattle's
+   cpu-broadcast block) always treats every team as remote: neither is the local viewer's own, so
+   every decision comes off the network instead of a click. The CPU side never actually reaches this
+   check either way — isCPU() short-circuits it straight to cpuTurn(), run locally off the same seed
+   on both the real host and every spectator. */
+function isRemote(t){ return CFG.spectating || (CFG.mode==='online' && t!==CFG.me); }
 function pname(t){
+  if(CFG.spectating) return (CFG.names && CFG.names[t]) || 'Player '+(t+1);
   if(CFG.mode==='cpu') return t===0 ? 'You' : 'CPU';
   if(CFG.mode==='sim') return 'CPU '+(t+1);
-  if(CFG.mode==='online') return (!CFG.spectating && t===CFG.me) ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
+  if(CFG.mode==='online') return t===CFG.me ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
   return 'Player '+(t+1);
 }
 function viewer(){
@@ -185,7 +191,7 @@ function wait(kind, data){
       if(G.wait!==w) return;
       if(w.timer) clearTimeout(w.timer);
       if(w.nudge) clearTimeout(w.nudge);
-      if(CFG.mode==='online'){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
+      if(CFG.mode==='online' || (CFG.mode==='cpu' && NET.conn)){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
       G.wait=null; render(); res(v);
     };
     w.rej = function(e){ if(w.timer) clearTimeout(w.timer); if(w.nudge) clearTimeout(w.nudge); G.wait=null; render(); rej(e); };
@@ -783,11 +789,40 @@ function beginBattle(setup){
   stopBattleTheme();
   var freshGame = !G.startedAt;
   G.startedAt = G.startedAt || Date.now();
+  /* CPU games weren't seeded before (rand() just fell back to Math.random()) since nothing needed to
+     replay them. Watching one live needs that same determinism online play already has: a spectator
+     re-runs this exact function off the same seed, so the CPU's turns (driven locally by isCPU(1),
+     never over the network) land identically without broadcasting a single one of them. */
+  if(CFG.mode==='cpu' && !CFG.spectating && !G.rng){ G.seed = Math.floor(Math.random()*2147483647); G.rng = seeded(G.seed); }
   if(freshGame && ACC && ACC.user && !CFG.spectating && (CFG.mode==='cpu' || CFG.mode==='online')){
     ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
   }
   G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
   G.chairmanEmpowered = setup.chairmanEmpowered || [chairmanEmpoweredFor(), chairmanEmpoweredFor()];
+  /* Makes this CPU game watchable: opens the same host/spectator channel infrastructure an online
+     match uses (see A.openMatch/openSpectate in account.js — fully mode-agnostic already) and
+     announces it in the shared lobby presence, so it shows up in "Watch a live match" and next to
+     this player's name in Active players. Every human decision from here (wait(), broadened above)
+     streams to any spectator the same way an online move would. */
+  if(CFG.mode==='cpu' && !CFG.spectating && !G.matchCode && ACC && ACC.user && ACC.announceMatch){
+    NET.close();
+    var wireTeam = function(t){
+      var ids = setup.teams[t], foilArr = setup.foils && setup.foils[t], goldArr = setup.golds && setup.golds[t];
+      return {chars:ids.map(function(ci){ return chars[ci].id; }),
+        foils:ids.filter(function(ci,i){ return foilArr && foilArr[i]; }).map(function(ci){ return chars[ci].id; }),
+        golds:ids.filter(function(ci,i){ return goldArr && goldArr[i]; }).map(function(ci){ return chars[ci].id; }),
+        actions:(setup.actions && setup.actions[t]) || baseActions(),
+        houseOwned:G.houseOwned[t], chairmanEmpowered:G.chairmanEmpowered[t]};
+    };
+    var code = ACC.makeCode();
+    G.matchCode = code;
+    MATCHLOG = [];
+    LAST_START = {mode:'cpu', diff:CFG.diff, seed:G.seed, first:null, size:CFG.size,
+      names:[ACC.profile.username, 'CPU'], teams:[wireTeam(0), wireTeam(1)]};
+    WE_ARE_HOST = true;
+    NET.conn = ACC.openMatch(code, 'host', {message:function(){}, presence:function(){}, specJoin:onSpecJoin, chat:onChatMsg, error:function(){}});
+    ACC.announceMatch(code, {size:CFG.size, names:LAST_START.names, mode:'cpu', diff:CFG.diff});
+  }
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i], setup.golds && setup.golds[t] && setup.golds[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -1540,7 +1575,7 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   send:function(p){ if(NET.conn) NET.conn.send(p); },
   next:function(cb){ if(NET.queue.length){ var v = NET.queue.shift(); setTimeout(function(){ cb(v); }, 0); } else NET.waiter = cb; },
   push:function(v){ if(NET.waiter){ var cb = NET.waiter; NET.waiter = null; cb(v); } else NET.queue.push(v); },
-  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; CHAT = []; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); },
+  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; CHAT = []; WE_ARE_HOST = false; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); },
   chatSend:function(text){ if(NET.conn && NET.conn.chat) NET.conn.chat(text); }
 };
 /* Chat: open to both players and any spectators on the match channel (see A.openMatch/openSpectate's
@@ -1561,6 +1596,10 @@ function onChatMsg(p){
    LAST_START let the host hand a late-joining spectator the whole game so far (seed + every move
    applied up to now); it then fast-replays that backlog (CFG.speed briefly 0) before continuing live. */
 var MATCHLOG = [], LAST_START = null, SPEC_READY = false, SPEC_LIVE_BUF = [];
+/* True on whichever client actually owns/broadcasts the match — the online host, or a signed-in
+   player's own CPU game (see beginBattle's cpu-broadcast block). A spectator or online guest is
+   never the host, so never answers a spec-join catch-up request. Reset in NET.close(). */
+var WE_ARE_HOST = false;
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
 function spectate(code){
   NET.close(); NET.finished = false;
@@ -1607,6 +1646,7 @@ function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[
    an invite can be accepted from anywhere, with no menu visit in between to have set one. */
 function connect(code, role){
   NET.close(); NET.finished = false;
+  WE_ARE_HOST = role==='host';
   L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
   G = {phase:'lobby', log:[], fx:[]};
   NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, chat:onChatMsg, error:function(m){ L.err = m; render(); }});
@@ -1646,7 +1686,7 @@ function maybeStart(){
   beginOnline(msg, 0);
 }
 function onSpecJoin(p){
-  if(L.role!=='host' || !LAST_START || !NET.conn || !NET.conn.sendRaw) return;
+  if(!WE_ARE_HOST || !LAST_START || !NET.conn || !NET.conn.sendRaw) return;
   NET.conn.sendRaw('spec-sync', {to:p.from, start:LAST_START, log:MATCHLOG.slice()});
 }
 function onNet(m){
@@ -1655,8 +1695,13 @@ function onNet(m){
   if(m.k==='team' && L.role==='host'){ L.oppTeam = m.team; maybeStart(); render(); return; }
   if(m.k==='start' && L.role==='guest'){ LAST_START = m; beginOnline(m, 1); }
 }
+/* Also the entry point for spectating — of an online match, or (m.mode==='cpu') a signed-in player's
+   CPU game broadcast the same way (see beginBattle). CFG.mode is taken from the payload so a CPU
+   match's spectator keeps isCPU(1) true and plays out the CPU's side locally off the shared seed,
+   rather than waiting on a network message that will never come for it. */
 function beginOnline(m, me, spectating){
-  CFG.mode = 'online'; CFG.me = me; CFG.spectating = !!spectating; CFG.size = m.size; CFG.names = m.names.map(esc);
+  CFG.mode = m.mode || 'online'; if(CFG.mode==='cpu') CFG.diff = m.diff || CFG.diff || 'medium';
+  CFG.me = me; CFG.spectating = !!spectating; CFG.size = m.size; CFG.names = m.names.map(esc);
   MATCHLOG = [];
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
@@ -1854,7 +1899,10 @@ function onlinePlayersBlock(){
   var people = (M.online || []).slice().sort(function(a,b){ return String(a.username).localeCompare(b.username); });
   if(!people.length) return '<div class="group"><div class="gl">Active players</div><p class="muted">No one else is online right now.</p></div>';
   return '<div class="group"><div class="gl">Active players</div><ul class="online-list">'+people.map(function(p){
-      return '<li><span class="dot"></span><b>'+esc(p.username)+'</b><button class="btn sm gold" data-a="invite" data-v="'+esc(p.id)+'" data-name="'+esc(p.username)+'">Battle</button></li>';
+      var info = p.info || {}, playing = p.match ? (info.mode==='cpu' ? ' &middot; vs CPU' : ' &middot; online match') : '';
+      var watch = p.match ? '<button class="btn sm" data-a="watchlive" data-v="'+esc(p.match)+'">Watch</button>' : '';
+      return '<li><span class="dot'+(p.match?' live':'')+'"></span><b>'+esc(p.username)+'</b><span class="muted sm">'+playing+'</span>'+watch
+        +'<button class="btn sm gold" data-a="invite" data-v="'+esc(p.id)+'" data-name="'+esc(p.username)+'">Battle</button></li>';
     }).join('')+'</ul></div>';
 }
 function inviteBanner(){
