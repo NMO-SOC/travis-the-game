@@ -201,7 +201,7 @@ function wait(kind, data){
        turn, and the turn is forfeited for you. Scoped to this top-level decision only, not to a nested
        prompt like choosing an attack's target — those re-arm a fresh 'cmd' wait as soon as you cancel
        back out. */
-    if(kind==='cmd' && CFG.mode!=='sim' && !G.over){
+    if(kind==='cmd' && CFG.mode!=='sim' && !G.over && !(CFG.mode==='cpu' && (CFG.diff==='easy' || CFG.diff==='medium'))){
       var limit = CFG.mode==='cpu' ? TURN_TIMER_MS_CPU : TURN_TIMER_MS;
       w.deadline = now() + limit;
       w.nudge = setTimeout(function(){ if(G.wait===w && !G.over){ sfx('card'); render(); } }, TURN_NUDGE_MS);
