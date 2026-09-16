@@ -1360,12 +1360,13 @@ function packOption(pk, p){
     : pk.validUntil ? '<p class="hint">Available until '+new Date(pk.validUntil).toLocaleDateString()+'.</p>'
     : giftOnly && !have ? '<p class="hint">Given by the game admin &mdash; can&rsquo;t be opened with a regular pack.</p>' : '';
   var btnLabel = expired ? 'No longer available' : M.busy ? 'Opening&hellip;' : 'Open '+pk.name;
+  var buyBtn = (pk.gpPrice && !expired) ? '<button class="btn wide" data-a="packbuy" data-v="'+esc(pk.id)+'"'+(ACC.canBuyPack(pk.id)&&!M.busy?'':' disabled')+'>Buy &middot; '+pk.gpPrice+' GP</button>' : '';
   return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+pk.name+' '+badge+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
     +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
     +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
     + notice
     +(have ? '<p class="pkown">You have <b>'+have+'</b> '+pk.name+' pack'+(have===1?'':'s')+'. These open first.</p>' : '')
-    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button></div>';
+    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button>'+buyBtn+'</div>';
 }
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, o = M.opening, body = '';
@@ -2172,6 +2173,7 @@ function onClick(e){
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; M.board=null; M.admin=null; }); break;
     case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
     case 'packopen': openPack(v); break;
+    case 'packbuy': busy(async function(){ await ACC.buyPack(v); render(); }); break;
     case 'rv': flipReveal(+v); break;
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;

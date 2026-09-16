@@ -170,7 +170,7 @@ A.loadPacks = async function(){
     A.packs = (r[0]||[]).map(function(p){
       var rows = (r[1]||[]).filter(function(o){ return o.pack_id===p.id; }), total = rows.reduce(function(s,o){ return s+o.weight; }, 0), odds = {};
       rows.forEach(function(o){ odds[o.slot] = total ? o.weight/total : 0; });
-      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null, winWeight:p.win_weight||0};
+      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null, winWeight:p.win_weight||0, gpPrice:p.gp_price||null};
     });
   }catch(e){ A.packs = []; }
   changed();
@@ -180,6 +180,13 @@ A.openPack = async function(packId){
   await A.refresh();
   return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, gold:x.gold, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
 };
+/* Buying a pack always grants a token of that exact pack (pack_stock), never a generic any-type
+   token — see upgrade-17-buy-packs.sql. Missing gracefully (gpPrice null) until that migration runs. */
+A.canBuyPack = function(id){
+  var p = A.packs.filter(function(x){ return x.id===id; })[0];
+  return !!(p && p.gpPrice && !A.isExpired(id) && A.profile && A.profile.grant_points >= p.gpPrice);
+};
+A.buyPack = async function(packId){ await call(client().rpc('buy_pack', {p_pack:packId})); await A.refresh(); };
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
 /* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
    won, or null if today's five win-packs are already claimed. */
