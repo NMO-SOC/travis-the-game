@@ -8,7 +8,9 @@ var HAND_LIMIT = 3;
    unit's own future turns, since the round it's used in doesn't count. Jab (index 0) never cools down.
    Signature (index 1): 1 turn cooldown. Overdrive (index 2): 2 turns cooldown. */
 var ATK_COOLDOWN = [0, 2, 3];
-var TURN_TIMER_MS = 7000;
+var TURN_NUDGE_MS = 10000;
+var TURN_TIMER_MS = 15000;
+var TURN_TIMER_MS_CPU = 30000;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
 var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
 var G = {phase:'menu', log:[], fx:[]};
@@ -159,22 +161,26 @@ function wait(kind, data){
     w.res = function(v){
       if(G.wait!==w) return;
       if(w.timer) clearTimeout(w.timer);
+      if(w.nudge) clearTimeout(w.nudge);
       if(CFG.mode==='online'){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
       G.wait=null; render(); res(v);
     };
-    w.rej = function(e){ if(w.timer) clearTimeout(w.timer); G.wait=null; render(); rej(e); };
+    w.rej = function(e){ if(w.timer) clearTimeout(w.timer); if(w.nudge) clearTimeout(w.nudge); G.wait=null; render(); rej(e); };
     G.wait = w; render();
     /* Move timer: 'cmd' is the one wait() kind used for "what do you do this turn" (see humanTurn) —
-       run out the clock without picking an attack, playing a card, or ending your turn, and the turn
-       is forfeited for you. Scoped to this top-level decision only, not to a nested prompt like
-       choosing an attack's target — those re-arm a fresh 'cmd' wait as soon as you cancel back out. */
+       a nudge at 10s, then run out 15s total without picking an attack, playing a card, or ending your
+       turn, and the turn is forfeited for you. Scoped to this top-level decision only, not to a nested
+       prompt like choosing an attack's target — those re-arm a fresh 'cmd' wait as soon as you cancel
+       back out. */
     if(kind==='cmd' && CFG.mode!=='sim' && !G.over){
-      w.deadline = now() + TURN_TIMER_MS;
+      var limit = CFG.mode==='cpu' ? TURN_TIMER_MS_CPU : TURN_TIMER_MS;
+      w.deadline = now() + limit;
+      w.nudge = setTimeout(function(){ if(G.wait===w && !G.over){ sfx('card'); render(); } }, TURN_NUDGE_MS);
       w.timer = setTimeout(function(){
         if(G.wait!==w || G.over) return;
         log(pn(data.team)+' ran out of time &mdash; turn forfeited.', 'turn');
         w.res({t:'end', forced:true});
-      }, TURN_TIMER_MS);
+      }, limit);
     }
   });
 }
