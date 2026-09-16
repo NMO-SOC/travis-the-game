@@ -115,11 +115,20 @@ var chars=[
  {n:"Chairman Knox",r:"Cult of Personality",i:"star",hp:1,atk:1,spd:1,an:"Little Red Book",a:"A harder hit. No other effect.",f:"One portrait is a curiosity. Three is a cult.",set:"chairman",img:"images/chairman-knox.jpg"},
  {n:"Graduation Knox",r:"Cap and Gown",i:"grad",hp:19,atk:4,spd:6,an:"Diploma",a:"This character gets +3 ATK for the rest of the game.",f:"Tossed the cap. Never found the cap.",set:"end-of-year",img:"images/end-of-year/graduation-knox.jpg"},
  {n:"Yearbook Knox",r:"Signed by Everyone",i:"yearbook",hp:20,atk:3,spd:5,an:"Superlative",a:"Choose an enemy. It skips its next turn.",f:"&ldquo;Most Likely to Mention Seals Unprompted.&rdquo;",set:"end-of-year",img:"images/end-of-year/yearbook-knox.jpg"},
- {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"}
+ {n:"Staff Party Knox",r:"End of Year Function",i:"party",hp:19,atk:5,spd:4,an:"Karaoke",a:"Deal 3 damage to one enemy and heal this character 3 HP.",f:"Requested the same song three years running.",set:"end-of-year",img:"images/end-of-year/staff-party-knox.jpg"},
  /* Gold used to be five separate hand-authored "Golden X" cards here (set:'legendary'). It's now a
     generic finish any character can have — see collection.gold / deck.golds — so they're retired;
     upgrade-15-foil-gold-economy.sql folds anyone's existing golden-* ownership into the original
     card as a gold copy. */
+ /* Australiana pack — limited, only openable until Sunday 20 Sep 2026 11:59pm (see
+    supabase/upgrade-16-australiana.sql). Excluded from the Holo/Legendary foil-gold pool by that
+    same migration, so these six never turn up as a foil or gold pull outside this pack either. */
+ {n:"Bunnings BBQ Knox",r:"Weekend Sausage Sizzle",i:"bbq",hp:17,atk:5,spd:6,an:"Flip the Snags",a:"This character heals 4 HP.",f:"Red shirt, green apron, one onion short of a system.",set:"australiana",img:"images/australiana/bunnings-bbq-knox.jpg"},
+ {n:"Bushman Knox",r:"Outback Survivalist",i:"bushman",hp:17,atk:6,spd:5,an:"Swag Roll",a:"Also draws an action card.",f:"Slept under the stars. Woke up under a ute.",set:"australiana",img:"images/australiana/bushman-knox.jpg"},
+ {n:"First Fleet Knox",r:"1788 Arrival",i:"fleet",hp:19,atk:5,spd:7,an:"Land Ho",a:"Also gives this character a Shield.",f:"Eight months at sea for this weather.",set:"australiana",img:"images/australiana/first-fleet-knox.jpg"},
+ {n:"Outback Knox",r:"Red Centre Wanderer",i:"outback",hp:16,atk:4,spd:5,an:"Dust Storm",a:"Also makes the target skip its next turn.",f:"Out of reception. Out of worries.",set:"australiana",img:"images/australiana/outback-knox.jpg"},
+ {n:"Surf Lifesaver Knox",r:"Beach Patrol",i:"surf",hp:17,atk:5,spd:6,an:"Rip Rescue",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Between the flags. Always between the flags.",set:"australiana",img:"images/australiana/surf-lifesaver-knox.jpg"},
+ {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -156,6 +165,7 @@ var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
   {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
   {id:'knox-of-history', name:'Knox of History'},
+  {id:'australiana', name:'Australiana'},
   {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
 ];
 
@@ -182,7 +192,9 @@ var SIG_FX = {
  'Napoleon Knox':'stun', 'Pharaoh Knox':'heal', 'Pirate Knox':'unshield', 'Samurai Knox':undefined,
  'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
  'WW1 Knox':'unshield', 'WW2 Knox':'stun',
- 'Chairman Knox':undefined
+ 'Chairman Knox':undefined,
+ 'Bunnings BBQ Knox':'heal', 'Bushman Knox':'draw', 'First Fleet Knox':'shield', 'Outback Knox':'stun',
+ 'Surf Lifesaver Knox':'unshield', 'Oakleigh Knox':'recoil'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {
