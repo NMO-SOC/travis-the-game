@@ -10,7 +10,7 @@
 
 alter table public.packs add column if not exists gp_price int;
 update public.packs set gp_price = 80 where id in ('holo', 'legendary');
-update public.packs set gp_price = 30 where id not in ('holo', 'legendary') and gp_price is null;
+update public.packs set gp_price = 30 where id not in ('holo', 'legendary', 'australiana') and gp_price is null;
 
 create or replace function public.buy_pack(p_pack text) returns int
 language plpgsql security definer set search_path = public as $$
