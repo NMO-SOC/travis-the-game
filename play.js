@@ -598,7 +598,7 @@ async function humanTurn(t){
     if(G.acted && !cardsOk) return;
     var cmd = await wait('cmd', {team:t});
     var u = G.cur;
-    if(cmd.t==='end'){ if(G.acted || cmd.forced) return; continue; }
+    if(cmd.t==='end'){ if(G.acted || cmd.forced || !ready(t).length) return; continue; }
     if(cmd.t==='atk' && u && !G.acted && !(u.atkCd && u.atkCd[cmd.i]>0)){
       var mv = u.c.atks[cmd.i], dmg = moveDamage(u, mv);
       var e = await pickFoe(u, 'Attack with '+mv.n+' ('+dmg+' damage): tap an enemy', dmg);
@@ -993,7 +993,7 @@ function statusLine(){
   if(w && w.kind==='unit') return '<span class="who t'+w.team+'">'+pname(w.team)+':</span> '+w.prompt+(w.cancel?' <button class="lnk" data-a="cancel">Cancel</button>':'');
   if(myTurn()){
     var u = G.cur, cards = !G.cardPlayed && G.hands[G.turnOf].some(function(c){ return canPlayNow(c); });
-    if(G.acted) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
+    if(G.acted || !ready(G.turnOf).length) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
     if(!u) return '<b>Your turn.</b> Tap one of your <b>glowing characters</b> to choose who acts.'+(cards?' Or tap a card in your hand to read it, then tap it again to play it.':'');
     return nm(u)+' is chosen. <b>Choose an attack</b> below.';
   }
@@ -1017,7 +1017,7 @@ function turnTimerHtml(){
 function actionBar(){
   if(!myTurn()) return '<div class="actions idle"></div>';
   var u = G.cur, timer = turnTimerHtml();
-  if(G.acted) return '<div class="actions">'+timer+'<button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
+  if(G.acted || !ready(G.turnOf).length) return '<div class="actions">'+timer+'<button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
   if(!u) return '<div class="actions idle">'+timer+'</div>';
   return '<div class="actions">'+timer
    + u.c.atks.map(function(mv, i){
