@@ -165,7 +165,7 @@ kbd{font-family:"IBM Plex Mono",monospace;font-size:.85em;background:var(--abyss
 <div id="sheets"></div>
 </div>
 
-<script src="cards.js?v=20260916"></script>
+<script src="cards.js?v=20260916b"></script>
 <script src="music.js?v=20260915a"></script>
 <script>
 
@@ -174,7 +174,7 @@ function charCard(c,idx){
  return '<div class="card"><div class="inner"><div class="tag">Specimen</div>'
  +'<div class="hdr"><div class="no"><span>NO. '+String(idx+1).padStart(2,'0')+' / '+printChars.length+'</span><span>KNOX</span></div>'
  +'<h3>'+c.n+'</h3><div class="role">'+c.r+'</div></div>'
- +(c.img ? '<div class="plate photo"><img src="'+c.img+'" alt=""></div>' : '<div class="plate">'+S[c.i]+'</div>')
+ +(c.img ? '<div class="plate photo"><img src="'+c.img+'" alt="" style="object-position:'+(c.pos||'50% 28%')+'"></div>' : '<div class="plate">'+S[c.i]+'</div>')
  +'<div class="stats"><div><div class="k">HP</div><div class="v hp">'+c.hp+'</div></div></div>'
  +'<div class="body">'+moves+'<div class="flavor">'+c.f+'</div></div></div></div>';
 }

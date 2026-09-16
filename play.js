@@ -876,7 +876,7 @@ function charFace(c, o){
     : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '';
   return '<div class="face f-'+col+(o.foil?' foil':'')+(o.gold?' gilt':'')+'">'
    +'<div class="tl"><span class="tn">'+c.n+'</span>'+tag+'</div>'
-   +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
+   +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy" style="object-position:'+esc(c.pos||'50% 28%')+'">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
    +'<div class="tx">'+moves+'</div>'
