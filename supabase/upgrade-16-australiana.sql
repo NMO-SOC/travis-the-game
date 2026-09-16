@@ -1,35 +1,48 @@
--- Travis: The Game — upgrade 16: Australiana pack. Six new characters (BBQ Knox, Bushman Knox,
--- First Fleet Knox, Outback Knox, Surf Lifesaver Knox, Aussie Rules Knox), openable with a normal
+-- Travis: The Game — upgrade 16: Australiana pack. Six new characters (Bunnings BBQ Knox, Bushman
+-- Knox, First Fleet Knox, Outback Knox, Surf Lifesaver Knox, Oakleigh Knox), openable with a normal
 -- any-type pack token like Field Season or End of Year — but ONLY until Sunday 20 Sep 2026 11:59pm.
 -- After that, opening the pack raises an error (same mechanism as End of Year), and — unlike End of
 -- Year — these six are also excluded from the Holo/Legendary foil-gold pool forever, so they can
 -- never be pulled as a foil or gold outside this pack, before or after it closes.
+--
+-- Three (Bushman, First Fleet, Oakleigh — the ones with their own unique battle theme) are 'rare',
+-- the other three (Bunnings BBQ, Outback, Surf Lifesaver — sharing the generic Down Under theme) are
+-- 'common', so the named-theme cards are meaningfully harder to pull.
+--
+-- Every Australiana pack is also guaranteed at least one Australiana card (common or rare) — if the
+-- first two of the pack's three slots both land on starter/foil, the third is forced into the
+-- common/rare pool instead of also risking a starter. (Genuinely "no packs to open" or a malformed
+-- odds table still errors as before — this only forces a re-roll of the slot choice, not a card.)
 -- Paste into Supabase → SQL Editor → Run. Safe to run more than once.
 
-insert into public.packs (id, name, blurb, sort, valid_until, open_with_any) values
-  ('australiana', 'Australiana', 'Six true-blue Knoxes. Available until Sunday 11:59pm — gone after that.', 7, '2026-09-20 23:59:59+10', true)
+alter table public.packs add column if not exists guarantee_own boolean not null default false;
+
+insert into public.packs (id, name, blurb, sort, valid_until, open_with_any, guarantee_own) values
+  ('australiana', 'Australiana', 'Six true-blue Knoxes. Guaranteed one every pack. Available until Sunday 11:59pm — gone after that.', 7, '2026-09-20 23:59:59+10', true, true)
 on conflict (id) do update set name = excluded.name, blurb = excluded.blurb, sort = excluded.sort,
-  valid_until = excluded.valid_until, open_with_any = excluded.open_with_any;
+  valid_until = excluded.valid_until, open_with_any = excluded.open_with_any, guarantee_own = excluded.guarantee_own;
 
 insert into public.pack_odds (pack_id, slot, weight) values
-  ('australiana', 'starter', 55), ('australiana', 'common', 0), ('australiana', 'rare', 40), ('australiana', 'foil', 5)
-on conflict (pack_id, slot) do nothing;
+  ('australiana', 'starter', 30), ('australiana', 'common', 35), ('australiana', 'rare', 25), ('australiana', 'foil', 10)
+on conflict (pack_id, slot) do update set weight = excluded.weight;
 
 insert into public.cards (id, kind, rarity, pack_id) values
-  ('bunnings-bbq-knox','character','rare','australiana'), ('bushman-knox','character','rare','australiana'),
-  ('first-fleet-knox','character','rare','australiana'), ('outback-knox','character','rare','australiana'),
-  ('surf-lifesaver-knox','character','rare','australiana'), ('oakleigh-knox','character','rare','australiana')
+  ('bunnings-bbq-knox','character','common','australiana'), ('outback-knox','character','common','australiana'),
+  ('surf-lifesaver-knox','character','common','australiana'),
+  ('bushman-knox','character','rare','australiana'), ('first-fleet-knox','character','rare','australiana'),
+  ('oakleigh-knox','character','rare','australiana')
 on conflict (id) do update set rarity = excluded.rarity, pack_id = excluded.pack_id;
 
--- open_pack, unchanged except the foil/gold pulls (kind = 'character', no pack_id filter — any
--- character in the game is a candidate) now exclude 'australiana' so those six never surface as a
--- foil or gold anywhere but their own pack, permanently, not just until Sunday.
+-- open_pack: the foil/gold pulls (kind = 'character', no pack_id filter — any character in the game
+-- is a candidate) exclude 'australiana' so those six never surface as a foil or gold anywhere but
+-- their own pack. New: guarantee_own forces the last slot into common/rare for a pack flagged that
+-- way (Australiana) if neither of the first two slots already landed there.
 create or replace function public.open_pack(p_pack text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare uid uuid := auth.uid(); uname text; result jsonb := '[]'; i int; total int; roll int; pick text;
         cid text; is_foil boolean; is_gold boolean; cap int; pts int; owned int; pk packs;
-        got_foil boolean := false; got_gold boolean := false;
-        guarantee_foil boolean; guarantee_gold boolean;
+        got_foil boolean := false; got_gold boolean := false; got_own boolean := false;
+        guarantee_foil boolean; guarantee_gold boolean; own_total int;
 begin
   select username into uname from profiles where id = uid;
   select * into pk from packs where id = p_pack and active;
@@ -39,6 +52,7 @@ begin
   if total <= 0 then raise exception 'That pack has no odds set'; end if;
   select coalesce((select weight from pack_odds where pack_id = p_pack and slot = 'foil'), 0) >= total * 0.5 into guarantee_foil;
   select coalesce((select weight from pack_odds where pack_id = p_pack and slot = 'gold'), 0) >= total * 0.5 into guarantee_gold;
+  select coalesce((select sum(weight) from pack_odds where pack_id = p_pack and slot in ('common','rare')), 0) into own_total;
   update pack_stock set qty = qty - 1 where user_id = uid and pack_id = p_pack and qty > 0;
   if not found then
     if not pk.open_with_any then raise exception '% can only be opened with a pack of that exact type', pk.name; end if;
@@ -51,16 +65,20 @@ begin
       select slot, sum(weight) over (order by case slot when 'starter' then 1 when 'common' then 2 when 'rare' then 3 when 'foil' then 4 else 5 end) as upto
       from pack_odds where pack_id = p_pack and weight > 0) o
     where roll < o.upto order by o.upto limit 1;
-    -- The last slot forces the guaranteed finish if none of the first two already gave one.
+    -- The last slot forces a guaranteed finish/own-card pull if none of the first two already gave one.
     if i = 3 then
       if guarantee_foil and not got_foil then pick := 'foil'; end if;
       if guarantee_gold and not got_gold then pick := 'gold'; end if;
+      if pk.guarantee_own and not got_own and own_total > 0 then
+        roll := floor(random() * own_total)::int;
+        select case when roll < coalesce((select weight from pack_odds where pack_id = p_pack and slot = 'common'), 0) then 'common' else 'rare' end into pick;
+      end if;
     end if;
     cid := null; is_foil := false; is_gold := false;
     if pick = 'common' then
-      select id into cid from cards where pack_id = p_pack and rarity = 'common' order by random() limit 1; cap := 3; pts := 2;
+      select id into cid from cards where pack_id = p_pack and rarity = 'common' order by random() limit 1; cap := 3; pts := 2; got_own := true;
     elsif pick = 'rare' then
-      select id into cid from cards where pack_id = p_pack and rarity = 'rare' order by random() limit 1; cap := 1; pts := 5;
+      select id into cid from cards where pack_id = p_pack and rarity = 'rare' order by random() limit 1; cap := 1; pts := 5; got_own := true;
     elsif pick = 'foil' then
       select id into cid from cards where kind = 'character' and pack_id <> 'australiana' order by random() limit 1; is_foil := true; got_foil := true; cap := 1; pts := 5;
     elsif pick = 'gold' then
