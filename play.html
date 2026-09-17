@@ -594,8 +594,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .story .meta{font-size:13px;color:var(--ink-soft)}
 .story-bar{height:8px;border-radius:8px;background:#1d1c22;box-shadow:inset 0 0 0 1px var(--gold-d);max-width:360px;margin:12px auto 4px;overflow:hidden}
 .story-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold-d),var(--gold-2))}
-.fac{position:relative;border-radius:18px;background:linear-gradient(180deg,#1d1c22,#101014);box-shadow:inset 0 0 0 1px var(--gold-d),0 14px 40px rgba(0,0,0,.5);margin:0 0 36px}
-.fac+.fac::before{content:'';position:absolute;top:-36px;left:50%;width:4px;height:36px;margin-left:-2px;background:repeating-linear-gradient(180deg,var(--gold-d) 0 6px,transparent 6px 12px)}
+.fac{position:relative;border-radius:18px;background:linear-gradient(180deg,#1d1c22,#101014);box-shadow:inset 0 0 0 1px var(--gold-d),0 14px 40px rgba(0,0,0,.5);margin:0 0 24px}
 .fac-band{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;padding:12px 18px;background:var(--fr);border-radius:18px 18px 0 0;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.7)}
 .fac-band small{font-family:var(--title);font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.85}
 .fac-band b{font-family:var(--title);font-size:22px;letter-spacing:.06em}
@@ -619,6 +618,22 @@ b.t0,b.t1,.who{color:var(--tc)}
 .node.sel .dot{transform:scale(1.12)}
 .node.sel .card{transform:translateY(-5px)}
 .node:focus-visible{outline:2px solid var(--gold-2);outline-offset:4px;border-radius:10px}
+.story-mapwrap{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px #000,0 0 0 2px var(--gold-d),0 16px 40px rgba(0,0,0,.6);margin:0 0 22px;background:#cdbf98}
+.story-mapwrap img{display:block;width:100%;height:auto}
+.pin{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:0;padding:0;cursor:pointer;font:inherit;z-index:1}
+.pin-dot{display:grid;place-items:center;width:clamp(24px,4.2vw,44px);height:clamp(24px,4.2vw,44px);border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a3540,#141117);color:var(--gold-2);font-family:var(--title);font-size:clamp(11px,1.9vw,20px);box-shadow:0 0 0 2px #000,0 0 0 3px var(--gold-d),0 4px 10px rgba(0,0,0,.6);transition:transform .15s}
+.pin-lbl{font-family:var(--title);font-weight:700;font-size:clamp(9px,1.45vw,14px);letter-spacing:.03em;color:#fff;background:rgba(12,10,8,.82);padding:1px 7px;border-radius:8px;white-space:nowrap;box-shadow:0 0 0 1px var(--gold-d)}
+.pin.done .pin-dot{background:radial-gradient(circle at 35% 30%,#f7e2a1,#9c7626);color:#1c1405}
+.pin.next .pin-dot{box-shadow:0 0 0 2px #000,0 0 0 4px var(--gold),0 0 22px rgba(214,178,90,.95);animation:pinPulse 1.6s ease-in-out infinite}
+@keyframes pinPulse{50%{transform:scale(1.14)}}
+@media (prefers-reduced-motion:reduce){.pin.next .pin-dot{animation:none}}
+.pin.locked .pin-dot{filter:grayscale(1);font-size:clamp(9px,1.5vw,16px)}
+.pin.locked .pin-lbl{color:#d4cbb8}
+.pin.sel{z-index:2}
+.pin.sel .pin-lbl{background:var(--gold);color:#1c1405;box-shadow:0 0 0 1px #000}
+.pin.sel .pin-dot{outline:3px solid var(--gold-2);outline-offset:2px}
+.pin:hover .pin-dot{transform:scale(1.1)}
+.pin:focus-visible .pin-dot{outline:3px solid #fff;outline-offset:3px}
 .chap{margin:0 14px 16px;padding:14px 16px;border-radius:14px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(214,178,90,.25)}
 .chap h3{font-family:var(--title);margin:0 0 2px;color:var(--gold-2);font-size:18px}
 .chap p{margin:4px 0}
@@ -750,9 +765,9 @@ table.adm{width:100%;border-collapse:collapse;font-size:15px;min-width:760px}
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="cards.js?v=20260915c"></script>
-<script src="account.js?v=20260915b"></script>
-<script src="play.js?v=20260915c"></script>
+<script src="cards.js?v=20260917a"></script>
+<script src="account.js?v=20260917a"></script>
+<script src="play.js?v=20260917a"></script>
 <script src="music.js?v=20260915a"></script>
 <script>TravisGame.mount(document.getElementById('app'));</script>
 </body>

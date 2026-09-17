@@ -189,6 +189,18 @@ var STORY_LEVELS = [
  {n:'Humanities', q:'Those who don&rsquo;t learn from history get it on the exam.', c:'gold'},
  {n:'The Principal Class', q:'The door at the end of the hall is always open. That is the problem.', c:'black'}
 ];
+/* The campus map on the Story screen (images/story/campus-map.jpg, 1376x768). Each pin sits on a building,
+   as a percentage of the image's width (x) and height (y). A faculty pin (lvl) covers that level's
+   chapters; a finale pin (ch) covers one chapter. Nudge x/y here to move a pin. */
+var STORY_MAP = {img:'images/story/campus-map.jpg', pins:[
+ {n:'Science', lvl:1, x:68.7, y:80.7},
+ {n:'Maths', lvl:2, x:34.9, y:37.8},
+ {n:'English', lvl:3, x:20.8, y:24.0},
+ {n:'Humanities', lvl:4, x:37.1, y:59.2},
+ {n:'Wellbeing', ch:12, x:31.6, y:14.0},
+ {n:'Curriculum', ch:12, x:26.2, y:47.0},
+ {n:'Principal', ch:13, x:14.6, y:41.7}
+]};
 var STORY = [
  {lvl:1, t:'Prac Report Due', size:3, diff:'easy', reward:'harbour-seal-knox', txt:'The lab techs have locked the good equipment away. Get past the prep room.',
   foes:['doctor-knox','field-researcher-knox','tadpole-knox']},

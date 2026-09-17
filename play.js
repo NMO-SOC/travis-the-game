@@ -1527,31 +1527,43 @@ function storyChapter(i, done){
     +(locked ? '' : '<button class="btn gold" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button>')
     +'</div>';
 }
+function storyLevelChs(lvl){ var a = []; STORY.forEach(function(s, i){ if(s.lvl===lvl) a.push(i); }); return a; }
+/* One faculty's band: its chapters as a path of nodes (the boss as its portrait) and the selected chapter's details. */
+function storyLevel(li, done){
+  var L = STORY_LEVELS[li], chs = storyLevelChs(li+1);
+  var cleared = chs.filter(function(i){ return i<done; }).length;
+  var state = cleared===chs.length ? 'cleared' : chs[0]>done ? 'locked' : 'current';
+  var nodes = chs.map(function(i, k){
+    var s = STORY[i], st = i<done ? 'done' : i===done ? 'next' : 'locked', sel = i===M.storySel;
+    var inner = s.boss ? '<div class="card mini">'+charFace(CARDID[s.foes[0]])+'</div>'
+      : '<span class="dot">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : (k+1))+'</span>';
+    return '<button class="node'+(s.boss ? ' boss' : '')+' '+st+(sel ? ' sel' : '')+'" data-a="storysel" data-v="'+i+'" aria-pressed="'+sel+'">'+inner+'<span>'+(s.boss ? 'Boss: ' : '')+s.t+'</span></button>';
+  }).join('');
+  return '<section class="fac f-'+L.c+' '+state+'">'
+    +'<div class="fac-band"><small>'+(STORY_LEVELS[li+1] ? 'Level '+(li+1) : 'Finale')+'</small><b>'+L.n+'</b><i>&ldquo;'+L.q+'&rdquo;</i><em>'+cleared+' / '+chs.length+'</em></div>'
+    +'<div class="fac-path">'+nodes+'</div>'
+    + storyChapter(M.storySel, done)
+    +'</section>';
+}
+/* Story screen: the campus map with a pin per faculty/office (see STORY_MAP), and the selected
+   location's faculty band underneath. M.storySel defaults to the next chapter to play. */
 function renderStory(){
   var done = ACC.profile.story_chapter||0, total = STORY.length;
-  if(M.storySel==null || M.storySel>Math.min(done, total-1)) M.storySel = Math.min(done, total-1);
-  var levels = STORY_LEVELS.map(function(L, li){
-    var chs = []; STORY.forEach(function(s, i){ if(s.lvl===li+1) chs.push(i); });
-    var cleared = chs.filter(function(i){ return i<done; }).length;
-    var state = cleared===chs.length ? 'cleared' : chs[0]>done ? 'locked' : 'current';
-    var nodes = chs.map(function(i, k){
-      var s = STORY[i], st = i<done ? 'done' : i===done ? 'next' : 'locked', sel = i===M.storySel;
-      var inner = s.boss ? '<div class="card mini">'+charFace(CARDID[s.foes[0]])+'</div>'
-        : '<span class="dot">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : (k+1))+'</span>';
-      return '<button class="node'+(s.boss ? ' boss' : '')+' '+st+(sel ? ' sel' : '')+'" data-a="storysel" data-v="'+i+'" aria-pressed="'+sel+'">'+inner+'<span>'+(s.boss ? 'Boss: ' : '')+s.t+'</span></button>';
-    }).join('');
-    return '<section class="fac f-'+L.c+' '+state+'">'
-      +'<div class="fac-band"><small>'+(STORY_LEVELS[li+1] ? 'Level '+(li+1) : 'Finale')+'</small><b>'+L.n+'</b><i>&ldquo;'+L.q+'&rdquo;</i><em>'+cleared+' / '+chs.length+'</em></div>'
-      +'<div class="fac-path">'+nodes+'</div>'
-      +(chs.indexOf(M.storySel)>=0 ? storyChapter(M.storySel, done) : '')
-      +'</section>';
+  if(M.storySel==null || !STORY[M.storySel]) M.storySel = Math.min(done, total-1);
+  var pins = STORY_MAP.pins.map(function(p){
+    var chs = p.lvl ? storyLevelChs(p.lvl) : [p.ch], last = chs[chs.length-1];
+    var st = last<done ? 'done' : chs[0]>done ? 'locked' : 'next', on = chs.indexOf(M.storySel)>=0;
+    var pick = Math.min(Math.max(done, chs[0]), last);
+    return '<button class="pin '+st+(on ? ' sel' : '')+'" style="left:'+p.x+'%;top:'+p.y+'%" data-a="storysel" data-v="'+pick+'" aria-pressed="'+on+'" aria-label="'+p.n+(st==='done' ? ', cleared' : st==='locked' ? ', locked' : ', next')+'">'
+      +'<span class="pin-dot" aria-hidden="true">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : '&#9733;')+'</span><span class="pin-lbl">'+p.n+'</span></button>';
   }).join('');
   return pageTop('Story')+'<div class="story">'
     +'<div class="story-hero"><h2>Knox for Principal</h2>'
     +'<p>Graduate teacher. One lanyard. One ambition. Take the school faculty by faculty &mdash; beat each Head and they join you &mdash; then face the Principal Class.</p>'
-    +'<div class="story-bar"><i style="width:'+Math.round(done/total*100)+'%"></i></div><p class="meta">'+done+' / '+total+' chapters cleared</p></div>'
+    +'<div class="story-bar"><i style="width:'+Math.round(done/total*100)+'%"></i></div><p class="meta">'+done+' / '+total+' chapters cleared &middot; tap a building</p></div>'
     + msgs()
-    +'<div class="story-map">'+levels+'</div>'
+    +'<div class="story-mapwrap"><img src="'+STORY_MAP.img+'" alt="Campus map" width="1376" height="768">'+pins+'</div>'
+    + storyLevel(STORY[M.storySel].lvl-1, done)
     +'</div></div>';
 }
 
