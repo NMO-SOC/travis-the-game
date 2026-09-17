@@ -39,6 +39,7 @@ A.init = async function(onChange){
   if(!c){ A.ready = true; changed(); return; }
   A.available = true;
   A.loadPacks();
+  A.loadEvents();
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
@@ -175,6 +176,19 @@ A.loadPacks = async function(){
   }catch(e){ A.packs = []; }
   changed();
 };
+/* ---------------- special events ----------------
+   Every saved event (admins see them all to switch on and off); players only get offered live ones.
+   [] until upgrade-16 is run. */
+A.events = [];
+A.loadEvents = async function(){
+  try{ A.events = await call(client().from('events').select('*').order('created_at', {ascending:false})) || []; }catch(e){ A.events = []; }
+  changed();
+};
+A.liveEvents = function(){ return A.events.filter(function(e){ return e.live; }); };
+A.saveEvent = async function(row){ await call(client().from('events').insert(row)); await A.loadEvents(); };
+A.setEventLive = async function(id, live){ await call(client().from('events').update({live:live}).eq('id', id)); await A.loadEvents(); };
+A.deleteEvent = async function(id){ await call(client().from('events').delete().eq('id', id)); await A.loadEvents(); };
+
 A.openPack = async function(packId){
   var cards = await call(client().rpc('open_pack', {p_pack:packId}));
   await A.refresh();
