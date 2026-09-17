@@ -1380,6 +1380,21 @@ async function busy(fn){
 }
 function pageTop(title){ return topbar(title) + '<div class="pg">'; }
 
+/* Small line-icon set for the account nav tiles, drawn in the same stroke style as the card icons
+   in cards.js (S) — kept separate since these are UI chrome, not card art. */
+var NAVICON = {
+  packs:'<path d="M3 9h18M3 9v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V9M3 9l1.5-4A1 1 0 0 1 5.4 4h13.2a1 1 0 0 1 .9 1L21 9"/><path d="M12 9v12"/>',
+  collection:'<path d="M3 8V6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2"/><path d="M3 8h18l-1.8 10.8A1 1 0 0 1 18.2 19H5.8a1 1 0 0 1-1-.8L3 8z"/>',
+  decks:'<rect x="2.5" y="7" width="11" height="15" rx="1.6" transform="rotate(-9 8 14.5)"/><rect x="9" y="5.3" width="11" height="15" rx="1.6" transform="rotate(9 14.5 12.8)"/>',
+  story:'<path d="M12 6.2c-1.6-1.5-4.3-2.2-8.5-2.2v14.4c4.2 0 6.9.7 8.5 2.2 1.6-1.5 4.3-2.2 8.5-2.2V4c-4.2 0-6.9.7-8.5 2.2z"/><path d="M12 6.2v14.4"/>',
+  admin:'<path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-3z"/><path d="M9.3 12.2l1.9 1.9L15 10"/>'
+};
+function navIcon(k){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+NAVICON[k]+'</svg>'; }
+function navTile(a, icon, label, opts){
+  opts = opts || {};
+  return '<button class="navtile'+(opts.gold?' gold':'')+'" data-a="'+a+'"'+(opts.v?' data-v="'+opts.v+'"':'')+(opts.count?' data-count="'+opts.count+'"':'')+'>'
+    + navIcon(icon)+'<b>'+label+'</b></button>';
+}
 function accountStrip(){
   if(!ACC || !ACC.available) return '';
   if(!ACC.ready) return '<div class="acct"><span class="muted">Connecting&hellip;</span></div>';
@@ -1387,9 +1402,13 @@ function accountStrip(){
   var p = ACC.profile;
   var np = ACC.totalPacks();
   return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+np+' pack'+(np===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
-    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button><button class="btn sm" data-a="go" data-v="story">Story</button>'
-    +(p.is_admin ? '<button class="btn sm" data-a="go" data-v="admin">Admin</button>' : '')
-    +'<button class="lnk" data-a="signout">Sign out</button></div></div>';
+    +'<div class="acct-btns"><div class="navrow">'
+    + navTile('go', 'packs', 'Packs', {v:'packs', gold:!!np, count:np||null})
+    + navTile('go', 'collection', 'Cards', {v:'collection'})
+    + navTile('go', 'decks', 'Decks', {v:'decks'})
+    + navTile('go', 'story', 'Story', {v:'story'})
+    + (p.is_admin ? navTile('go', 'admin', 'Admin', {v:'admin'}) : '')
+    +'</div><button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
 
 /* ---- sign in ---- */
