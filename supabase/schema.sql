@@ -372,7 +372,7 @@ create table public.games (
   id         bigint generated always as identity primary key,
   user_id    uuid not null references public.profiles(id) on delete cascade,
   mode       text not null check (mode in ('cpu','online')),
-  difficulty text check (difficulty in ('easy','medium','hard')),
+  difficulty text check (difficulty in ('easy','medium','hard','insane')),
   size       int  not null check (size in (3,4,6)),
   result     text not null check (result in ('win','loss','draw','quit')),
   rounds     int  not null default 0 check (rounds between 0 and 999),
@@ -401,6 +401,7 @@ begin
   v_xp := case when p_result = 'quit' then 0 else
     round((8 + case when p_result = 'win' then 12 else 0 end) *
       case when p_mode = 'online' then 1.2
+           when p_difficulty = 'insane' then 1.8
            when p_difficulty = 'hard' then 1.4
            when p_difficulty = 'easy' then 0.75
            else 1 end)::int

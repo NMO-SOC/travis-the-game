@@ -329,7 +329,7 @@ function logResult(result){
 }
 /* High Stakes: a second, uncapped way to earn a pack (see stakeEligible), at the cost of the Grant
    Points staked if you don't win. Independent of the five-a-day free win cap below. */
-function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && !CFG.spectating && ((CFG.mode==='cpu' && CFG.diff==='hard') || CFG.mode==='online')); }
+function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && !CFG.spectating && ((CFG.mode==='cpu' && (CFG.diff==='hard' || CFG.diff==='insane')) || CFG.mode==='online')); }
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
@@ -344,7 +344,7 @@ function gameEnded(){
   }
   if(!ACC || !ACC.user || CFG.spectating || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g2 = G;
-  ACC.recordWin().then(function(got){
+  ACC.recordWin(CFG.mode==='cpu' ? CFG.diff : null).then(function(got){
     if(g2===G){ G.reward = got; render(); }
     if(CFG.mode==='online' && got) rollChairmanChase(g2);
   });
@@ -615,7 +615,8 @@ async function humanTurn(t){
 var DIFF = {
   easy:   {noise:7,   fumble:0.55, cards:3},
   medium: {noise:3.5, fumble:0.25, cards:1.2},
-  hard:   {noise:1.5, fumble:0.08, cards:0}
+  hard:   {noise:1.5, fumble:0.08, cards:0},
+  insane: {noise:0,   fumble:0,    cards:-1}
 };
 function diffCfg(){ return DIFF[CFG.diff] || DIFF.medium; }
 function diffNoise(){ return diffCfg().noise; }
@@ -1290,6 +1291,7 @@ function renderMenu(){
    +'</div></div>'
    +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
      + o('diff','easy','Easy','Very forgiving') + o('diff','medium','Medium','Makes mistakes') + o('diff','hard','Hard','A fair fight')
+     + o('diff','insane','Insane','Plays perfectly &mdash; much better rewards')
      +'</div></div>' : '')
    + eventGroup
    + stakeGroup()
@@ -1984,7 +1986,7 @@ function renderLeaderboard(){
     +'<div class="adhead"><h2>Leaderboard</h2><button class="btn sm" data-a="boardrefresh"'+(d.state==='loading'?' disabled':'')+'>Refresh</button></div>'
     +(d.rows.length ? '<div class="tablewrap"><table class="adm"><thead><tr><th>#</th><th>Player</th><th class="num">XP</th><th class="num">Won&ndash;lost</th><th class="num">Win rate</th><th class="num">Games</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
       : '<p class="muted">No registered players yet.</p>')
-    +'<p class="hint">Every battle earns XP, win or lose &mdash; more for a win, and more on Hard difficulty or online.</p>'
+    +'<p class="hint">Every battle earns XP, win or lose &mdash; more for a win, and more on Hard/Insane difficulty or online.</p>'
     +'</div></div>';
 }
 function loadAdmin(){
