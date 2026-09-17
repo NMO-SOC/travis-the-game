@@ -95,6 +95,26 @@ To check the fixes after merging:
 - **#17:** win a CPU game while signed in. A "won a pack" line appears in the activity feed.
 - **#18:** a player with fewer Grant Points than a stake gets "Not enough Grant Points for that stake" instead of the game settling it.
 
+## UI changes included
+
+Each of these was reproduced in a scripted battle in headless Chrome and checked again after the fix.
+
+| Change | What was wrong | Fix | Commit |
+|---|---|---|---|
+| Battle log scroll | The turn timer's 10-second nudge redraws the whole screen, which sent the battle log (and the side rail) back to the top while you were reading. | `paint()` keeps the scroll position of every scrolling panel (`.feed`, `.log`, `.rail`, `.chatfeed`). Chat only follows new messages while you're already at the bottom. | `5b38d94` |
+| Attack buttons covered | A raised or selected action card in the hand (z-index 20) sat on top of the attack buttons. | The attack bar stacks above hand cards. Its gaps let clicks through to the cards. | `5b38d94` |
+| Text overflow | Long status chips (e.g. the stun-immunity chip) ran off the card, and long attack names and log lines could spill out. | Attack names and log lines wrap. Status chips cut off with "…", and the stun chip now reads "Stun immune", with the full text on hover. | `5b38d94` |
+| Deck selection | The deck was chosen on the menu before starting. | The menu's "Your team" group is gone. Pressing Start against the CPU (signed in, with saved decks) opens a **Choose your team** screen: Random deal or a saved deck, with the last choice highlighted. Players with no saved decks, and Two Players, still deal straight away. Online already chose the deck after connecting. | `c4510a0` |
+
+The narrow-screen check of the attack buttons was cut short, because tapping a unit there opens a full-screen character card. The desktop run is what confirmed that fix.
+
+"Shuffle Up Again" after a CPU game also shows the Choose your team screen each time. If a rematch should reuse the last deck instead, that's a small follow-up.
+
+To check the UI changes after merging:
+- **Deck selection:** Menu → Versus CPU → Start. The Choose your team screen appears, and picking a saved deck starts the game with that deck's characters.
+- **Log scroll:** in a battle, scroll the log down and wait more than 10 seconds on your turn. It stays where you scrolled.
+- **Attack buttons:** select a character and tap a hand card. The attack buttons stay visible and clickable.
+
 ## Known limits
 
 - The win itself is reported by the browser, the same as the normal daily win packs, so the server can't check the battle happened. It only makes sure each reward goes out once, in order.
