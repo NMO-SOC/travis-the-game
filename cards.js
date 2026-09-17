@@ -99,15 +99,15 @@ var chars=[
  {n:"Crusader Knox",r:"Holy Charge",i:"flag",hp:24,atk:5,spd:3,an:"Shield Wall",a:"Also gives this character a Shield.",f:"Rode a very long way to argue about real estate.",set:"knox-of-history",img:"images/knox-of-history/crusader-knox.jpg"},
  {n:"Great Depression Knox",r:"Wall Street Wolf",i:"suit",hp:21,atk:4,spd:4,an:"Buy the Dip",a:"Also draws an action card.",f:"Bought the top. Sold the bottom. Still smoking a cigar.",set:"knox-of-history",img:"images/knox-of-history/great-depression-knox.jpg"},
  {n:"Napoleon Knox",r:"Emperor of the French",i:"flag",hp:22,atk:4,spd:3,an:"Grand Arm&eacute;e",a:"Also makes the target skip its next turn.",f:"Never lost a battle in his own retelling.",set:"knox-of-history",img:"images/knox-of-history/napoleon-knox.jpg"},
- {n:"Pharaoh Knox",r:"God-King of the Nile",i:"star",hp:25,atk:3,spd:2,an:"Divine Mandate",a:"Also heals this character 2 HP.",f:"Built for eternity. Running fifteen minutes late.",set:"knox-of-history",img:"images/knox-of-history/pharaoh-knox.jpg",tank:true},
+ {n:"Pharaoh Knox",r:"God-King of the Nile",i:"star",hp:25,atk:3,spd:2,an:"Divine Mandate",a:"Also heals this character 2 HP.",f:"Built for eternity. Running fifteen minutes late.",set:"knox-of-history",img:"images/knox-of-history/pharaoh-knox.jpg",pos:"50% 8%",tank:true},
  {n:"Pirate Knox",r:"Scourge of the Seven Seas",i:"wave",hp:18,atk:6,spd:5,an:"Boarding Party",a:"First strips the target&rsquo;s Shield, if it has one.",f:"All the charisma of a man who has never read the fine print.",set:"knox-of-history",img:"images/knox-of-history/pirate-knox.jpg"},
  {n:"Samurai Knox",r:"Blade of Bushido",i:"star",hp:21,atk:6,spd:5,an:"Iaijutsu Strike",a:"A harder hit. No other effect.",f:"Followed the code. The code did not follow him back.",set:"knox-of-history",img:"images/knox-of-history/samurai-knox.jpg"},
  {n:"Spartan Knox",r:"This Is Sparta",i:"laurel",hp:24,atk:5,spd:3,an:"Phalanx",a:"Also gives this character a Shield.",f:"This. Is. The Debbie Locco Centre.",set:"knox-of-history",img:"images/knox-of-history/spartan-knox.jpg"},
- {n:"Tech Bro Knox",r:"Disruptor-in-Chief",i:"cd",hp:21,atk:4,spd:6,an:"Series A",a:"Also draws an action card.",f:"Disrupting industries he does not understand.",set:"knox-of-history",img:"images/knox-of-history/tech-bro-knox.jpg"},
+ {n:"Tech Bro Knox",r:"Disruptor-in-Chief",i:"cd",hp:21,atk:4,spd:6,an:"Series A",a:"Also draws an action card.",f:"Disrupting industries he does not understand.",set:"knox-of-history",img:"images/knox-of-history/tech-bro-knox.jpg",pos:"50% 2%"},
  {n:"Washington Knox",r:"First in War, First in Peace",i:"flag",hp:24,atk:4,spd:3,an:"Crossing the Delaware",a:"Also heals this character 2 HP.",f:"Cannot tell a lie. Excellent at cutting down cherry trees and budgets.",set:"knox-of-history",img:"images/knox-of-history/washington-knox.jpg"},
  {n:"Woodstock Knox",r:"Three Days of Peace and Music",i:"mic",hp:20,atk:4,spd:5,an:"Peace Sign",a:"Also gives this character a Shield.",f:"Missed the mud. Never missed a chord.",set:"knox-of-history",img:"images/knox-of-history/woodstock-knox.jpg"},
- {n:"WW1 Knox",r:"Over the Top",i:"whistle",hp:22,atk:5,spd:4,an:"No Man&rsquo;s Land",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Wrote home every week. The trench never wrote back.",set:"knox-of-history",img:"images/knox-of-history/ww1-knox.jpg"},
- {n:"WW2 Knox",r:"D-Day Veteran",i:"whistle",hp:21,atk:4,spd:4,an:"D-Day",a:"Also makes the target skip its next turn.",f:"Landed on the beach. Left with the medal.",set:"knox-of-history",img:"images/knox-of-history/ww2-knox.jpg"},
+ {n:"WW1 Knox",r:"Over the Top",i:"whistle",hp:22,atk:5,spd:4,an:"No Man&rsquo;s Land",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Wrote home every week. The trench never wrote back.",set:"knox-of-history",img:"images/knox-of-history/ww1-knox.jpg",pos:"50% 3%"},
+ {n:"WW2 Knox",r:"D-Day Veteran",i:"whistle",hp:21,atk:4,spd:4,an:"D-Day",a:"Also makes the target skip its next turn.",f:"Landed on the beach. Left with the medal.",set:"knox-of-history",img:"images/knox-of-history/ww2-knox.jpg",pos:"50% 12%"},
  /* Chairman Knox — a once-only gift to every player, and otherwise only a 1-in-100 chance on any
     pack won from an online battle. Never sold in a pack, never for sale. On its own it's the weakest
     card in the game (1 HP, 1 ATK, 1 SPD) — but own three and every copy becomes 10 for everything.
@@ -120,6 +120,15 @@ var chars=[
     generic finish any character can have — see collection.gold / deck.golds — so they're retired;
     upgrade-15-foil-gold-economy.sql folds anyone's existing golden-* ownership into the original
     card as a gold copy. */
+ /* Australiana pack — limited, only openable until Sunday 20 Sep 2026 11:59pm (see
+    supabase/upgrade-16-australiana.sql). Excluded from the Holo/Legendary foil-gold pool by that
+    same migration, so these six never turn up as a foil or gold pull outside this pack either. */
+ {n:"Bunnings BBQ Knox",r:"Weekend Sausage Sizzle",i:"bbq",hp:17,atk:5,spd:6,an:"Flip the Snags",a:"This character heals 4 HP.",f:"Red shirt, green apron, one onion short of a system.",set:"australiana",img:"images/australiana/bunnings-bbq-knox.jpg"},
+ {n:"Bushman Knox",r:"Outback Survivalist",i:"bushman",hp:17,atk:6,spd:5,an:"Swag Roll",a:"Also draws an action card.",f:"Slept under the stars. Woke up under a ute.",set:"australiana",img:"images/australiana/bushman-knox.jpg"},
+ {n:"First Fleet Knox",r:"1788 Arrival",i:"fleet",hp:19,atk:5,spd:7,an:"Land Ho",a:"Also gives this character a Shield.",f:"Eight months at sea for this weather.",set:"australiana",img:"images/australiana/first-fleet-knox.jpg"},
+ {n:"Outback Knox",r:"Red Centre Wanderer",i:"outback",hp:16,atk:4,spd:5,an:"Dust Storm",a:"Also makes the target skip its next turn.",f:"Out of reception. Out of worries.",set:"australiana",img:"images/australiana/outback-knox.jpg"},
+ {n:"Surf Lifesaver Knox",r:"Beach Patrol",i:"surf",hp:17,atk:5,spd:6,an:"Rip Rescue",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Between the flags. Always between the flags.",set:"australiana",img:"images/australiana/surf-lifesaver-knox.jpg"},
+ {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"},
  /* Story mode — never in packs, never for sale. See STORYLINE.md. Heads of Faculty and Principal Travis
     Knox join your collection when beaten/earned in Story; the Assistant Principals and Principal Knox
     are opponents only. */
@@ -172,13 +181,14 @@ var PACKS = [
   {id:'term-one', name:'Term One'}, {id:'socs-favourite', name:'SOC&rsquo;s Favourite'},
   {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
   {id:'knox-of-history', name:'Knox of History'},
+  {id:'australiana', name:'Australiana'},
   {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}, {id:'story', name:'Story'}
 ];
 
 /* Story mode (see STORYLINE.md): four faculties of three chapters, the last a Head of Faculty boss, then
    the Principal Class. Every chapter is a quick 3 v 3 against 3 foes drawn at random from its pool
    (a boss chapter always includes its boss, listed first). Beating a chapter (in order) grants its reward, if any, into your real collection
-   and story roster — the reward list is repeated server-side in upgrade-16-story-mode.sql, keep the two
+   and story roster — the reward list is repeated server-side in upgrade-21-story-mode.sql, keep the two
    in the same order. */
 var STORY_START = ['tadpole-knox','family-man-knox','field-researcher-knox'];
 /* n: name, q: tagline, c: colour (a card frame class in play.html) */
@@ -256,6 +266,8 @@ var SIG_FX = {
  'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
  'WW1 Knox':'unshield', 'WW2 Knox':'stun',
  'Chairman Knox':undefined,
+ 'Bunnings BBQ Knox':'heal', 'Bushman Knox':'draw', 'First Fleet Knox':'shield', 'Outback Knox':'stun',
+ 'Surf Lifesaver Knox':'unshield', 'Oakleigh Knox':'recoil',
  'Head of Science Knox':'unshield', 'Head of Maths Knox':'stun', 'Head of English Knox':'draw', 'Head of Humanities Knox':'shield',
  'Wellbeing AP Knox':'heal', 'Curriculum AP Knox':'stun', 'Principal Knox':'stun', 'Principal Travis Knox':'heal'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */

@@ -39,10 +39,11 @@ A.init = async function(onChange){
   if(!c){ A.ready = true; changed(); return; }
   A.available = true;
   A.loadPacks();
+  A.loadEvents();
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
-    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); }
+    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); }
   }catch(e){ A.user = null; }
   A.ready = true; changed();
 };
@@ -58,6 +59,13 @@ A.claimChairmanGift = async function(){
     if(got){ A.justGiftedChairman = true; await A.refresh(); }
   }catch(e){}
 };
+/* A once-only free Australiana pack (a specific-type pack, not a generic token) for every player,
+   past and future, the first time they're signed in after upgrade-16 — same server-enforced,
+   run-as-many-times-as-you-like pattern as claimChairmanGift above. */
+A.claimAustralianaGift = async function(){
+  if(!A.user) return;
+  try{ var got = await call(client().rpc('claim_australiana_gift')); if(got) await A.refresh(); }catch(e){}
+};
 A.signUp = async function(username, password){
   var u = clean(username);
   if(!USERNAME_RE.test(u)) throw new Error('Usernames are 3&ndash;20 characters: letters, numbers or _.');
@@ -66,12 +74,12 @@ A.signUp = async function(username, password){
   if(!free) throw new Error('That username is taken.');
   var d = await call(client().auth.signUp({email:emailFor(u), password:password, options:{data:{username:u}}}));
   if(!d.session) throw new Error('Account made, but sign-in is waiting on email confirmation. Ask the admin to turn off &ldquo;Confirm email&rdquo; in Supabase.');
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
 };
 A.signIn = async function(username, password){
   var u = clean(username);
   var d = await call(client().auth.signInWithPassword({email:emailFor(u), password:password}));
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
 };
 A.signOut = async function(){
   A.leaveLobby();
@@ -136,7 +144,7 @@ A.actionLimit = function(a){ return a.set==='base' ? 3 : Math.min(3, qty(a.id,fa
 A.price = function(c){ return c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 20 : 8; };
 A.canBuy = function(c, finish){
   if(!A.profile || finish==='foil' || finish==='gold') return false;   // pull- or gift-only, never for sale
-  if(c.set==='base' || c.set==='story' || c.id==='chairman-knox') return false;
+  if(c.set==='base' || c.set==='story' || c.id==='chairman-knox' || c.set==='australiana') return false;  // pack-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 /* Sell price is half the buy price. Starter (base, normal) cards can't be sold — everyone already owns them free. */
@@ -163,23 +171,46 @@ A.loadPacks = async function(){
     A.packs = (r[0]||[]).map(function(p){
       var rows = (r[1]||[]).filter(function(o){ return o.pack_id===p.id; }), total = rows.reduce(function(s,o){ return s+o.weight; }, 0), odds = {};
       rows.forEach(function(o){ odds[o.slot] = total ? o.weight/total : 0; });
-      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null, winWeight:p.win_weight||0};
+      return {id:p.id, name:p.name, blurb:p.blurb, odds:odds, openWithAny:p.open_with_any!==false, validUntil:p.valid_until||null, winWeight:p.win_weight||0, gpPrice:p.gp_price||null};
     });
   }catch(e){ A.packs = []; }
   changed();
 };
+/* ---------------- special events ----------------
+   Every saved event (admins see them all to switch on and off); players only get offered live ones.
+   [] until upgrade-16 is run. */
+A.events = [];
+A.loadEvents = async function(){
+  try{ A.events = await call(client().from('events').select('*').order('created_at', {ascending:false})) || []; }catch(e){ A.events = []; }
+  changed();
+};
+A.liveEvents = function(){
+  var me = A.profile && A.profile.username;
+  return A.events.filter(function(e){ return e.live && (!e.allowed_usernames || !e.allowed_usernames.length || (me && e.allowed_usernames.indexOf(me)>=0)); });
+};
+A.saveEvent = async function(row){ await call(client().from('events').insert(row)); await A.loadEvents(); };
+A.setEventLive = async function(id, live){ await call(client().from('events').update({live:live}).eq('id', id)); await A.loadEvents(); };
+A.deleteEvent = async function(id){ await call(client().from('events').delete().eq('id', id)); await A.loadEvents(); };
+
 A.openPack = async function(packId){
   var cards = await call(client().rpc('open_pack', {p_pack:packId}));
   await A.refresh();
   return (cards||[]).map(function(x){ return {id:x.id, foil:x.foil, gold:x.gold, dupe:x.dupe, starter:!!x.starter, points:x.points, card:CARD[x.id]}; });
 };
+/* Buying a pack always grants a token of that exact pack (pack_stock), never a generic any-type
+   token — see upgrade-17-buy-packs.sql. Missing gracefully (gpPrice null) until that migration runs. */
+A.canBuyPack = function(id){
+  var p = A.packs.filter(function(x){ return x.id===id; })[0];
+  return !!(p && p.gpPrice && !A.isExpired(id) && A.profile && A.profile.grant_points >= p.gpPrice);
+};
+A.buyPack = async function(packId){ await call(client().rpc('buy_pack', {p_pack:packId})); await A.refresh(); };
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
 /* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
    won, or null if today's five win-packs are already claimed. */
 /* Story mode: clears chapter ch if it's the next one and resolves to the reward card id, or null if
    it was already cleared (replays grant nothing). The reward itself is decided server-side. */
 A.storyClear = async function(ch){ var got = await call(client().rpc('story_clear', {p_chapter:ch})); await A.refresh(); return got; };
-A.recordWin = async function(){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win')); await A.refresh(); return got; }catch(e){ return null; } };
+A.recordWin = async function(difficulty){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win', {p_difficulty:difficulty||null})); await A.refresh(); return got; }catch(e){ return null; } };
 /* High Stakes: a second, uncapped way to earn a pack, at the cost of the Grant Points staked on a loss.
    Resolves to {won, pack} on a win or {won:false, lost, grant_points} on a loss. */
 /* Chairman Knox's only other source: a 1-in-100 chance whenever a pack is actually won from an

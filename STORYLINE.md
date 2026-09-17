@@ -235,6 +235,6 @@ lighting, a proud grin.
 ---
 
 ## In code
-- Chapters: `STORY` in `cards.js`. Rewards are also listed in `supabase/upgrade-16-story-mode.sql`, which must stay in the same order.
+- Chapters: `STORY` in `cards.js`. Rewards are also listed in `supabase/upgrade-21-story-mode.sql`, which must stay in the same order.
 - Characters: the `set:"story"` entries in `cards.js`, with images in `images/story/`.
 - Heads of Faculty and Principal Travis Knox join your collection. The Assistant Principals and Principal Knox are opponents only.

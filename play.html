@@ -348,6 +348,10 @@ b.t0,b.t1,.who{color:var(--tc)}
 .btn.act small{font-size:12.5px}
 .btn.abil{border-color:#8fc7ff;color:#d8ecff}
 .btn.end{min-width:120px;font-size:16px;border-radius:40px;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a 45%,#9c7626);border-color:#f7e2a1}
+.btn.act.locked{opacity:.45;cursor:default}
+.turntimer{flex:1 1 100%;height:5px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden;margin-bottom:2px}
+.turntimer i{display:block;height:100%;background:var(--gold);animation-name:turnshrink;animation-timing-function:linear;animation-fill-mode:forwards}
+@keyframes turnshrink{from{width:100%}to{width:0%}}
 
 /* hand */
 .hand{display:flex;justify-content:center;align-items:flex-end;padding:14px 0 6px;min-height:calc(var(--hw)*1.4 + 20px)}
@@ -765,9 +769,9 @@ table.adm{width:100%;border-collapse:collapse;font-size:15px;min-width:760px}
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="cards.js?v=20260917a"></script>
-<script src="account.js?v=20260917a"></script>
-<script src="play.js?v=20260917a"></script>
+<script src="cards.js?v=20260917b"></script>
+<script src="account.js?v=20260917b"></script>
+<script src="play.js?v=20260917b"></script>
 <script src="music.js?v=20260915a"></script>
 <script>TravisGame.mount(document.getElementById('app'));</script>
 </body>

@@ -1,4 +1,4 @@
--- Travis: The Game — upgrade 16: Story mode (see STORYLINE.md). Four faculties of three chapters (the
+-- Travis: The Game — upgrade 21: Story mode (see STORYLINE.md). Four faculties of three chapters (the
 -- last a Head of Faculty boss), then the Principal Class. Clearing a chapter, in order, grants its reward
 -- card into the real collection. Story characters and action cards get a new 'story' rarity: never in a
 -- pack's odds, never for sale (buy_card and sell_card already reject any rarity they don't price), and

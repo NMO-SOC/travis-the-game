@@ -3,8 +3,39 @@
 'use strict';
 
 var HAND_LIMIT = 3;
+/* Attack cooldowns: values are internal "ticks" (decremented once per round in startRound, a move is
+   locked while its tick is >0), not turns-missed directly — a tick of N blocks the move for N-1 of the
+   unit's own future turns, since the round it's used in doesn't count. Jab (index 0) never cools down.
+   Signature (index 1): 1 turn cooldown. Overdrive (index 2): 2 turns cooldown. */
+var ATK_COOLDOWN = [0, 2, 3];
+var TURN_NUDGE_MS = 10000;
+var TURN_TIMER_MS = 15000;
+var TURN_TIMER_MS_CPU = 30000;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
+var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false, event:''};
+
+/* Australiana battle themes: attacking with one of these characters starts (or keeps) its song
+   looping for the whole game — no controls, ducking the persistent site player out of the way —
+   until the game ends or a different Australiana theme starts. Runs on every client identically
+   (performAttack replays the same on host and guest in an online match), so both players hear it
+   without any extra network message. */
+var BATTLE_THEME = {
+  'oakleigh-knox':'songs/AthinaMou.mp3', 'first-fleet-knox':'songs/BortanyBay.mp3', 'bushman-knox':'songs/WaltzingMatilda.mp3',
+  'bunnings-bbq-knox':'songs/DownUnder.mp3', 'outback-knox':'songs/DownUnder.mp3', 'surf-lifesaver-knox':'songs/DownUnder.mp3'
+};
+var battleAudio = null;
+function playBattleTheme(file){
+  if(!file || typeof document==='undefined') return;
+  if(battleAudio && battleAudio.getAttribute('data-file')===file) return;
+  if(!battleAudio){ battleAudio = document.createElement('audio'); battleAudio.loop = true; document.body.appendChild(battleAudio); }
+  if(window.TravisMusic) window.TravisMusic.duck();
+  battleAudio.setAttribute('data-file', file);
+  battleAudio.src = file;
+  battleAudio.play().catch(function(){});
+}
+function stopBattleTheme(){
+  if(battleAudio){ battleAudio.pause(); battleAudio.removeAttribute('data-file'); }
+}
 var G = {phase:'menu', log:[], fx:[]};
 
 var CHAR = {}; chars.forEach(function(c,i){ CHAR[c.n] = i; });
@@ -72,11 +103,17 @@ function best(arr, ai){
 function bestIdx(arr, ai){ var b=best(arr.map(function(x,i){return {x:x,i:i};}), ai ? function(o){ return ai(o.x,o.i); } : null); return b.i; }
 
 function isCPU(t){ return CFG.mode==='sim' || (CFG.mode==='cpu' && t===1); }
-function isRemote(t){ return CFG.mode==='online' && (CFG.spectating || t!==CFG.me); }
+/* Spectating (online OR a signed-in player's CPU game, broadcast the same way — see beginBattle's
+   cpu-broadcast block) always treats every team as remote: neither is the local viewer's own, so
+   every decision comes off the network instead of a click. The CPU side never actually reaches this
+   check either way — isCPU() short-circuits it straight to cpuTurn(), run locally off the same seed
+   on both the real host and every spectator. */
+function isRemote(t){ return CFG.spectating || (CFG.mode==='online' && t!==CFG.me); }
 function pname(t){
+  if(CFG.spectating) return (CFG.names && CFG.names[t]) || 'Player '+(t+1);
   if(CFG.mode==='cpu') return t===0 ? 'You' : 'CPU';
   if(CFG.mode==='sim') return 'CPU '+(t+1);
-  if(CFG.mode==='online') return (!CFG.spectating && t===CFG.me) ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
+  if(CFG.mode==='online') return t===CFG.me ? 'You' : (CFG.names && CFG.names[t]) || 'Opponent';
   return 'Player '+(t+1);
 }
 function viewer(){
@@ -131,7 +168,7 @@ function newUnit(ci, team, foil, gold){
   var base = chars[ci];
   var c = base.id==='chairman-knox' ? chairmanVariant(base, !!(G.chairmanEmpowered && G.chairmanEmpowered[team])) : base;
   return {id:++G.uid, ci:ci, c:c, team:team, max:c.hp, hp:c.hp, spd:c.spd, foil:!!foil, gold:!!gold,
-    ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand()};
+    ko:false, revealed:false, shield:false, atkGame:0, atkRound:0, skip:0, acted:false, tie:rand(), atkCd:[0,0,0]};
 }
 
 /* ---------------- async plumbing ---------------- */
@@ -152,16 +189,33 @@ function wait(kind, data){
     for(var k in data) w[k]=data[k];
     w.res = function(v){
       if(G.wait!==w) return;
-      if(CFG.mode==='online'){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
+      if(w.timer) clearTimeout(w.timer);
+      if(w.nudge) clearTimeout(w.nudge);
+      if(CFG.mode==='online' || (CFG.mode==='cpu' && NET.conn)){ var enc = encodeInput(kind, v); NET.send({k:'in', v:enc}); MATCHLOG.push(enc); }
       G.wait=null; render(); res(v);
     };
-    w.rej = function(e){ G.wait=null; render(); rej(e); };
+    w.rej = function(e){ if(w.timer) clearTimeout(w.timer); if(w.nudge) clearTimeout(w.nudge); G.wait=null; render(); rej(e); };
     G.wait = w; render();
+    /* Move timer: 'cmd' is the one wait() kind used for "what do you do this turn" (see humanTurn) —
+       a nudge at 10s, then run out 15s total without picking an attack, playing a card, or ending your
+       turn, and the turn is forfeited for you. Scoped to this top-level decision only, not to a nested
+       prompt like choosing an attack's target — those re-arm a fresh 'cmd' wait as soon as you cancel
+       back out. */
+    if(kind==='cmd' && CFG.mode!=='sim' && !G.over && !(CFG.mode==='cpu' && (CFG.diff==='easy' || CFG.diff==='medium'))){
+      var limit = CFG.mode==='cpu' ? TURN_TIMER_MS_CPU : TURN_TIMER_MS;
+      w.deadline = now() + limit;
+      w.nudge = setTimeout(function(){ if(G.wait===w && !G.over){ sfx('card'); render(); } }, TURN_NUDGE_MS);
+      w.timer = setTimeout(function(){
+        if(G.wait!==w || G.over) return;
+        log(pn(data.team)+' ran out of time &mdash; turn forfeited.', 'turn');
+        w.res({t:'end', forced:true});
+      }, limit);
+    }
   });
 }
 function encodeInput(kind, v){
   if(kind==='unit') return v ? v.id : null;
-  if(kind==='cmd') return {t:v.t, target:v.target, i:v.i, cur:G.cur ? G.cur.id : null};
+  if(kind==='cmd') return {t:v.t, target:v.target, i:v.i, cur:G.cur ? G.cur.id : null, forced:!!v.forced};
   return v;
 }
 function remoteInput(kind, data){
@@ -172,7 +226,7 @@ function remoteInput(kind, data){
       if(g!==G) return;
       G.wait = null;
       if(kind==='unit') v = v==null ? null : unitById(v);
-      else if(kind==='cmd'){ G.cur = v.cur==null ? null : unitById(v.cur); v = {t:v.t, target:v.target, i:v.i}; }
+      else if(kind==='cmd'){ G.cur = v.cur==null ? null : unitById(v.cur); v = {t:v.t, target:v.target, i:v.i, forced:!!v.forced}; }
       render(); res(v);
     });
   });
@@ -255,6 +309,7 @@ function checkOver(){
   if(a && b) return;
   G.over = true; G.winner = a ? 0 : b ? 1 : -1;
   G.cur = null;
+  stopBattleTheme();
   var me = CFG.mode==='online' ? CFG.me : 0;
   sfx(G.winner<0 ? 'lose' : (CFG.mode==='hot' || CFG.spectating || G.winner===me) ? 'win' : 'lose');
   log(G.winner<0 ? 'Both teams are knocked out. It&rsquo;s a draw.' : pn(G.winner)+' '+(pname(G.winner)==='You'?'win':'wins')+'!', 'win');
@@ -274,7 +329,7 @@ function logResult(result){
 }
 /* High Stakes: a second, uncapped way to earn a pack (see stakeEligible), at the cost of the Grant
    Points staked if you don't win. Independent of the five-a-day free win cap below. */
-function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && !CFG.spectating && ((CFG.mode==='cpu' && CFG.diff==='hard') || CFG.mode==='online')); }
+function stakeEligible(){ return !!(ACC && ACC.user && ACC.profile && !CFG.spectating && ((CFG.mode==='cpu' && (CFG.diff==='hard' || CFG.diff==='insane')) || CFG.mode==='online')); }
 function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
@@ -298,7 +353,7 @@ function gameEnded(){
   }
   if(!ACC || !ACC.user || CFG.spectating || G.winner!==me || !(CFG.mode==='cpu' || CFG.mode==='online')) return;
   var g2 = G;
-  ACC.recordWin().then(function(got){
+  ACC.recordWin(CFG.mode==='cpu' ? CFG.diff : null).then(function(got){
     if(g2===G){ G.reward = got; render(); }
     if(CFG.mode==='online' && got) rollChairmanChase(g2);
   });
@@ -325,7 +380,10 @@ function stun(e){
 }
 /* Run one of a character's three attacks against a target: damage, then its effect (if any). */
 async function performAttack(u, e, mv){
+  var mi = u.c.atks.indexOf(mv);
+  if(mi>0 && ATK_COOLDOWN[mi]){ u.atkCd = u.atkCd || [0,0,0]; u.atkCd[mi] = ATK_COOLDOWN[mi]; }
   var dmg = moveDamage(u, mv);
+  if(BATTLE_THEME[u.c.id]) playBattleTheme(BATTLE_THEME[u.c.id]);
   fxc('u'+u.id, 'lunge', 450);
   fxc('mat', 'clash', 260, 190);
   sfx(mv.fx==='heal' ? 'heal' : mv.fx==='shield' ? 'shield' : 'hit');
@@ -585,8 +643,8 @@ async function humanTurn(t){
     if(G.acted && !cardsOk) return;
     var cmd = await wait('cmd', {team:t});
     var u = G.cur;
-    if(cmd.t==='end'){ if(G.acted) return; continue; }
-    if(cmd.t==='atk' && u && !G.acted){
+    if(cmd.t==='end'){ if(G.acted || cmd.forced || !ready(t).length) return; continue; }
+    if(cmd.t==='atk' && u && !G.acted && !(u.atkCd && u.atkCd[cmd.i]>0)){
       var mv = u.c.atks[cmd.i], dmg = moveDamage(u, mv);
       var e = await pickFoe(u, 'Attack with '+mv.n+' ('+dmg+' damage): tap an enemy', dmg);
       if(!e) continue;
@@ -602,7 +660,8 @@ async function humanTurn(t){
 var DIFF = {
   easy:   {noise:7,   fumble:0.55, cards:3},
   medium: {noise:3.5, fumble:0.25, cards:1.2},
-  hard:   {noise:1.5, fumble:0.08, cards:0}
+  hard:   {noise:1.5, fumble:0.08, cards:0},
+  insane: {noise:0,   fumble:0,    cards:-1}
 };
 function diffCfg(){ return DIFF[CFG.diff] || DIFF.medium; }
 function diffNoise(){ return diffCfg().noise; }
@@ -634,16 +693,18 @@ function fxBonus(u, mv, e){
 function movePlan(u){
   var top = null, noise = diffNoise();
   u.c.atks.forEach(function(mv, i){
+    if(u.atkCd && u.atkCd[i]>0) return;
     var dmg = moveDamage(u, mv), foe = best(foes(u), function(e){ return hitScore(dmg, e)+fxBonus(u,mv,e)+rand()*noise; });
     var score = hitScore(dmg, foe) + fxBonus(u, mv, foe);
     if(!top || score>top.score) top = {i:i, mv:mv, foe:foe, score:score};
   });
   return top;
 }
-/* A fumble: the CPU ignores its own plan and just swings a random move at a random target. */
+/* A fumble: the CPU ignores its own plan and just swings a random (available) move at a random target. */
 function fumblePlan(u){
-  var mv = u.c.atks[Math.floor(rand()*u.c.atks.length)], list = foes(u);
-  return {i:0, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
+  var avail = u.c.atks.map(function(mv,i){ return i; }).filter(function(i){ return !(u.atkCd && u.atkCd[i]>0); });
+  var i = avail[Math.floor(rand()*avail.length)], mv = u.c.atks[i], list = foes(u);
+  return {i:i, mv:mv, foe:list[Math.floor(rand()*list.length)], score:0};
 }
 function cpuPlan(u){
   var mp = rand()<diffCfg().fumble ? fumblePlan(u) : movePlan(u);
@@ -685,6 +746,7 @@ function startRound(){
     if(u.acted) fxc('u'+u.id, 'untap', 450);
     u.acted = false;
     u.stunGuard = false;
+    if(u.atkCd) u.atkCd = u.atkCd.map(function(v){ return v>0 ? v-1 : 0; });
   });
   log('Round '+G.round+' &mdash; everyone untaps.', 'round');
   fxc('round', 'bannerpop', 1500);
@@ -770,13 +832,43 @@ function baseActions(){ var l = []; acts.forEach(function(a){ for(var k=0;k<a.x;
 function beginBattle(setup){
   setup = setup || {teams:G.deal.picks};
   G.phase='battle'; G.round=0; G.over=false; G.winner=null; G.zoom=null; G.sel=null;
+  stopBattleTheme();
   var freshGame = !G.startedAt;
   G.startedAt = G.startedAt || Date.now();
+  /* CPU games weren't seeded before (rand() just fell back to Math.random()) since nothing needed to
+     replay them. Watching one live needs that same determinism online play already has: a spectator
+     re-runs this exact function off the same seed, so the CPU's turns (driven locally by isCPU(1),
+     never over the network) land identically without broadcasting a single one of them. */
+  if(CFG.mode==='cpu' && !CFG.spectating && !G.rng){ G.seed = Math.floor(Math.random()*2147483647); G.rng = seeded(G.seed); }
   if(freshGame && ACC && ACC.user && !CFG.spectating && (CFG.mode==='cpu' || CFG.mode==='online')){
     ACC.logGameStart(CFG.mode, CFG.mode==='cpu' ? CFG.diff : null, CFG.size, CFG.mode==='online' ? (CFG.names && CFG.names[1-CFG.me]) : 'CPU');
   }
   G.houseOwned = setup.houseOwned || [houseOwnedFor(), houseOwnedFor()];
   G.chairmanEmpowered = setup.chairmanEmpowered || [chairmanEmpoweredFor(), chairmanEmpoweredFor()];
+  /* Makes this CPU game watchable: opens the same host/spectator channel infrastructure an online
+     match uses (see A.openMatch/openSpectate in account.js — fully mode-agnostic already) and
+     announces it in the shared lobby presence, so it shows up in "Watch a live match" and next to
+     this player's name in Active players. Every human decision from here (wait(), broadened above)
+     streams to any spectator the same way an online move would. */
+  if(CFG.mode==='cpu' && !CFG.spectating && !G.matchCode && ACC && ACC.user && ACC.announceMatch){
+    NET.close();
+    var wireTeam = function(t){
+      var ids = setup.teams[t], foilArr = setup.foils && setup.foils[t], goldArr = setup.golds && setup.golds[t];
+      return {chars:ids.map(function(ci){ return chars[ci].id; }),
+        foils:ids.filter(function(ci,i){ return foilArr && foilArr[i]; }).map(function(ci){ return chars[ci].id; }),
+        golds:ids.filter(function(ci,i){ return goldArr && goldArr[i]; }).map(function(ci){ return chars[ci].id; }),
+        actions:(setup.actions && setup.actions[t]) || baseActions(),
+        houseOwned:G.houseOwned[t], chairmanEmpowered:G.chairmanEmpowered[t]};
+    };
+    var code = ACC.makeCode();
+    G.matchCode = code;
+    MATCHLOG = [];
+    LAST_START = {mode:'cpu', diff:CFG.diff, seed:G.seed, first:null, size:CFG.size,
+      names:[ACC.profile.username, 'CPU'], teams:[wireTeam(0), wireTeam(1)]};
+    WE_ARE_HOST = true;
+    NET.conn = ACC.openMatch(code, 'host', {message:function(){}, presence:function(){}, specJoin:onSpecJoin, chat:onChatMsg, error:function(){}});
+    ACC.announceMatch(code, {size:CFG.size, names:LAST_START.names, mode:'cpu', diff:CFG.diff});
+  }
   G.teams = setup.teams.map(function(p,t){ return p.map(function(ci,i){ return newUnit(ci, t, setup.foils && setup.foils[t] && setup.foils[t][i], setup.golds && setup.golds[t] && setup.golds[t][i]); }); });
   var uid = 0;
   G.decks = [0,1].map(function(t){
@@ -806,6 +898,28 @@ function randomTeam(n, exclude){
   var pool = shuffle(BASE_CHARS.filter(function(i){ return (exclude||[]).indexOf(i)<0; }));
   return {chars:pool.slice(0, n), foils:[], golds:[], actions:null};
 }
+/* ---- special events: saved on the admin screen (ACC.events), playable while live ---- */
+function activeEvent(){ return ACC && ACC.user && CFG.mode!=='hot' && ACC.liveEvents().filter(function(e){ return e.id===CFG.event; })[0] || null; }
+function eventFits(ev, c){ return !ev.char_sets.length || ev.char_sets.indexOf(c.set)>=0; }
+function eventRule(ev){
+  var sets = ev.char_sets.map(function(id){ return id==='base' ? 'Starter' : packName(id); }).join(', ');
+  return (ev.foil_only ? 'Foils only' : '')+(ev.foil_only && sets ? ' &middot; ' : '')+(sets || (ev.foil_only ? '' : 'Any character'));
+}
+/* Every character you own that fits the event, as a deck teamPick can choose from. */
+function eventDeck(ev){
+  var ids = chars.filter(function(c){ return eventFits(ev, c) && (ev.foil_only ? ACC.ownsFoil(c.id) : ACC.ownsChar(c) || ACC.ownsFoil(c.id) || ACC.ownsGold(c.id)); })
+    .map(function(c){ return c.id; });
+  var foils = ids.filter(function(id){ return ev.foil_only || ACC.ownsFoil(id); });
+  return {name:ev.name, characters:ids, foils:foils, golds:ids.filter(function(id){ return foils.indexOf(id)<0 && ACC.ownsGold(id); }), actions:ev.actions};
+}
+function eventShortfall(ev, n){
+  var have = eventDeck(ev).characters.length;
+  return have>=n ? '' : esc(ev.name)+' needs '+n+' of your characters that fit it ('+eventRule(ev)+'). You have '+have+'.';
+}
+function eventCpuTeam(ev, n){
+  var pool = shuffle(chars.map(function(_,i){ return i; }).filter(function(i){ return eventFits(ev, chars[i]); })).slice(0, n);
+  return {chars:pool, foils:pool.map(function(){ return ev.foil_only; }), golds:[], actions:ev.actions.map(function(id){ return ACTID[id].n; })};
+}
 
 /* ---------------- card faces ---------------- */
 var COLOR = {
@@ -830,7 +944,7 @@ function charFace(c, o){
     : c.set!=='base' ? '<span class="setmark" title="Rare &mdash; from the '+packName(c.set)+' pack">Rare</span>' : '';
   return '<div class="face f-'+col+(o.foil?' foil':'')+(o.gold?' gilt':'')+'">'
    +'<div class="tl"><span class="tn">'+c.n+'</span>'+tag+'</div>'
-   +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy">' : art(c.i))+'</div>'
+   +'<div class="art a-'+col+'">'+(c.img ? '<img src="'+esc(c.img)+'" alt="" loading="lazy" style="object-position:'+esc(c.pos||'50% 28%')+'">' : art(c.i))+'</div>'
    +(o.bar||'')
    +'<div class="ty">Specimen &mdash; '+c.r+'</div>'
    +'<div class="tx">'+moves+'</div>'
@@ -861,6 +975,7 @@ function chips(u){
   if(u.atkGame<0) c.push(['&minus;'+(-u.atkGame)+' ATK','r']);
   if(u.atkRound<0) c.push(['&minus;'+(-u.atkRound)+' ATK this round','r']);
   if(u.skip>0) c.push(['Skips turn','r']);
+  if(u.stunGuard) c.push(['Stunned last round &mdash; immune this round','g']);
   return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
 }
 function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
@@ -924,7 +1039,7 @@ function statusLine(){
   if(w && w.kind==='unit') return '<span class="who t'+w.team+'">'+pname(w.team)+':</span> '+w.prompt+(w.cancel?' <button class="lnk" data-a="cancel">Cancel</button>':'');
   if(myTurn()){
     var u = G.cur, cards = !G.cardPlayed && G.hands[G.turnOf].some(function(c){ return canPlayNow(c); });
-    if(G.acted) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
+    if(G.acted || !ready(G.turnOf).length) return 'Done! '+(cards?'Play a card, or tap ':'Tap ')+'<b>End Turn</b>.';
     if(!u) return '<b>Your turn.</b> Tap one of your <b>glowing characters</b> to choose who acts.'+(cards?' Or tap a card in your hand to read it, then tap it again to play it.':'');
     return nm(u)+' is chosen. <b>Choose an attack</b> below.';
   }
@@ -939,14 +1054,21 @@ function pile(kind){
   var dp = G.discards[viewer()], top = dp[dp.length-1];
   return '<div class="pile disc" title="Your discard pile">'+(top ? '<div class="card">'+actFace(top.n)+'</div>' : '<div class="slot"></div>')+'<span class="pc">'+dp.length+'</span><small>Discard</small></div>';
 }
+function turnTimerHtml(){
+  var w = G.wait;
+  if(!w || w.kind!=='cmd' || !w.deadline) return '';
+  var remain = Math.max(0, w.deadline-now());
+  return '<div class="turntimer" title="Runs out of time and your turn is forfeited"><i style="animation-duration:'+remain+'ms"></i></div>';
+}
 function actionBar(){
   if(!myTurn()) return '<div class="actions idle"></div>';
-  var u = G.cur;
-  if(G.acted) return '<div class="actions"><button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
-  if(!u) return '<div class="actions idle"></div>';
-  return '<div class="actions">'
+  var u = G.cur, timer = turnTimerHtml();
+  if(G.acted || !ready(G.turnOf).length) return '<div class="actions">'+timer+'<button class="btn end" data-a="cmd" data-v="end"><b>End Turn</b></button></div>';
+  if(!u) return '<div class="actions idle">'+timer+'</div>';
+  return '<div class="actions">'+timer
    + u.c.atks.map(function(mv, i){
-       return '<button class="btn act" data-a="cmd" data-v="atk" data-i="'+i+'"><i>&#9876;</i><b>'+mv.n+'</b><small>'+moveDamage(u,mv)+' damage'+(mv.fx?' &middot; '+FX_SHORT[mv.fx]:'')+'</small></button>';
+       var locked = u.atkCd && u.atkCd[i]>0;
+       return '<button class="btn act'+(locked?' locked':'')+'" data-a="cmd" data-v="atk" data-i="'+i+'"'+(locked?' disabled':'')+'><i>&#9876;</i><b>'+mv.n+'</b><small>'+(locked?'Cooling down &mdash; '+u.atkCd[i]+' round'+(u.atkCd[i]===1?'':'s'):moveDamage(u,mv)+' damage'+(mv.fx?' &middot; '+FX_SHORT[mv.fx]:''))+'</small></button>';
      }).join('')
    +'</div>';
 }
@@ -1070,6 +1192,22 @@ function chairmanGiftHtml(){
    +'<li>It can never be bought or sold. The only other way to get one: a <b>1-in-100 chance</b> on any pack you win from an <b>online battle</b> (CPU wins never drop it).</li></ul>'
    +'<button class="btn gold big" data-a="chairmangiftclose">Got it</button></div></div>';
 }
+/* A per-visit heads-up about the Australiana pack: shown once per page load (dismiss just hides it
+   for the rest of this session — it comes back on the next refresh), any time a signed-in player has
+   a pack still on offer, on any screen except mid-battle/deal. */
+function australianaBannerHtml(){
+  return ''; // ponytail: disabled per request; see git history to restore the welcome banner
+  if(M.hideAustraliana || !ACC || !ACC.user || G.phase==='battle' || G.phase==='deal' || M.opening || M.reveal) return '';
+  var p = (ACC.packs||[]).filter(function(x){ return x.id==='australiana'; })[0];
+  if(!p || ACC.isExpired('australiana')) return '';
+  return '<div class="ov" data-a="noop"><div class="panel" data-a="noop"><div class="eyebrow">Limited pack</div><h2>Australiana is here</h2>'
+   +'<ul class="kw" style="text-align:left"><li>Six new true-blue Knoxes &mdash; three easier to pull, three rarer.</li>'
+   +'<li>Every Australiana pack is guaranteed at least one Australiana card.</li>'
+   +'<li>Available only until <b>Sunday 11:59pm</b> &mdash; gone after that.</li>'
+   +'<li>You&rsquo;ve been given <b>one free Australiana pack</b> &mdash; check your Packs screen.</li>'
+   +'<li>You can also <b>win a battle</b> (CPU or online) to earn another, then choose Australiana when you open it.</li></ul>'
+   +'<button class="btn gold big" data-a="australianaclose">Got it</button></div></div>';
+}
 function rulesHtml(){
   if(!G.showRules) return '';
   return '<div class="ov" data-a="rulesoff"><div class="panel rules" data-a="noop"><div class="eyebrow">How to play</div><h2>Travis: The Game</h2><ol>'
@@ -1186,7 +1324,11 @@ function renderMenu(){
   var hero = heroFanHtml();
   var user = ACC && ACC.user && ACC.profile, decks = user ? ACC.decks : [];
   var deckGroup = '';
-  if(user && CFG.mode!=='hot'){
+  var live = user && CFG.mode!=='hot' ? ACC.liveEvents() : [];
+  var eventGroup = live.length ? '<div class="group"><div class="gl">Special Event</div><div class="choices">'+o('event','','None','A normal game')
+    + live.map(function(e){ return o('event', e.id, esc(e.name), esc(e.blurb) || eventRule(e)); }).join('')+'</div>'
+    +(activeEvent() ? '<p class="hint">'+eventRule(activeEvent())+'. Choose your team from your own cards; everyone plays the event&rsquo;s action cards.</p>' : '')+'</div>' : '';
+  if(user && CFG.mode!=='hot' && !activeEvent()){
     var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckpick" data-v="'+v+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
     deckGroup = '<div class="group"><div class="gl">Your team</div><div class="choices">'
       + dopt('random','Random deal','Base cards, shuffled')
@@ -1206,7 +1348,9 @@ function renderMenu(){
    +'</div></div>'
    +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
      + o('diff','easy','Easy','Very forgiving') + o('diff','medium','Medium','Makes mistakes') + o('diff','hard','Hard','A fair fight')
+     + o('diff','insane','Insane','Plays perfectly &mdash; much better rewards')
      +'</div></div>' : '')
+   + eventGroup
    + stakeGroup()
    + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
@@ -1302,12 +1446,13 @@ function packOption(pk, p){
     : pk.validUntil ? '<p class="hint">Available until '+new Date(pk.validUntil).toLocaleDateString()+'.</p>'
     : giftOnly && !have ? '<p class="hint">Given by the game admin &mdash; can&rsquo;t be opened with a regular pack.</p>' : '';
   var btnLabel = expired ? 'No longer available' : M.busy ? 'Opening&hellip;' : 'Open '+pk.name;
+  var buyBtn = (pk.gpPrice && !expired) ? '<button class="btn wide" data-a="packbuy" data-v="'+esc(pk.id)+'"'+(ACC.canBuyPack(pk.id)&&!M.busy?'':' disabled')+'>Buy &middot; '+pk.gpPrice+' GP</button>' : '';
   return '<div class="packopt"><div class="pkhead"><div class="card pack sm">'+backFace()+'</div><div><h3>'+pk.name+' '+badge+'</h3><p>'+esc(pk.blurb)+'</p></div></div>'
     +'<p class="pkchance"><b>'+pct(atLeastOne)+'</b> chance of pulling at least one card from this pack</p>'
     +'<ul class="odds">'+odds+'</ul><p class="pklabel">Each of the 3 cards is rolled separately. New cards in this pack:</p><div class="pkcards">'+inside+'</div>'
     + notice
     +(have ? '<p class="pkown">You have <b>'+have+'</b> '+pk.name+' pack'+(have===1?'':'s')+'. These open first.</p>' : '')
-    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button></div>';
+    +'<button class="btn gold wide" data-a="packopen" data-v="'+esc(pk.id)+'"'+(ACC.canOpen(pk.id)&&!M.busy?'':' disabled')+'>'+btnLabel+'</button>'+buyBtn+'</div>';
 }
 function renderPacks(){
   var p = ACC.profile, r = M.reveal, o = M.opening, body = '';
@@ -1405,6 +1550,19 @@ function renderCollection(){
 
 /* ---- decks ---- */
 var STARTER_ACTIONS = {cat:3, canteen:3, excursion:2, dlc:2, detention:2};
+/* Spirit Week's four house cards each already cap at 3 copies individually (see ACC.actionLimit),
+   but nothing stopped stacking multiple house types together — up to 12 of a 12-card action deck.
+   This caps the four of them combined at 3 total per deck, so a deck built before this rule shipped
+   can go over and needs fixing before it's playable — see deckInvalidReason. */
+var SPIRIT_IDS = ['waratah-spirit', 'grevillea-spirit', 'acacia-spirit', 'banksia-spirit'];
+var SPIRIT_LIMIT = 3;
+function spiritCount(actionIds){ return (actionIds||[]).filter(function(id){ return SPIRIT_IDS.indexOf(id)>=0; }).length; }
+function deckInvalidReason(d){
+  if(!d) return '';
+  var sc = spiritCount(d.actions);
+  if(sc>SPIRIT_LIMIT) return sc+' Spirit Week cards (Waratah/Grevillea/Acacia/Banksia combined) &mdash; max '+SPIRIT_LIMIT+' total.';
+  return '';
+}
 function deckToEdit(d){
   var counts = {};
   (d ? d.actions : []).forEach(function(id){ counts[id] = (counts[id]||0)+1; });
@@ -1414,7 +1572,9 @@ function deckToEdit(d){
 function editTotal(e){ var n=0; for(var k in e.counts) n += e.counts[k]; return n; }
 function renderDecks(){
   var list = ACC.decks.map(function(d){
-    return '<div class="deckrow"><div class="dinfo"><b>'+esc(d.name)+'</b><span>'+d.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(' &middot; ')+'</span></div>'
+    var dr = deckInvalidReason(d);
+    return '<div class="deckrow'+(dr?' invalid':'')+'"><div class="dinfo"><b>'+esc(d.name)+'</b><span>'+d.characters.map(function(id){ return chars[CHARID[id]] ? chars[CHARID[id]].n : id; }).join(' &middot; ')+'</span>'
+      +(dr?'<p class="err-msg">Can&rsquo;t be played until fixed &mdash; '+dr+'</p>':'')+'</div>'
       +'<div class="row"><button class="btn sm" data-a="deckedit" data-v="'+d.id+'">Edit</button><button class="lnk" data-a="deckdel" data-v="'+d.id+'">Delete</button></div></div>';
   }).join('');
   return pageTop('Decks')+'<div class="panel-pg">'
@@ -1433,12 +1593,14 @@ function renderDeckEdit(){
       +(on && ACC.ownsFoil(c.id) ? '<button class="btn sm" data-a="dfoil" data-v="'+c.id+'">'+(foil?'&#10022; Foil on':'Use foil')+'</button>' : '')
       +(on && ACC.ownsGold(c.id) ? '<button class="btn sm" data-a="dgold" data-v="'+c.id+'">'+(gold?'&#10022; Gold on':'Use gold')+'</button>' : '')+'</div>';
   }).join('');
+  var spiritNow = spiritCount(SPIRIT_IDS.reduce(function(l,id){ for(var i=0;i<(e.counts[id]||0);i++) l.push(id); return l; }, []));
   var actRows = acts.map(function(a){
-    var lim = ACC.actionLimit(a), n = e.counts[a.id]||0;
+    var lim = ACC.actionLimit(a), n = e.counts[a.id]||0, isSpirit = SPIRIT_IDS.indexOf(a.id)>=0;
     if(lim<1 && !n) return '';
+    var plusOk = n<lim && total<12 && !(isSpirit && spiritNow>=SPIRIT_LIMIT);
     return '<div class="actrow"><button class="aname" data-a="czoom" data-v="a:'+esc(a.n)+'"><b>'+a.n+'</b><span>'+a.a+'</span></button>'
       +'<div class="stepper"><button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="-1"'+(n>0?'':' disabled')+'>&minus;</button><b>'+n+'</b>'
-      +'<button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="1"'+(n<lim&&total<12?'':' disabled')+'>+</button></div></div>';
+      +'<button class="btn sm" data-a="dact" data-v="'+a.id+'" data-d="1"'+(plusOk?'':' disabled')+'>+</button></div></div>';
   }).join('');
   return pageTop(e.id?'Edit deck':'New deck')+'<div class="panel-pg wide">'
     + field('deckname','Deck name','text')
@@ -1463,7 +1625,7 @@ function saveDeck(){
 /* ---- choosing which of a deck's six characters to field (3 v 3 and 4 v 4) ---- */
 function teamPick(deck, n, title, done){
   if(!deck){ done(randomTeam(n)); return; }
-  if(n>=deck.characters.length){ done(deckTeam(deck, deck.characters)); return; }
+  if(deck.characters.length<=n){ done(deckTeam(deck, deck.characters)); return; }
   G = {phase:'pick', log:[], fx:[], pick:{deck:deck, n:n, chosen:[], title:title, done:done}};
   render();
 }
@@ -1484,7 +1646,18 @@ function renderPick(){
 function startFromMenu(){
   M.err = '';
   if(CFG.mode==='online'){ if(needAccount()) return; openLobby(); return; }
+  var ev = activeEvent();
+  if(ev && CFG.mode==='cpu'){
+    M.err = eventShortfall(ev, CFG.size);
+    if(M.err){ render(); return; }
+    teamPick(eventDeck(ev), CFG.size, esc(ev.name), function(me){
+      var cpu = eventCpuTeam(ev, CFG.size);
+      startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, cpu.foils], golds:[me.golds, []], actions:[me.actions, cpu.actions]});
+    });
+    return;
+  }
   var deck = CFG.mode==='cpu' ? chosenDeck() : null;
+  if(deck){ var dReason = deckInvalidReason(deck); if(dReason){ M.err = 'Can’t play with "'+deck.name+'" yet — '+dReason+' Fix it in Decks first.'; render(); return; } }
   if(!deck){ startGame(); return; }
   teamPick(deck, CFG.size, 'Choose your team', function(me){
     var cpu = randomTeam(CFG.size);
@@ -1574,7 +1747,7 @@ var NET = {conn:null, queue:[], waiter:null, finished:false,
   send:function(p){ if(NET.conn) NET.conn.send(p); },
   next:function(cb){ if(NET.queue.length){ var v = NET.queue.shift(); setTimeout(function(){ cb(v); }, 0); } else NET.waiter = cb; },
   push:function(v){ if(NET.waiter){ var cb = NET.waiter; NET.waiter = null; cb(v); } else NET.queue.push(v); },
-  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; CHAT = []; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); },
+  close:function(){ if(NET.conn) NET.conn.close(); NET.conn = null; NET.queue = []; NET.waiter = null; CHAT = []; WE_ARE_HOST = false; if(typeof ACC!=='undefined' && ACC && ACC.clearMatchAnnounce) ACC.clearMatchAnnounce(); },
   chatSend:function(text){ if(NET.conn && NET.conn.chat) NET.conn.chat(text); }
 };
 /* Chat: open to both players and any spectators on the match channel (see A.openMatch/openSpectate's
@@ -1595,6 +1768,10 @@ function onChatMsg(p){
    LAST_START let the host hand a late-joining spectator the whole game so far (seed + every move
    applied up to now); it then fast-replays that backlog (CFG.speed briefly 0) before continuing live. */
 var MATCHLOG = [], LAST_START = null, SPEC_READY = false, SPEC_LIVE_BUF = [];
+/* True on whichever client actually owns/broadcasts the match — the online host, or a signed-in
+   player's own CPU game (see beginBattle's cpu-broadcast block). A spectator or online guest is
+   never the host, so never answers a spec-join catch-up request. Reset in NET.close(). */
+var WE_ARE_HOST = false;
 function openLobby(){ NET.close(); L = {stage:'choose'}; M.err=''; G = {phase:'lobby', log:[], fx:[]}; render(); }
 function spectate(code){
   NET.close(); NET.finished = false;
@@ -1625,13 +1802,24 @@ function onSpecPresence(people){
   var players = people.filter(function(p){ return p.role==='host' || p.role==='guest'; });
   if(G.phase==='battle' && !players.length && !NET.finished && !G.over){ G.oppGone = true; render(); }
 }
-function teamToWire(t){ return {chars:t.chars.map(function(ci){ return chars[ci].id; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()}; }
+/* t.foils/t.golds (from deckTeam/randomTeam) are boolean arrays parallel to t.chars — "is the character
+   at this slot foil/gold". teamFromWire's consumer (beginOnline) expects foils/golds as lists of
+   character ids instead, so it can look each team member up by id; convert here rather than sending
+   the booleans through unconverted, which silently dropped every foil/gold finish in online games
+   (indexOf(id) on an array of booleans never matches a string). */
+function teamToWire(t){
+  return {chars:t.chars.map(function(ci){ return chars[ci].id; }),
+    foils:t.chars.filter(function(ci,i){ return t.foils && t.foils[i]; }).map(function(ci){ return chars[ci].id; }),
+    golds:t.chars.filter(function(ci,i){ return t.golds && t.golds[i]; }).map(function(ci){ return chars[ci].id; }),
+    actions:t.actions, houseOwned:houseOwnedFor(), chairmanEmpowered:chairmanEmpoweredFor()};
+}
 function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[id]; }).filter(function(i){ return i!=null; }), foils:t.foils||[], golds:t.golds||[], actions:t.actions, houseOwned:t.houseOwned||{}, chairmanEmpowered:!!t.chairmanEmpowered}; }
 /* The deck is chosen once you're actually in a match (see pickOnline), not beforehand on the menu —
    an invite can be accepted from anywhere, with no menu visit in between to have set one. */
 function connect(code, role){
   NET.close(); NET.finished = false;
-  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
+  WE_ARE_HOST = role==='host';
+  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null, event:role==='host' && activeEvent() ? CFG.event : null};
   G = {phase:'lobby', log:[], fx:[]};
   NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, chat:onChatMsg, error:function(m){ L.err = m; render(); }});
   render();
@@ -1643,11 +1831,22 @@ function onPresence(people){
   if(other.role===L.role){ L.err = 'Someone else is already using that code. Try another.'; render(); return; }
   if(L.role==='host' && L.stage==='hosting'){
     L.oppName = other.username;
-    NET.send({k:'hello', size:L.size, name:ACC.profile.username});
+    NET.send({k:'hello', size:L.size, event:L.event, name:ACC.profile.username});
     pickOnline();
   }
 }
 function pickOnline(){
+  if(L.event){
+    /* The host's event may have gone live after this player loaded, so fetch the list fresh. */
+    ACC.loadEvents().then(function(){
+      var ev = ACC.events.filter(function(e){ return e.id===L.event; })[0];
+      L.err = ev ? eventShortfall(ev, L.size) : 'Your opponent chose an event that no longer exists.';
+      if(L.err){ render(); return; }
+      L.deck = eventDeck(ev);
+      startTeamPick();
+    });
+    return;
+  }
   if(ACC.decks.length && L.deck===undefined){ L.stage = 'deck'; render(); return; }
   startTeamPick();
 }
@@ -1670,17 +1869,22 @@ function maybeStart(){
   beginOnline(msg, 0);
 }
 function onSpecJoin(p){
-  if(L.role!=='host' || !LAST_START || !NET.conn || !NET.conn.sendRaw) return;
+  if(!WE_ARE_HOST || !LAST_START || !NET.conn || !NET.conn.sendRaw) return;
   NET.conn.sendRaw('spec-sync', {to:p.from, start:LAST_START, log:MATCHLOG.slice()});
 }
 function onNet(m){
   if(m.k==='in'){ NET.push(m.v); MATCHLOG.push(m.v); return; }
-  if(m.k==='hello' && L.role==='guest'){ L.size = m.size; L.oppName = m.name; pickOnline(); return; }
+  if(m.k==='hello' && L.role==='guest'){ L.size = m.size; L.event = m.event || null; L.oppName = m.name; pickOnline(); return; }
   if(m.k==='team' && L.role==='host'){ L.oppTeam = m.team; maybeStart(); render(); return; }
   if(m.k==='start' && L.role==='guest'){ LAST_START = m; beginOnline(m, 1); }
 }
+/* Also the entry point for spectating — of an online match, or (m.mode==='cpu') a signed-in player's
+   CPU game broadcast the same way (see beginBattle). CFG.mode is taken from the payload so a CPU
+   match's spectator keeps isCPU(1) true and plays out the CPU's side locally off the shared seed,
+   rather than waiting on a network message that will never come for it. */
 function beginOnline(m, me, spectating){
-  CFG.mode = 'online'; CFG.me = me; CFG.spectating = !!spectating; CFG.size = m.size; CFG.names = m.names.map(esc);
+  CFG.mode = m.mode || 'online'; if(CFG.mode==='cpu') CFG.diff = m.diff || CFG.diff || 'medium';
+  CFG.me = me; CFG.spectating = !!spectating; CFG.size = m.size; CFG.names = m.names.map(esc);
   MATCHLOG = [];
   var t = m.teams.map(teamFromWire);
   NET.queue = []; NET.waiter = null;
@@ -1878,7 +2082,10 @@ function onlinePlayersBlock(){
   var people = (M.online || []).slice().sort(function(a,b){ return String(a.username).localeCompare(b.username); });
   if(!people.length) return '<div class="group"><div class="gl">Active players</div><p class="muted">No one else is online right now.</p></div>';
   return '<div class="group"><div class="gl">Active players</div><ul class="online-list">'+people.map(function(p){
-      return '<li><span class="dot"></span><b>'+esc(p.username)+'</b><button class="btn sm gold" data-a="invite" data-v="'+esc(p.id)+'" data-name="'+esc(p.username)+'">Battle</button></li>';
+      var info = p.info || {}, playing = p.match ? (info.mode==='cpu' ? ' &middot; vs CPU' : ' &middot; online match') : '';
+      var watch = p.match ? '<button class="btn sm" data-a="watchlive" data-v="'+esc(p.match)+'">Watch</button>' : '';
+      return '<li><span class="dot'+(p.match?' live':'')+'"></span><b>'+esc(p.username)+'</b><span class="muted sm">'+playing+'</span>'+watch
+        +'<button class="btn sm gold" data-a="invite" data-v="'+esc(p.id)+'" data-name="'+esc(p.username)+'">Battle</button></li>';
     }).join('')+'</ul></div>';
 }
 function inviteBanner(){
@@ -1911,7 +2118,7 @@ function renderLeaderboard(){
     +'<div class="adhead"><h2>Leaderboard</h2><button class="btn sm" data-a="boardrefresh"'+(d.state==='loading'?' disabled':'')+'>Refresh</button></div>'
     +(d.rows.length ? '<div class="tablewrap"><table class="adm"><thead><tr><th>#</th><th>Player</th><th class="num">XP</th><th class="num">Won&ndash;lost</th><th class="num">Win rate</th><th class="num">Games</th></tr></thead><tbody>'+rows+'</tbody></table></div>'
       : '<p class="muted">No registered players yet.</p>')
-    +'<p class="hint">Every battle earns XP, win or lose &mdash; more for a win, and more on Hard difficulty or online.</p>'
+    +'<p class="hint">Every battle earns XP, win or lose &mdash; more for a win, and more on Hard/Insane difficulty or online.</p>'
     +'</div></div>';
 }
 function loadAdmin(){
@@ -2006,6 +2213,45 @@ function playerDetail(u, d){
   }
   return '<tr class="detail"><td colspan="8">'+giveRow(u.username)+facts+body+'</td></tr>';
 }
+/* Special events: save one once, switch it live whenever it should run. */
+function eventsAdmin(){
+  var list = ACC.events.length ? '<ul class="glist">'+ACC.events.map(function(e){
+    return '<li><span><b>'+esc(e.name)+'</b>'+(e.live?' <span class="adm-tag">live</span>':'')+' &mdash; '+eventRule(e)
+      +(e.allowed_usernames && e.allowed_usernames.length ? ' &mdash; only '+e.allowed_usernames.map(esc).join(', ') : '')+'</span>'
+      +'<span class="row"><button class="btn sm'+(e.live?'':' gold')+'" data-a="evlive" data-v="'+e.id+'"'+(M.busy?' disabled':'')+'>'+(e.live?'End':'Go live')+'</button>'
+      +'<button class="lnk" data-a="evdel" data-v="'+e.id+'">Delete</button></span></li>';
+  }).join('')+'</ul>' : '<p class="muted">No events saved yet. (If saving fails, run <code>supabase/upgrade-18-special-events.sql</code> first.)</p>';
+  var e = M.evEdit;
+  if(!e) return '<h3 class="sec">Special events</h3>'+list+'<button class="btn" data-a="evnew">New event</button>';
+  var total = editTotal(e);
+  var sets = [{id:'base', name:'Starter'}].concat(PACKS).filter(function(pk){ return chars.some(function(c){ return c.set===pk.id; }); });
+  var chip = function(a, v, on, label){ return '<button class="choice'+(on?' on':'')+'" data-a="'+a+'" data-v="'+v+'" aria-pressed="'+on+'"><b>'+label+'</b></button>'; };
+  var actRows = acts.map(function(a){
+    var n = e.counts[a.id]||0;
+    return '<div class="actrow"><button class="aname" data-a="czoom" data-v="a:'+esc(a.n)+'"><b>'+a.n+'</b><span>'+a.a+'</span></button>'
+      +'<div class="stepper"><button class="btn sm" data-a="evact" data-v="'+a.id+'" data-d="-1"'+(n>0?'':' disabled')+'>&minus;</button><b>'+n+'</b>'
+      +'<button class="btn sm" data-a="evact" data-v="'+a.id+'" data-d="1"'+(n<3&&total<12?'':' disabled')+'>+</button></div></div>';
+  }).join('');
+  return '<h3 class="sec">Special events</h3>'+list
+    +'<h3 class="sec">New event</h3>'+field('evname','Name')+field('evblurb','Short description (optional)')
+    +field('evusers','Only for these usernames (comma-separated, optional)')
+    +'<p class="hint">Leave blank for everyone. Use this to keep it away from new players.</p>'
+    +'<p class="hint">Characters allowed &mdash; none selected means any character. Players use their own cards.</p>'
+    +'<div class="choices">'+sets.map(function(pk){ return chip('evset', pk.id, e.sets.indexOf(pk.id)>=0, pk.name); }).join('')
+    + chip('evfoil', '', e.foil, 'Foils only')+'</div>'
+    +'<h3 class="sec">Action cards <span class="count'+(total===12?' ok':'')+'">'+total+' / 12</span></h3><p class="hint">Everyone plays this exact deck. Up to three of each.</p><div class="actlist">'+actRows+'</div>'
+    +'<div class="row"><button class="btn gold" data-a="evsave"'+(total===12&&!M.busy?'':' disabled')+'>Save event</button><button class="lnk" data-a="evcancel">Cancel</button></div>';
+}
+function saveEvent(){
+  var e = M.evEdit, name = (M.form.evname||'').trim();
+  if(!name){ M.err = 'Give the event a name.'; render(); return; }
+  var actions = []; acts.forEach(function(a){ for(var i=0;i<(e.counts[a.id]||0);i++) actions.push(a.id); });
+  var users = (M.form.evusers||'').split(',').map(function(u){ return u.trim().toLowerCase(); }).filter(Boolean);
+  busy(async function(){
+    await ACC.saveEvent({name:name.slice(0,40), blurb:(M.form.evblurb||'').trim().slice(0,80), char_sets:e.sets, foil_only:e.foil, actions:actions, allowed_usernames:users});
+    M.evEdit = null; M.note = 'Event saved. Press Go live when you want players to see it.';
+  });
+}
 function renderAdmin(){
   if(!ACC.profile.is_admin) return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>';
   var d = M.admin, top = pageTop('Admin')+'<div class="panel-pg wide admin">';
@@ -2045,7 +2291,7 @@ function renderAdmin(){
   var feed = d.stale ? '' : '<h3 class="sec">Latest games</h3>'+(d.games.length
     ? '<ul class="glist feed">'+d.games.map(function(g){ return '<li><span><b>'+esc(g.username)+'</b> '+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
     : '<p class="muted">No games recorded yet. They appear here as soon as a signed-in player finishes or quits a game against the CPU or online.</p>');
-  return top+head+msgs()+notice+kpis+'<div class="giveall">'+givePicker(ov)+'</div>'+table+feed+'</div></div>';
+  return top+head+msgs()+notice+kpis+'<div class="giveall">'+givePicker(ov)+'</div>'+eventsAdmin()+table+feed+'</div></div>';
 }
 
 function renderMeta(){
@@ -2100,7 +2346,7 @@ function paint(){
   // triggers a full render while, say, the activity feed is scrolled mid-read.
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
   var feedEl = root.querySelector('.feed'), feedScroll = feedEl ? feedEl.scrollTop : null;
-  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml();
+  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + australianaBannerHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
   var cf = root.querySelector('.chatfeed'); if(cf) cf.scrollTop = cf.scrollHeight;
@@ -2132,16 +2378,24 @@ function onClick(e){
     case 'start': startFromMenu(); break;
     case 'storyplay': storyPlay(+v); break;
     case 'storysel': M.storySel = +v; render(); break;
-    case 'menu': goScreen('menu'); break;
+    case 'menu': goScreen('menu'); if(ACC && ACC.user) ACC.loadEvents(); break;
     /* ---- accounts & collection ---- */
     case 'go':
       if(v==='deckedit' || (v!=='auth' && needAccount())) break;
       if(v==='packs') M.reveal = null;
       goScreen(v);
-      if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
+      if(v==='admin' && ACC.profile && ACC.profile.is_admin) { loadAdmin(); ACC.loadEvents(); }
       if(v==='leaderboard') loadLeaderboard();
       break;
-    case 'adminrefresh': loadAdmin(); break;
+    case 'adminrefresh': loadAdmin(); ACC.loadEvents(); break;
+    case 'evnew': M.evEdit = {sets:[], foil:false, counts:{}}; M.form.evname = ''; M.form.evblurb = ''; M.form.evusers = ''; render(); break;
+    case 'evcancel': M.evEdit = null; render(); break;
+    case 'evset': { var es = M.evEdit.sets, ek = es.indexOf(v); if(ek>=0) es.splice(ek,1); else es.push(v); render(); break; }
+    case 'evfoil': M.evEdit.foil = !M.evEdit.foil; render(); break;
+    case 'evact': { var ec = M.evEdit.counts; ec[v] = Math.max(0, (ec[v]||0) + (+el.getAttribute('data-d'))); render(); break; }
+    case 'evsave': saveEvent(); break;
+    case 'evlive': { var el1 = ACC.events.filter(function(x){ return x.id===v; })[0]; if(el1) busy(async function(){ await ACC.setEventLive(v, !el1.live); M.note = esc(el1.name)+(el1.live ? ' has ended.' : ' is live.'); }); break; }
+    case 'evdel': { var ed = ACC.events.filter(function(x){ return x.id===v; })[0]; if(ed && (typeof confirm!=='function' || confirm('Delete the event "'+ed.name+'"?'))) busy(async function(){ await ACC.deleteEvent(v); }); break; }
     case 'boardrefresh': loadLeaderboard(); break;
     case 'givepacks': if(v) givePacks(v); break;
     case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
@@ -2150,6 +2404,7 @@ function onClick(e){
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; M.board=null; M.admin=null; }); break;
     case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
     case 'packopen': openPack(v); break;
+    case 'packbuy': busy(async function(){ await ACC.buyPack(v); render(); }); break;
     case 'rv': flipReveal(+v); break;
     case 'rvall': M.reveal.shown.forEach(function(s,i){ if(!s){ M.reveal.shown[i]=true; fxc('rv'+i, 'flip', 700, i*140); } }); render(); break;
     case 'rvdone': M.reveal = null; render(); break;
@@ -2207,7 +2462,11 @@ function onClick(e){
       render();
       break;
     }
-    case 'lobbydeck': L.deck = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null); startTeamPick(); break;
+    case 'lobbydeck': {
+      var ld = v==='random' ? null : (ACC.decks.filter(function(d){ return d.id===v; })[0] || null);
+      if(ld){ var ldReason = deckInvalidReason(ld); if(ldReason){ L.err = 'Can’t play with "'+ld.name+'" yet — '+ldReason+' Fix it in Decks first.'; render(); break; } }
+      L.deck = ld; startTeamPick(); break;
+    }
     case 'invite': {
       if(needAccount()) break;
       var icode = ACC.makeCode();
@@ -2258,6 +2517,7 @@ function onClick(e){
     case 'rules': G.showRules = true; render(); break;
     case 'rulesoff': G.showRules = false; render(); break;
     case 'chairmangiftclose': M.chairmanGift = false; render(); break;
+    case 'australianaclose': M.hideAustraliana = true; render(); break;
     case 'noop': break;
   }
 }
