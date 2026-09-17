@@ -1140,6 +1140,7 @@ function chairmanGiftHtml(){
    for the rest of this session — it comes back on the next refresh), any time a signed-in player has
    a pack still on offer, on any screen except mid-battle/deal. */
 function australianaBannerHtml(){
+  return ''; // ponytail: disabled per request; see git history to restore the welcome banner
   if(M.hideAustraliana || !ACC || !ACC.user || G.phase==='battle' || G.phase==='deal' || M.opening || M.reveal) return '';
   var p = (ACC.packs||[]).filter(function(x){ return x.id==='australiana'; })[0];
   if(!p || ACC.isExpired('australiana')) return '';
