@@ -9,7 +9,11 @@ The only way up is through the school. Each faculty has its own culture, its own
 Faculty who guards it. Beat a faculty and its best people join you. Beat all four and the Principal
 Class has no choice but to hear you out.
 
-Every chapter you clear adds a card to your collection. Every Head of Faculty you beat joins your team.
+Every chapter is a quick **3 v 3**, and there's chance in every attempt. Your three opponents are drawn at random from
+that chapter's foe pool, so a retry is never the same fight twice. Boss chapters always include the boss.
+
+Every chapter you clear adds a card to your collection. Clear a faculty by beating its Head, and that
+Head of Faculty's card is yours.
 
 ---
 
@@ -19,12 +23,12 @@ Every chapter you clear adds a card to your collection. Every Head of Faculty yo
 Travis starts where he's comfortable: the labs, the seals, the smell of formaldehyde.
 
 1. **Prac Report Due** — The lab techs have locked the good equipment away. Get past the prep room.
-   *Foes:* Doctor Knox, Field Researcher Knox, Tadpole Knox · **Reward:** Harbour Seal Knox
+   *Foe pool:* Doctor Knox, Field Researcher Knox, Tadpole Knox · **Reward:** Harbour Seal Knox
 2. **Out on the Ice** — Field trip to the breeding grounds. The seals were here first.
-   *Foes:* Weddell Seal Knox, Sea Lion Knox, Leopard Seal Knox · **Reward:** a story action card
+   *Foe pool:* Weddell Seal Knox, Sea Lion Knox, Leopard Seal Knox · **Reward:** Hall Pass *(action: deal 6 damage to one enemy)*
 3. **Boss: Head of Science Knox** — Four hundred pages of peer review and a Bunsen burner that's
    never been turned off.
-   *Foes:* Head of Science Knox, Elephant Seal Knox, Research Vessel Knox · **Reward:** Head of Science Knox
+   *Foe pool:* Head of Science Knox, Elephant Seal Knox, Research Vessel Knox · **Reward:** Head of Science Knox
 
 ## Level 2 — Maths
 *"Show your working."*
@@ -32,11 +36,11 @@ Travis starts where he's comfortable: the labs, the seals, the smell of formalde
 Maths runs on rules, timetables and the one photocopier that works. They don't like surprises.
 
 1. **Show Your Working** — Staff Meeting Knox has an agenda item. It is you.
-   *Foes:* Staff Meeting Knox, Director Knox, Chaperone Knox, Emeritus Knox · **Reward:** Conference Knox
+   *Foe pool:* Staff Meeting Knox, Director Knox, Chaperone Knox, Emeritus Knox · **Reward:** Conference Knox
 2. **Reports Are Due** — Every comment bank in the building has been deleted. Someone has to pay.
-   *Foes:* PD Knox, Sick Day Knox, Yard Duty Knox, Blue Suit Knox · **Reward:** a story action card
+   *Foe pool:* PD Knox, Sick Day Knox, Yard Duty Knox, Blue Suit Knox · **Reward:** Staffroom Coffee *(action: heal every character on your team 4 HP)*
 3. **Boss: Head of Maths Knox** — Has calculated your odds. Won't tell you what they are.
-   *Foes:* Head of Maths Knox, Director Knox, Staff Meeting Knox, PD Knox · **Reward:** Head of Maths Knox
+   *Foe pool:* Head of Maths Knox, Director Knox, Staff Meeting Knox, PD Knox · **Reward:** Head of Maths Knox
 
 ## Level 3 — English
 *"It's not what you say. It's the subtext."*
@@ -45,11 +49,11 @@ English is all drama: the school play, the yearbook, and a staffroom where every
 metaphor for something worse.
 
 1. **The School Production** — Opening night. The lead has quit. The understudy is a seal.
-   *Foes:* SOC's Got Talent Knox, Mixtape Knox, Parent-Teacher Knox, Beer Frog Knox, Swimming Carnival Knox, Family Man Knox · **Reward:** Yearbook Knox
+   *Foe pool:* SOC's Got Talent Knox, Mixtape Knox, Parent-Teacher Knox, Beer Frog Knox, Swimming Carnival Knox, Family Man Knox · **Reward:** Yearbook Knox
 2. **Yearbook Deadline** — Everyone wants their quote changed. Nobody gets their quote changed.
-   *Foes:* Yearbook Knox, Graduation Knox, Staff Party Knox, Excursion Knox, Fire Drill Knox, Sports Carnival Knox · **Reward:** a story action card
+   *Foe pool:* Yearbook Knox, Graduation Knox, Staff Party Knox, Excursion Knox, Fire Drill Knox, Sports Carnival Knox · **Reward:** Relief Teacher *(action: one character gets +3 ATK for the game)*
 3. **Boss: Head of English Knox** — Has marked your life as "developing". Wants a rewrite by Friday.
-   *Foes:* Head of English Knox, Parent-Teacher Knox, Yearbook Knox, Mixtape Knox, SOC's Got Talent Knox, Staff Party Knox · **Reward:** Head of English Knox
+   *Foe pool:* Head of English Knox, Parent-Teacher Knox, Yearbook Knox, Mixtape Knox, SOC's Got Talent Knox, Staff Party Knox · **Reward:** Head of English Knox
 
 ## Level 4 — Humanities
 *"Those who don't learn from history get it on the exam."*
@@ -58,11 +62,11 @@ Humanities doesn't just teach history. It *is* history. The Year 9 project got o
 the corridor is full of emperors.
 
 1. **History Repeats** — Caesar and Napoleon have formed a committee. It is already a coup.
-   *Foes:* Caesar Knox, Napoleon Knox, Samurai Knox, Spartan Knox, Pirate Knox, Barbarian Knox · **Reward:** Washington Knox
+   *Foe pool:* Caesar Knox, Napoleon Knox, Samurai Knox, Spartan Knox, Pirate Knox, Barbarian Knox · **Reward:** Washington Knox
 2. **The Great Debate** — Geography versus Economics versus Legal Studies. Travis is the moderator. The moderator is the target.
-   *Foes:* Great Depression Knox, Tech Bro Knox, Woodstock Knox, Crusader Knox, WW1 Knox, WW2 Knox · **Reward:** a story action card
+   *Foe pool:* Great Depression Knox, Tech Bro Knox, Woodstock Knox, Crusader Knox, WW1 Knox, WW2 Knox · **Reward:** Long Weekend *(action: a Shield and 5 HP for one character)*
 3. **Boss: Head of Humanities Knox** — Has seen empires fall. Has not seen one like yours.
-   *Foes:* Head of Humanities Knox, Pharaoh Knox, Caesar Knox, Napoleon Knox, Washington Knox, Spartan Knox · **Reward:** Head of Humanities Knox
+   *Foe pool:* Head of Humanities Knox, Pharaoh Knox, Caesar Knox, Napoleon Knox, Washington Knox, Spartan Knox · **Reward:** Head of Humanities Knox
 
 ---
 
@@ -74,10 +78,10 @@ and Travis walks in uninvited.
 
 1. **Assistant Principals** — Two of them, one clipboard each, and a roster that has somehow put
    Travis on yard duty for the rest of his life.
-   *Foes:* Wellbeing AP Knox, Curriculum AP Knox, Director Knox, Yard Duty Knox, Staff Meeting Knox, Conference Knox
+   *Foe pool:* Wellbeing AP Knox, Curriculum AP Knox, Director Knox, Yard Duty Knox, Staff Meeting Knox, Conference Knox · **Reward:** none, the finale is the reward
 2. **Final Boss: Principal Knox** — The Principal has been expecting this since your first day. The
    whole school is watching from the gym.
-   *Foes:* Principal Knox, both Assistant Principals, and the strongest Head of Faculty you didn't recruit
+   *Foe pool:* Principal Knox, both Assistant Principals, and three Heads of Faculty (Science, Maths, Humanities) who were pressured into switching sides
 
 ### Ending
 Principal Knox falls. The PA crackles. The lanyard changes colour.
@@ -87,7 +91,7 @@ Principal Knox falls. The PA crackles. The lanyard changes colour.
 His first act: seals are now a compulsory subject. His second act: he books the staffroom for a
 meeting about it. Nobody comes. It's perfect.
 
-**Reward:** *Principal Travis Knox*, a unique card, and the title "Principal" on your profile.
+**Reward:** *Principal Travis Knox*, a unique card.
 
 ---
 
@@ -230,10 +234,7 @@ lighting, a proud grin.
 
 ---
 
-## What would change in code
-The `story-mode` branch currently has 4 levels (Term One → End of Year) with Regional Director,
-Department Secretary and Minister Knox as bosses. To match this storyline:
-- Rename the 4 levels to the faculties and swap the bosses for 4 Heads of Faculty.
-- Add a 5th finale level (Assistant Principals + Principal Knox), with Principal Travis Knox as the
-  final reward.
-- Update the reward list in `upgrade-16-story-mode.sql` so it matches, in the same order.
+## In code
+- Chapters: `STORY` in `cards.js`. Rewards are also listed in `supabase/upgrade-16-story-mode.sql`, which must stay in the same order.
+- Characters: the `set:"story"` entries in `cards.js`, with images in `images/story/`.
+- Heads of Faculty and Principal Travis Knox join your collection. The Assistant Principals and Principal Knox are opponents only.

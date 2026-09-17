@@ -120,11 +120,17 @@ var chars=[
     generic finish any character can have — see collection.gold / deck.golds — so they're retired;
     upgrade-15-foil-gold-economy.sql folds anyone's existing golden-* ownership into the original
     card as a gold copy. */
- /* Story mode bosses — never in packs, never for sale. Beating one in Story adds it to your collection. */
- {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:26,atk:5,spd:4,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",img:false},
- {n:"Regional Director Knox",r:"Regional Office",i:"agenda",hp:27,atk:5,spd:5,an:"Strategic Plan",a:"Also gives this character a Shield.",f:"Has a lanyard for the lanyard.",set:"story",img:false},
- {n:"Department Secretary Knox",r:"Head Office",i:"pass",hp:28,atk:6,spd:4,an:"Policy Review",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Your submission has been received and filed.",set:"story",img:false},
- {n:"Minister Knox",r:"Minister for Education",i:"mic",hp:30,atk:6,spd:5,an:"Funding Announcement",a:"Also heals this character.",f:"&ldquo;Seals are, and always have been, a priority.&rdquo;",set:"story",img:false}
+ /* Story mode — never in packs, never for sale. See STORYLINE.md. Heads of Faculty and Principal Travis
+    Knox join your collection when beaten/earned in Story; the Assistant Principals and Principal Knox
+    are opponents only. */
+ {n:"Head of Science Knox",r:"Faculty of Science",i:"thermo",hp:24,atk:4,spd:4,an:"Controlled Experiment",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Results are preliminary. Your defeat is not.",set:"story",img:"images/story/head-of-science-knox.png"},
+ {n:"Head of Maths Knox",r:"Faculty of Mathematics",i:"clip",hp:23,atk:4,spd:5,an:"Show Your Working",a:"Also makes the target skip its next turn.",f:"He has calculated your odds. He will not be sharing them.",set:"story",img:"images/story/head-of-maths-knox.png"},
+ {n:"Head of English Knox",r:"Faculty of English",i:"pass",hp:22,atk:5,spd:5,an:"Red Pen",a:"Also draws an action card.",f:"Marked: developing. See comments.",set:"story",img:"images/story/head-of-english-knox.png"},
+ {n:"Head of Humanities Knox",r:"Faculty of Humanities",i:"laurel",hp:25,atk:3,spd:3,an:"Primary Source",a:"Also gives this character a Shield.",f:"Has seen empires fall. Has marked their essays.",set:"story",img:"images/story/head-of-humanities-knox.png"},
+ {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:22,atk:4,spd:4,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.png"},
+ {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:22,atk:5,spd:3,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.png"},
+ {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:26,atk:5,spd:4,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",img:"images/story/principal-knox.png"},
+ {n:"Principal Travis Knox",r:"Principal, at Last",i:"star",hp:25,atk:5,spd:5,an:"Whole-School Assembly",a:"Also heals this character.",f:"First order of business: seals are now a compulsory subject.",set:"story",img:"images/story/principal-travis-knox.png"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -169,36 +175,42 @@ var PACKS = [
   {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}, {id:'story', name:'Story'}
 ];
 
-/* Story mode: 4 levels of 3 chapters, the last a boss. Beating a chapter (in order) grants its reward
-   into your real collection and story roster — the reward list is repeated server-side in
-   upgrade-16-story-mode.sql, keep the two in the same order. */
+/* Story mode (see STORYLINE.md): four faculties of three chapters, the last a Head of Faculty boss, then
+   the Principal Class. Every chapter is a quick 3 v 3 against 3 foes drawn at random from its pool
+   (a boss chapter always includes its boss, listed first). Beating a chapter (in order) grants its reward, if any, into your real collection
+   and story roster — the reward list is repeated server-side in upgrade-16-story-mode.sql, keep the two
+   in the same order. */
 var STORY_START = ['tadpole-knox','family-man-knox','field-researcher-knox'];
-var STORY_LEVELS = ['Term One','Term Two','Field Season','End of Year'];
+var STORY_LEVELS = ['Science','Maths','English','Humanities','The Principal Class'];
 var STORY = [
- {lvl:1, t:'First Day Nerves', size:3, diff:'easy', reward:'conference-knox', txt:'Travis signs in at reception. The staffroom has already formed opinions.',
-  foes:['chaperone-knox','staff-meeting-knox','emeritus-knox']},
- {lvl:1, t:'Yard Duty Ambush', size:3, diff:'easy', reward:'hall-pass', txt:'Lunch. The quad. Three colleagues who swear it&rsquo;s your turn on duty.',
-  foes:['doctor-knox','director-knox','leopard-seal-knox']},
- {lvl:1, t:'The Principal&rsquo;s Office', size:3, diff:'medium', reward:'principal-knox', boss:true, txt:'A note in your pigeonhole: &ldquo;See me.&rdquo; No time given. No reason given.',
-  foes:['principal-knox','seal-whisperer-knox','mixtape-knox']},
- {lvl:2, t:'Parent-Teacher Night', size:4, diff:'medium', reward:'yard-duty-knox', txt:'Five-minute slots. Nobody has kept to five minutes since 1987.',
-  foes:['parent-teacher-knox','blue-suit-knox','elephant-seal-knox','beer-frog-knox']},
- {lvl:2, t:'Sports Carnival', size:4, diff:'medium', reward:'staffroom-coffee', txt:'House colours, zinc cream, and a long jump pit full of grudges.',
-  foes:['sports-carnival-knox','swimming-carnival-knox','fire-drill-knox','socs-got-talent-knox']},
- {lvl:2, t:'Regional Office', size:4, diff:'hard', reward:'regional-director-knox', boss:true, txt:'The Principal has escalated. Regional wants a word, and a spreadsheet.',
-  foes:['regional-director-knox','harbour-seal-knox','director-knox','staff-meeting-knox']},
- {lvl:3, t:'Out on the Ice', size:6, diff:'medium', reward:'fur-seal-knox', txt:'Research leave, at last. The seals have been expecting you.',
-  foes:['weddell-seal-knox','sea-lion-knox','research-vessel-knox','elephant-seal-knox','leopard-seal-knox','harbour-seal-knox']},
- {lvl:3, t:'Excursion Gone Wrong', size:6, diff:'medium', reward:'relief-teacher', txt:'The bus is here. The permission slips are not.',
-  foes:['excursion-knox','sick-day-knox','pd-knox','chaperone-knox','field-researcher-knox','seal-whisperer-knox']},
- {lvl:3, t:'The Department', size:6, diff:'hard', reward:'department-secretary-knox', boss:true, txt:'Head Office has read your field report. All four hundred pages.',
-  foes:['department-secretary-knox','conference-knox','pd-knox','yearbook-knox','staff-meeting-knox','director-knox']},
- {lvl:4, t:'History Repeats', size:6, diff:'hard', reward:'graduation-knox', txt:'The Year 9 history project got out of hand. It is now marching on the gym.',
-  foes:['caesar-knox','napoleon-knox','samurai-knox','spartan-knox','pirate-knox','washington-knox']},
- {lvl:4, t:'Staff Party', size:6, diff:'hard', reward:'long-weekend', txt:'Last day of term. The karaoke machine has been booked since February.',
-  foes:['staff-party-knox','yearbook-knox','mixtape-knox','beer-frog-knox','tech-bro-knox','woodstock-knox']},
- {lvl:4, t:'Parliament House', size:6, diff:'hard', reward:'minister-knox', boss:true, txt:'Everyone you beat this year has filed a complaint. The Minister will hear it personally.',
-  foes:['minister-knox','regional-director-knox','department-secretary-knox','principal-knox','blue-suit-knox','conference-knox']}
+ {lvl:1, t:'Prac Report Due', size:3, diff:'easy', reward:'harbour-seal-knox', txt:'The lab techs have locked the good equipment away. Get past the prep room.',
+  foes:['doctor-knox','field-researcher-knox','tadpole-knox']},
+ {lvl:1, t:'Out on the Ice', size:3, diff:'easy', reward:'hall-pass', txt:'Field trip to the breeding grounds. The seals were here first.',
+  foes:['weddell-seal-knox','sea-lion-knox','leopard-seal-knox']},
+ {lvl:1, t:'Head of Science Knox', size:3, diff:'medium', reward:'head-of-science-knox', boss:true, txt:'Four hundred pages of peer review and a Bunsen burner that&rsquo;s never been turned off.',
+  foes:['head-of-science-knox','elephant-seal-knox','research-vessel-knox']},
+ {lvl:2, t:'Show Your Working', size:3, diff:'medium', reward:'conference-knox', txt:'Staff Meeting Knox has an agenda item. It is you.',
+  foes:['staff-meeting-knox','director-knox','chaperone-knox','emeritus-knox']},
+ {lvl:2, t:'Reports Are Due', size:3, diff:'medium', reward:'staffroom-coffee', txt:'Every comment bank in the building has been deleted. Someone has to pay.',
+  foes:['pd-knox','sick-day-knox','yard-duty-knox','blue-suit-knox']},
+ {lvl:2, t:'Head of Maths Knox', size:3, diff:'hard', reward:'head-of-maths-knox', boss:true, txt:'Has calculated your odds. Won&rsquo;t tell you what they are.',
+  foes:['head-of-maths-knox','director-knox','staff-meeting-knox','pd-knox']},
+ {lvl:3, t:'The School Production', size:3, diff:'medium', reward:'yearbook-knox', txt:'Opening night. The lead has quit. The understudy is a seal.',
+  foes:['socs-got-talent-knox','mixtape-knox','parent-teacher-knox','beer-frog-knox','swimming-carnival-knox','family-man-knox']},
+ {lvl:3, t:'Yearbook Deadline', size:3, diff:'medium', reward:'relief-teacher', txt:'Everyone wants their quote changed. Nobody gets their quote changed.',
+  foes:['yearbook-knox','graduation-knox','staff-party-knox','excursion-knox','fire-drill-knox','sports-carnival-knox']},
+ {lvl:3, t:'Head of English Knox', size:3, diff:'hard', reward:'head-of-english-knox', boss:true, txt:'Has marked your life as &ldquo;developing&rdquo;. Wants a rewrite by Friday.',
+  foes:['head-of-english-knox','parent-teacher-knox','yearbook-knox','mixtape-knox','socs-got-talent-knox','staff-party-knox']},
+ {lvl:4, t:'History Repeats', size:3, diff:'hard', reward:'washington-knox', txt:'Caesar and Napoleon have formed a committee. It is already a coup.',
+  foes:['caesar-knox','napoleon-knox','samurai-knox','spartan-knox','pirate-knox','barbarian-knox']},
+ {lvl:4, t:'The Great Debate', size:3, diff:'hard', reward:'long-weekend', txt:'Geography versus Economics versus Legal Studies. Travis is the moderator. The moderator is the target.',
+  foes:['great-depression-knox','tech-bro-knox','woodstock-knox','crusader-knox','ww1-knox','ww2-knox']},
+ {lvl:4, t:'Head of Humanities Knox', size:3, diff:'hard', reward:'head-of-humanities-knox', boss:true, txt:'Has seen empires fall. Has not seen one like yours.',
+  foes:['head-of-humanities-knox','pharaoh-knox','caesar-knox','napoleon-knox','washington-knox','spartan-knox']},
+ {lvl:5, t:'Assistant Principals', size:3, diff:'hard', reward:null, txt:'Two of them, one clipboard each, and a roster that has somehow put Travis on yard duty for the rest of his life.',
+  foes:['wellbeing-ap-knox','curriculum-ap-knox','director-knox','yard-duty-knox','staff-meeting-knox','conference-knox']},
+ {lvl:5, t:'Principal Knox', size:3, diff:'hard', reward:'principal-travis-knox', boss:true, txt:'The Principal has been expecting this since your first day. The whole school is watching from the gym.',
+  foes:['principal-knox','wellbeing-ap-knox','curriculum-ap-knox','head-of-science-knox','head-of-maths-knox','head-of-humanities-knox']}
 ];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
@@ -225,7 +237,8 @@ var SIG_FX = {
  'Spartan Knox':'shield', 'Tech Bro Knox':'draw', 'Washington Knox':'heal', 'Woodstock Knox':'shield',
  'WW1 Knox':'unshield', 'WW2 Knox':'stun',
  'Chairman Knox':undefined,
- 'Principal Knox':'stun', 'Regional Director Knox':'shield', 'Department Secretary Knox':'unshield', 'Minister Knox':'heal'
+ 'Head of Science Knox':'unshield', 'Head of Maths Knox':'stun', 'Head of English Knox':'draw', 'Head of Humanities Knox':'shield',
+ 'Wellbeing AP Knox':'heal', 'Curriculum AP Knox':'stun', 'Principal Knox':'stun', 'Principal Travis Knox':'heal'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {

@@ -1042,7 +1042,8 @@ function overlays(){
       var won = G.winner===me, sc = STORY[CFG.story], cleared = ACC && ACC.profile && (ACC.profile.story_chapter||0)>CFG.story;
       reward = !won ? '' : G.storySaving ? '<p class="reward dim">Saving your progress&hellip;</p>'
         : G.storyReward && G.storyReward.error ? '<p class="reward dim">Couldn&rsquo;t save progress: '+esc(G.storyReward.error)+'</p>'
-        : G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss ? ' Level '+sc.lvl+' complete.' : '')+'</p>' : '';
+        : (G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss && STORY[CFG.story+1] ? ' '+STORY_LEVELS[sc.lvl-1]+' complete.' : '')+'</p>' : '')
+          + (cleared && !STORY[CFG.story+1] ? '<p class="reward">Principal Knox falls. The PA crackles. The lanyard changes colour. <b>Travis Knox becomes Principal.</b></p>' : '');
       again = !won ? '<button class="btn gold big" data-a="storyplay" data-v="'+CFG.story+'">Retry</button>'
         : cleared && STORY[CFG.story+1] ? '<button class="btn gold big" data-a="storyplay" data-v="'+(CFG.story+1)+'">Next chapter</button>' : '';
       menuBtn = '<button class="lnk" data-a="go" data-v="story">Story</button>';
@@ -1495,7 +1496,7 @@ function startFromMenu(){
 /* Your story roster: the starting three plus every character cleared so far; actions are the base deck
    plus every story action card cleared so far. */
 function storyDeck(){
-  var got = STORY.slice(0, ACC.profile.story_chapter||0).map(function(s){ return CARDID[s.reward]; });
+  var got = STORY.slice(0, ACC.profile.story_chapter||0).filter(function(s){ return s.reward; }).map(function(s){ return CARDID[s.reward]; });
   return {name:'Story roster', foils:[], golds:[],
     characters:STORY_START.concat(got.filter(function(c){ return chars.indexOf(c)>=0; }).map(function(c){ return c.id; })),
     actions:baseActions().map(function(n){ return ACTD[n].id; }).concat(got.filter(function(c){ return acts.indexOf(c)>=0; }).map(function(c){ return c.id; }))};
@@ -1505,22 +1506,25 @@ function storyPlay(i){
   if(!s || needAccount() || i>(ACC.profile.story_chapter||0)) return;
   CFG.mode = 'cpu'; CFG.stake = 0; CFG.size = s.size; CFG.diff = s.diff; CFG.story = i;
   teamPick(storyDeck(), s.size, s.t, function(me){
-    startWithTeams({teams:[me.chars, s.foes.map(function(id){ return CHARID[id]; })], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
+    /* Chance: a fresh line-up from the chapter's pool every attempt; a boss (listed first) always shows up. */
+    var pool = s.boss ? s.foes.slice(1) : s.foes.slice();
+    var foes = (s.boss ? [s.foes[0]] : []).concat(shuffle(pool)).slice(0, s.size);
+    startWithTeams({teams:[me.chars, foes.map(function(id){ return CHARID[id]; })], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
   });
 }
 function renderStory(){
   var done = ACC.profile.story_chapter||0;
   var rows = STORY.map(function(s, i){
-    var head = !i || STORY[i-1].lvl!==s.lvl ? '<h3 class="sec">Level '+s.lvl+' &mdash; '+STORY_LEVELS[s.lvl-1]+'</h3>' : '';
+    var head = !i || STORY[i-1].lvl!==s.lvl ? '<h3 class="sec">'+(STORY_LEVELS[s.lvl] ? 'Level '+s.lvl+' &mdash; ' : 'Finale &mdash; ')+STORY_LEVELS[s.lvl-1]+'</h3>' : '';
     var locked = i>done, foes = s.foes.map(function(id){ return CARDID[id].n; }).join(' &middot; ');
     return head+'<div class="deckrow"><div class="dinfo"><b>'+(i<done ? '&#10003; ' : '')+(s.boss ? 'Boss: ' : '')+s.t+'</b>'
       +'<span>'+(locked ? 'Locked &mdash; clear the chapter before it.' : s.txt)+'</span>'
-      +'<span>'+s.size+' v '+s.size+' &middot; '+s.diff+(locked ? '' : ' &middot; vs '+foes)+' &middot; Reward: '+CARDID[s.reward].n+'</span></div>'
+      +'<span>'+s.size+' v '+s.size+' &middot; '+s.diff+(locked ? '' : ' &middot; vs '+s.size+' drawn from '+foes)+(s.reward ? ' &middot; Reward: '+CARDID[s.reward].n : '')+'</span></div>'
       +(locked ? '' : '<div class="row"><button class="btn sm'+(i===done ? ' gold' : '')+'" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button></div>')+'</div>';
   }).join('');
   return pageTop('Story')+'<div class="panel-pg">'
     + msgs()
-    +'<p class="hint">Clear chapters in order. Each one adds a card to your collection and your story roster, and every level ends with a boss who joins you &mdash; usable in your own decks and online too.</p>'
+    +'<p class="hint">Clear chapters in order. Each one adds a card to your collection and your story roster, and every faculty ends with its Head, who joins you &mdash; usable in your own decks and online too. Beat all four and take on the Principal Class.</p>'
     + rows
     +'</div></div>';
 }
