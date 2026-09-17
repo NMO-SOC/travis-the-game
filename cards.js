@@ -131,16 +131,17 @@ var chars=[
  {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"},
  /* Story mode — never in packs, never for sale. See STORYLINE.md. Heads of Faculty and Principal Travis
     Knox join your collection when beaten/earned in Story; the Assistant Principals and Principal Knox
-    are opponents only. The five collectible ones are deliberately the strongest cards in the game
-    (HP/ATK/SPD above every pack card; Humanities and Principal Travis can't be stunned) — the
-    reward for clearing a faculty or the whole story. */
+    are opponents only. Every story boss is deliberately above every pack card: the five collectible
+    ones are the best deck-building cards in the game (Humanities and Principal Travis can't be
+    stunned), the Assistant Principals match the Heads, and Principal Knox — the final boss, fought
+    on Insane — is the strongest card of all. */
  {n:"Head of Science Knox",r:"Faculty of Science",i:"thermo",hp:28,atk:8,spd:7,an:"Controlled Experiment",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Results are preliminary. Your defeat is not.",set:"story",img:"images/story/head-of-science-knox.jpg"},
  {n:"Head of Maths Knox",r:"Faculty of Mathematics",i:"clip",hp:27,atk:7,spd:8,an:"Show Your Working",a:"Also makes the target skip its next turn.",f:"He has calculated your odds. He will not be sharing them.",set:"story",img:"images/story/head-of-maths-knox.jpg"},
  {n:"Head of English Knox",r:"Faculty of English",i:"pass",hp:26,atk:9,spd:7,an:"Red Pen",a:"Also draws an action card.",f:"Marked: developing. See comments.",set:"story",img:"images/story/head-of-english-knox.jpg"},
  {n:"Head of Humanities Knox",r:"Faculty of Humanities",i:"laurel",hp:30,atk:7,spd:6,an:"Primary Source",a:"Also gives this character a Shield.",f:"Has seen empires fall. Has marked their essays.",set:"story",tank:true,img:"images/story/head-of-humanities-knox.jpg"},
- {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:22,atk:4,spd:4,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.jpg"},
- {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:22,atk:5,spd:3,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.jpg"},
- {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:26,atk:5,spd:4,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",img:"images/story/principal-knox.jpg"},
+ {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:28,atk:7,spd:7,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.jpg"},
+ {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:28,atk:8,spd:6,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.jpg"},
+ {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:34,atk:10,spd:8,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",tank:true,img:"images/story/principal-knox.jpg"},
  {n:"Principal Travis Knox",r:"Principal, at Last",i:"star",hp:32,atk:9,spd:9,an:"Whole-School Assembly",a:"Also heals this character.",f:"First order of business: seals are now a compulsory subject.",set:"story",tank:true,img:"images/story/principal-travis-knox.jpg"}
 ];
 
@@ -218,7 +219,7 @@ var STORY = [
   foes:['doctor-knox','field-researcher-knox','tadpole-knox']},
  {lvl:1, t:'Out on the Ice', size:3, diff:'easy', reward:'hall-pass', txt:'Field trip to the breeding grounds. The seals were here first.',
   foes:['weddell-seal-knox','sea-lion-knox','leopard-seal-knox']},
- {lvl:1, t:'Head of Science Knox', size:3, diff:'medium', reward:'head-of-science-knox', boss:true, txt:'Four hundred pages of peer review and a Bunsen burner that&rsquo;s never been turned off.',
+ {lvl:1, t:'Head of Science Knox', size:3, diff:'hard', reward:'head-of-science-knox', boss:true, txt:'Four hundred pages of peer review and a Bunsen burner that&rsquo;s never been turned off.',
   foes:['head-of-science-knox','elephant-seal-knox','research-vessel-knox']},
  {lvl:2, t:'Show Your Working', size:3, diff:'medium', reward:'conference-knox', txt:'Staff Meeting Knox has an agenda item. It is you.',
   foes:['staff-meeting-knox','director-knox','chaperone-knox','emeritus-knox']},
@@ -240,7 +241,7 @@ var STORY = [
   foes:['head-of-humanities-knox','pharaoh-knox','caesar-knox','napoleon-knox','washington-knox','spartan-knox']},
  {lvl:5, t:'Assistant Principals', size:3, diff:'hard', reward:null, txt:'Two of them, one clipboard each, and a roster that has somehow put Travis on yard duty for the rest of his life.',
   foes:['wellbeing-ap-knox','curriculum-ap-knox','director-knox','yard-duty-knox','staff-meeting-knox','conference-knox']},
- {lvl:5, t:'Principal Knox', size:3, diff:'hard', reward:'principal-travis-knox', boss:true, txt:'The Principal has been expecting this since your first day. The whole school is watching from the gym.',
+ {lvl:5, t:'Principal Knox', size:3, diff:'insane', reward:'principal-travis-knox', boss:true, txt:'The Principal has been expecting this since your first day. The whole school is watching from the gym.',
   foes:['principal-knox','wellbeing-ap-knox','curriculum-ap-knox','head-of-science-knox','head-of-maths-knox','head-of-humanities-knox']}
 ];
 

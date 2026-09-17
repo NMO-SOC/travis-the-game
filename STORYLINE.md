@@ -105,8 +105,11 @@ Eight new cards. Stats follow the game's formula in `cards.js`:
 
 The five you can collect (the four Heads of Faculty and Principal Travis Knox) are deliberately **the strongest cards
 in the game**. Their HP, ATK and SPD are above every pack card, and Head of Humanities and Principal Travis
-Knox can't be stunned. That's the reward for clearing a faculty or the whole story. The Assistant Principals and
-Principal Knox are opponents only.
+Knox can't be stunned. That's the reward for clearing a faculty or the whole story.
+
+Every boss is meant to be hard to beat. The Assistant Principals (opponents only) have stats at Head of Faculty level. **Principal Knox**
+(the final boss, opponent only) is the strongest card in the game. All the Head of Faculty fights and the Assistant Principals
+fight are on **Hard**, and the final fight against Principal Knox is on **Insane**.
 
 **Image style** (to match `images/knox-of-history/caesar-knox.jpg` and `images/daily-org/pd-knox.jpg`):
 Semi-realistic painterly portrait of the same man as the reference photo, from the waist up, warm
@@ -178,7 +181,7 @@ emperors and generals in the background haze. A knowing, scholarly look.
 |---|---|
 | id | `wellbeing-ap-knox` |
 | Role line | Assistant Principal, Wellbeing |
-| HP / ATK / SPD | 22 / 4 / 4 |
+| HP / ATK / SPD | 28 / 7 / 7 |
 | Signature | **Restorative Conversation** — `heal` (also heals this character) |
 | Flavour | "How are we feeling about losing?" |
 | Image file | `images/story/wellbeing-ap-knox.jpg` |
@@ -193,7 +196,7 @@ A warm but slightly unsettling, too-patient smile.
 |---|---|
 | id | `curriculum-ap-knox` |
 | Role line | Assistant Principal, Curriculum |
-| HP / ATK / SPD | 22 / 5 / 3 |
+| HP / ATK / SPD | 28 / 8 / 6 |
 | Signature | **Timetable Clash** — `stun` (the target skips its next turn) |
 | Flavour | "You've been timetabled for yard duty. Permanently." |
 | Image file | `images/story/curriculum-ap-knox.jpg` |
@@ -208,7 +211,7 @@ A stern, efficient expression.
 |---|---|
 | id | `principal-knox` |
 | Role line | The Office at the End of the Hall |
-| HP / ATK / SPD | 26 / 5 / 4 |
+| HP / ATK / SPD | 34 / 10 / 8 · can’t be stunned |
 | Signature | **My Office. Now.** — `stun` (the target skips its next turn) |
 | Flavour | "The door is always open. That is the problem." |
 | Image file | `images/story/principal-knox.jpg` |
