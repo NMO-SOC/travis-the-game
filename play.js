@@ -1322,19 +1322,11 @@ function renderMenu(){
   var on = function(k,v){ return String(CFG[k])===String(v) ? ' on' : ''; };
   var o = function(k,v,label,sub){ return '<button class="choice'+on(k,v)+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
   var hero = heroFanHtml();
-  var user = ACC && ACC.user && ACC.profile, decks = user ? ACC.decks : [];
-  var deckGroup = '';
+  var user = ACC && ACC.user && ACC.profile;
   var live = user && CFG.mode!=='hot' ? ACC.liveEvents() : [];
   var eventGroup = live.length ? '<div class="group"><div class="gl">Special Event</div><div class="choices">'+o('event','','None','A normal game')
     + live.map(function(e){ return o('event', e.id, esc(e.name), esc(e.blurb) || eventRule(e)); }).join('')+'</div>'
     +(activeEvent() ? '<p class="hint">'+eventRule(activeEvent())+'. Choose your team from your own cards; everyone plays the event&rsquo;s action cards.</p>' : '')+'</div>' : '';
-  if(user && CFG.mode!=='hot' && !activeEvent()){
-    var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckpick" data-v="'+v+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
-    deckGroup = '<div class="group"><div class="gl">Your team</div><div class="choices">'
-      + dopt('random','Random deal','Base cards, shuffled')
-      + decks.map(function(d){ return dopt(d.id, d.name, 'Saved deck'); }).join('')
-      + '</div>'+(decks.length ? '' : '<p class="hint">Build a deck to bring your own cards. <button class="lnk" data-a="go" data-v="decks">Decks</button></p>')+'</div>';
-  }
   var go = CFG.mode==='online' ? 'Play Online' : 'Shuffle Up &amp; Deal';
   var menu = '<div class="menu"><div class="fan">'+hero+'</div>'
    +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
@@ -1352,7 +1344,6 @@ function renderMenu(){
      +'</div></div>' : '')
    + eventGroup
    + stakeGroup()
-   + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
    + o('size','6','6 v 6','Full squad') + o('size','4','4 v 4','Medium') + o('size','3','3 v 3','Quick game')
    +'</div>'+(CFG.mode==='online' ? '<p class="hint">Online, the player who creates the game sets the format.</p>' : '')+'</div>'
@@ -1657,7 +1648,20 @@ function startFromMenu(){
     });
     return;
   }
-  var deck = CFG.mode==='cpu' ? chosenDeck() : null;
+  /* The deck is chosen after pressing start (like online, see pickOnline), not on the menu. */
+  if(CFG.mode==='cpu' && ACC && ACC.user && ACC.decks.length){ G = {phase:'deckchoice', log:[], fx:[]}; render(); return; }
+  startCpuWithDeck(null);
+}
+function renderDeckChoice(){
+  var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckgo" data-v="'+esc(v)+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
+  return pageTop('Choose your team')+'<div class="panel-pg">'
+    +'<p>Versus <b>CPU</b> &middot; '+esc(CFG.diff)+' &middot; '+CFG.size+' v '+CFG.size+'. Choose your team.</p>'
+    +'<div class="choices">'+dopt('random', 'Random deal', 'Base cards, shuffled')
+    + ACC.decks.map(function(d){ return dopt(d.id, d.name, deckInvalidReason(d) ? 'Needs fixing in Decks' : 'Saved deck'); }).join('')+'</div>'
+    + msgs()
+    +'<div class="row"><button class="lnk" data-a="go" data-v="decks">Edit decks</button><button class="lnk" data-a="menu">Back</button></div></div></div>';
+}
+function startCpuWithDeck(deck){
   if(deck){ var dReason = deckInvalidReason(deck); if(dReason){ M.err = 'Can’t play with "'+deck.name+'" yet — '+dReason+' Fix it in Decks first.'; render(); return; } }
   if(!deck){ startGame(); return; }
   teamPick(deck, CFG.size, 'Choose your team', function(me){
@@ -2297,11 +2301,11 @@ function renderAdmin(){
 
 function renderMeta(){
   var signedIn = ACC && ACC.user && ACC.profile;
-  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1, story:1};
+  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1, story:1, deckchoice:1};
   if(needs[G.phase] && !signedIn) return renderAuth();
   var html = G.phase==='auth' ? renderAuth() : G.phase==='packs' ? renderPacks() : G.phase==='collection' ? renderCollection()
     : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby()
-    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : G.phase==='story' ? renderStory() : renderPick();
+    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : G.phase==='story' ? renderStory() : G.phase==='deckchoice' ? renderDeckChoice() : renderPick();
   if(G.zoomOpen) html += '<div class="ov zoomov always" data-a="unzoom">'+zoomBlock()+'</div>';
   return html;
 }
@@ -2410,7 +2414,7 @@ function onClick(e){
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; M.board=null; M.admin=null; }); break;
-    case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
+    case 'deckgo': M.deckSel = v; M.err = ''; try{ localStorage.setItem('travis.deck', v); }catch(e){} startCpuWithDeck(chosenDeck()); break;
     case 'packopen': openPack(v); break;
     case 'packbuy': busy(async function(){ await ACC.buyPack(v); render(); }); break;
     case 'rv': flipReveal(+v); break;
