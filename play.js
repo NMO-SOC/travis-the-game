@@ -2085,7 +2085,8 @@ function playerDetail(u, d){
 /* Special events: save one once, switch it live whenever it should run. */
 function eventsAdmin(){
   var list = ACC.events.length ? '<ul class="glist">'+ACC.events.map(function(e){
-    return '<li><span><b>'+esc(e.name)+'</b>'+(e.live?' <span class="adm-tag">live</span>':'')+' &mdash; '+eventRule(e)+'</span>'
+    return '<li><span><b>'+esc(e.name)+'</b>'+(e.live?' <span class="adm-tag">live</span>':'')+' &mdash; '+eventRule(e)
+      +(e.allowed_usernames && e.allowed_usernames.length ? ' &mdash; only '+e.allowed_usernames.map(esc).join(', ') : '')+'</span>'
       +'<span class="row"><button class="btn sm'+(e.live?'':' gold')+'" data-a="evlive" data-v="'+e.id+'"'+(M.busy?' disabled':'')+'>'+(e.live?'End':'Go live')+'</button>'
       +'<button class="lnk" data-a="evdel" data-v="'+e.id+'">Delete</button></span></li>';
   }).join('')+'</ul>' : '<p class="muted">No events saved yet. (If saving fails, run <code>supabase/upgrade-18-special-events.sql</code> first.)</p>';
@@ -2102,6 +2103,8 @@ function eventsAdmin(){
   }).join('');
   return '<h3 class="sec">Special events</h3>'+list
     +'<h3 class="sec">New event</h3>'+field('evname','Name')+field('evblurb','Short description (optional)')
+    +field('evusers','Only for these usernames (comma-separated, optional)')
+    +'<p class="hint">Leave blank for everyone. Use this to keep it away from new players.</p>'
     +'<p class="hint">Characters allowed &mdash; none selected means any character. Players use their own cards.</p>'
     +'<div class="choices">'+sets.map(function(pk){ return chip('evset', pk.id, e.sets.indexOf(pk.id)>=0, pk.name); }).join('')
     + chip('evfoil', '', e.foil, 'Foils only')+'</div>'
@@ -2112,8 +2115,9 @@ function saveEvent(){
   var e = M.evEdit, name = (M.form.evname||'').trim();
   if(!name){ M.err = 'Give the event a name.'; render(); return; }
   var actions = []; acts.forEach(function(a){ for(var i=0;i<(e.counts[a.id]||0);i++) actions.push(a.id); });
+  var users = (M.form.evusers||'').split(',').map(function(u){ return u.trim().toLowerCase(); }).filter(Boolean);
   busy(async function(){
-    await ACC.saveEvent({name:name.slice(0,40), blurb:(M.form.evblurb||'').trim().slice(0,80), char_sets:e.sets, foil_only:e.foil, actions:actions});
+    await ACC.saveEvent({name:name.slice(0,40), blurb:(M.form.evblurb||'').trim().slice(0,80), char_sets:e.sets, foil_only:e.foil, actions:actions, allowed_usernames:users});
     M.evEdit = null; M.note = 'Event saved. Press Go live when you want players to see it.';
   });
 }
@@ -2251,7 +2255,7 @@ function onClick(e){
       if(v==='leaderboard') loadLeaderboard();
       break;
     case 'adminrefresh': loadAdmin(); ACC.loadEvents(); break;
-    case 'evnew': M.evEdit = {sets:[], foil:false, counts:{}}; M.form.evname = ''; M.form.evblurb = ''; render(); break;
+    case 'evnew': M.evEdit = {sets:[], foil:false, counts:{}}; M.form.evname = ''; M.form.evblurb = ''; M.form.evusers = ''; render(); break;
     case 'evcancel': M.evEdit = null; render(); break;
     case 'evset': { var es = M.evEdit.sets, ek = es.indexOf(v); if(ek>=0) es.splice(ek,1); else es.push(v); render(); break; }
     case 'evfoil': M.evEdit.foil = !M.evEdit.foil; render(); break;

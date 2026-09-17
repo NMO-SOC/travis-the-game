@@ -184,7 +184,10 @@ A.loadEvents = async function(){
   try{ A.events = await call(client().from('events').select('*').order('created_at', {ascending:false})) || []; }catch(e){ A.events = []; }
   changed();
 };
-A.liveEvents = function(){ return A.events.filter(function(e){ return e.live; }); };
+A.liveEvents = function(){
+  var me = A.profile && A.profile.username;
+  return A.events.filter(function(e){ return e.live && (!e.allowed_usernames || !e.allowed_usernames.length || (me && e.allowed_usernames.indexOf(me)>=0)); });
+};
 A.saveEvent = async function(row){ await call(client().from('events').insert(row)); await A.loadEvents(); };
 A.setEventLive = async function(id, live){ await call(client().from('events').update({live:live}).eq('id', id)); await A.loadEvents(); };
 A.deleteEvent = async function(id){ await call(client().from('events').delete().eq('id', id)); await A.loadEvents(); };
