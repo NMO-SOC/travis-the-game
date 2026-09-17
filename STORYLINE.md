@@ -119,7 +119,7 @@ e.g. 800×1200). Saved as PNG. No text or logos in the image.
 | HP / ATK / SPD | 24 / 4 / 4 |
 | Signature | **Controlled Experiment** — `unshield` (strips the target's Shield first) |
 | Flavour | "Results are preliminary. Your defeat is not." |
-| Image file | `images/story/head-of-science-knox.png` |
+| Image file | `images/story/head-of-science-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as a Head of Science, wearing a white lab coat over a
 shirt and tie, safety goggles pushed up on his forehead, holding a bubbling conical flask with a blue
@@ -134,7 +134,7 @@ a specimen shelf. A confident half-smile.
 | HP / ATK / SPD | 23 / 4 / 5 |
 | Signature | **Show Your Working** — `stun` (the target skips its next turn) |
 | Flavour | "He has calculated your odds. He will not be sharing them." |
-| Image file | `images/story/head-of-maths-knox.png` |
+| Image file | `images/story/head-of-maths-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as a Head of Maths, in a cardigan and collared shirt,
 a graphics calculator in one hand and a red marking pen behind his ear. Behind him, a classroom
@@ -149,7 +149,7 @@ A raised eyebrow, unimpressed.
 | HP / ATK / SPD | 22 / 5 / 5 |
 | Signature | **Red Pen** — `draw` (also draws an action card) |
 | Flavour | "Marked: developing. See comments." |
-| Image file | `images/story/head-of-english-knox.png` |
+| Image file | `images/story/head-of-english-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as a Head of English, wearing a tweed blazer with elbow
 patches and a loosened tie, holding an open annotated novel in one hand and a red pen in the other.
@@ -164,7 +164,7 @@ wall. A dramatic, theatrical expression.
 | HP / ATK / SPD | 25 / 3 / 3 |
 | Signature | **Primary Source** — `shield` (also gives this character a Shield) |
 | Flavour | "Has seen empires fall. Has marked their essays." |
-| Image file | `images/story/head-of-humanities-knox.png` |
+| Image file | `images/story/head-of-humanities-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as a Head of Humanities, in a waistcoat and bow tie,
 one hand resting on an antique globe, a rolled-up old map under his arm. Behind him, a classroom
@@ -179,7 +179,7 @@ emperors and generals in the background haze. A knowing, scholarly look.
 | HP / ATK / SPD | 22 / 4 / 4 |
 | Signature | **Restorative Conversation** — `heal` (also heals this character) |
 | Flavour | "How are we feeling about losing?" |
-| Image file | `images/story/wellbeing-ap-knox.png` |
+| Image file | `images/story/wellbeing-ap-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as an Assistant Principal for Wellbeing, in a soft
 knit jumper with a school lanyard, holding a mug of tea and a box of tissues. Behind him, a calm
@@ -194,7 +194,7 @@ A warm but slightly unsettling, too-patient smile.
 | HP / ATK / SPD | 22 / 5 / 3 |
 | Signature | **Timetable Clash** — `stun` (the target skips its next turn) |
 | Flavour | "You've been timetabled for yard duty. Permanently." |
-| Image file | `images/story/curriculum-ap-knox.png` |
+| Image file | `images/story/curriculum-ap-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as an Assistant Principal for Curriculum, in a navy suit
 with a lanyard full of keys, holding a clipboard with a colour-coded timetable. Behind him, an office
@@ -209,7 +209,7 @@ A stern, efficient expression.
 | HP / ATK / SPD | 26 / 5 / 4 |
 | Signature | **My Office. Now.** — `stun` (the target skips its next turn) |
 | Flavour | "The door is always open. That is the problem." |
-| Image file | `images/story/principal-knox.png` |
+| Image file | `images/story/principal-knox.jpg` |
 
 **Image prompt:** The man from the reference photo as the outgoing School Principal, an older-looking,
 imposing version of him in a charcoal three-piece suit with a gold school pin, seated behind a large
@@ -224,7 +224,7 @@ a school crest, and a window with dark storm clouds. Dramatic low light, a cold,
 | HP / ATK / SPD | 25 / 5 / 5 |
 | Signature | **Whole-School Assembly** — `heal` (also heals this character) |
 | Flavour | "First order of business: seals are now a compulsory subject." |
-| Image file | `images/story/principal-travis-knox.png` |
+| Image file | `images/story/principal-travis-knox.jpg` |
 
 **Image prompt:** The man from the reference photo triumphant as the new School Principal, in a sharp navy
 suit and a gold Principal's lanyard, standing on the stage of a school gymnasium at a lectern with the
