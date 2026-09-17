@@ -144,13 +144,13 @@ A.actionLimit = function(a){ return a.set==='base' ? 3 : Math.min(3, qty(a.id,fa
 A.price = function(c){ return c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 20 : 8; };
 A.canBuy = function(c, finish){
   if(!A.profile || finish==='foil' || finish==='gold') return false;   // pull- or gift-only, never for sale
-  if(c.set==='base' || c.id==='chairman-knox' || c.set==='australiana') return false;  // pack-only, never for sale
+  if(c.set==='base' || c.set==='story' || c.id==='chairman-knox' || c.set==='australiana') return false;  // pack-only, never for sale
   return chars.indexOf(c)>=0 ? qty(c.id,false)<1 : qty(c.id,false)<3;
 };
 /* Sell price is half the buy price. Starter (base, normal) cards can't be sold — everyone already owns them free. */
 A.sellPrice = function(c, finish){ return (finish==='foil' || finish==='gold') ? 7 : c.set==='base' ? 0 : chars.indexOf(c)>=0 ? 10 : 4; };
 A.canSell = function(c, finish){
-  if(!A.profile || c.id==='chairman-knox') return false;
+  if(!A.profile || c.set==='story' || c.id==='chairman-knox') return false;
   if(finish==='foil') return A.ownsFoil(c.id);
   if(finish==='gold') return A.ownsGold(c.id);
   return c.set!=='base' && qty(c.id,false)>0;
@@ -207,6 +207,9 @@ A.buyPack = async function(packId){ await call(client().rpc('buy_pack', {p_pack:
 A.buyCard = async function(id, foil){ await call(client().rpc('buy_card', {card:id, want_foil:!!foil})); await A.refresh(); };
 /* Resolves to the id of the pack just won (e.g. 'term-one'), 'any' if no pack is configured to be
    won, or null if today's five win-packs are already claimed. */
+/* Story mode: clears chapter ch if it's the next one and resolves to the reward card id, or null if
+   it was already cleared (replays grant nothing). The reward itself is decided server-side. */
+A.storyClear = async function(ch){ var got = await call(client().rpc('story_clear', {p_chapter:ch})); await A.refresh(); return got; };
 A.recordWin = async function(difficulty){ if(!A.user) return null; try{ var got = await call(client().rpc('record_win', {p_difficulty:difficulty||null})); await A.refresh(); return got; }catch(e){ return null; } };
 /* High Stakes: a second, uncapped way to earn a pack, at the cost of the Grant Points staked on a loss.
    Resolves to {won, pack} on a win or {won:false, lost, grant_points} on a loss. */

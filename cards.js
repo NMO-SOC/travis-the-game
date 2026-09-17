@@ -128,7 +128,18 @@ var chars=[
  {n:"First Fleet Knox",r:"1788 Arrival",i:"fleet",hp:19,atk:5,spd:7,an:"Land Ho",a:"Also gives this character a Shield.",f:"Eight months at sea for this weather.",set:"australiana",img:"images/australiana/first-fleet-knox.jpg"},
  {n:"Outback Knox",r:"Red Centre Wanderer",i:"outback",hp:16,atk:4,spd:5,an:"Dust Storm",a:"Also makes the target skip its next turn.",f:"Out of reception. Out of worries.",set:"australiana",img:"images/australiana/outback-knox.jpg"},
  {n:"Surf Lifesaver Knox",r:"Beach Patrol",i:"surf",hp:17,atk:5,spd:6,an:"Rip Rescue",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Between the flags. Always between the flags.",set:"australiana",img:"images/australiana/surf-lifesaver-knox.jpg"},
- {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"}
+ {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"},
+ /* Story mode — never in packs, never for sale. See STORYLINE.md. Heads of Faculty and Principal Travis
+    Knox join your collection when beaten/earned in Story; the Assistant Principals and Principal Knox
+    are opponents only. */
+ {n:"Head of Science Knox",r:"Faculty of Science",i:"thermo",hp:24,atk:4,spd:4,an:"Controlled Experiment",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Results are preliminary. Your defeat is not.",set:"story",img:"images/story/head-of-science-knox.png"},
+ {n:"Head of Maths Knox",r:"Faculty of Mathematics",i:"clip",hp:23,atk:4,spd:5,an:"Show Your Working",a:"Also makes the target skip its next turn.",f:"He has calculated your odds. He will not be sharing them.",set:"story",img:"images/story/head-of-maths-knox.png"},
+ {n:"Head of English Knox",r:"Faculty of English",i:"pass",hp:22,atk:5,spd:5,an:"Red Pen",a:"Also draws an action card.",f:"Marked: developing. See comments.",set:"story",img:"images/story/head-of-english-knox.png"},
+ {n:"Head of Humanities Knox",r:"Faculty of Humanities",i:"laurel",hp:25,atk:3,spd:3,an:"Primary Source",a:"Also gives this character a Shield.",f:"Has seen empires fall. Has marked their essays.",set:"story",img:"images/story/head-of-humanities-knox.png"},
+ {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:22,atk:4,spd:4,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.png"},
+ {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:22,atk:5,spd:3,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.png"},
+ {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:26,atk:5,spd:4,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",img:"images/story/principal-knox.png"},
+ {n:"Principal Travis Knox",r:"Principal, at Last",i:"star",hp:25,atk:5,spd:5,an:"Whole-School Assembly",a:"Also heals this character.",f:"First order of business: seals are now a compulsory subject.",set:"story",img:"images/story/principal-travis-knox.png"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
@@ -157,7 +168,12 @@ var acts=[
  /* Daily Org pack. */
  {n:"Classroom Change",i:"doorswap",t:"Instant",a:"Every character on both teams loses their Shield.",x:0,set:"daily-org"},
  {n:"Compass Is Down",i:"compassdown",t:"Instant",a:"Every character on both teams skips their next turn.",x:0,set:"daily-org"},
- {n:"S1-4",i:"referral",t:"Instant",a:"Deal 5 damage to one enemy. It skips its next turn.",x:0,set:"daily-org"}
+ {n:"S1-4",i:"referral",t:"Instant",a:"Deal 5 damage to one enemy. It skips its next turn.",x:0,set:"daily-org"},
+ /* Story mode rewards. */
+ {n:"Hall Pass",i:"pass",t:"Instant",a:"Deal 6 damage to one enemy.",x:0,set:"story",img:false},
+ {n:"Staffroom Coffee",i:"snack",t:"Instant",a:"Heal every character on your team 4 HP.",x:0,set:"story",img:false},
+ {n:"Relief Teacher",i:"chat",t:"Instant",a:"One character on your team gets +3 ATK for the rest of the game.",x:0,set:"story",img:false},
+ {n:"Long Weekend",i:"kite",t:"Instant",a:"Give one character on your team a Shield and heal it 5 HP.",x:0,set:"story",img:false}
 ];
 
 /* Pack names, in display order. Odds live in the database (pack_odds) so they can be tuned without a deploy. */
@@ -166,13 +182,70 @@ var PACKS = [
   {id:'field-season', name:'Field Season'}, {id:'end-of-year', name:'End of Year'}, {id:'daily-org', name:'Daily Org'}, {id:'spirit-week', name:'Spirit Week'},
   {id:'knox-of-history', name:'Knox of History'},
   {id:'australiana', name:'Australiana'},
-  {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}
+  {id:'holo', name:'Holo'}, {id:'legendary', name:'Legendary'}, {id:'story', name:'Story'}
+];
+
+/* Story mode (see STORYLINE.md): four faculties of three chapters, the last a Head of Faculty boss, then
+   the Principal Class. Every chapter is a quick 3 v 3 against 3 foes drawn at random from its pool
+   (a boss chapter always includes its boss, listed first). Beating a chapter (in order) grants its reward, if any, into your real collection
+   and story roster — the reward list is repeated server-side in upgrade-21-story-mode.sql, keep the two
+   in the same order. */
+var STORY_START = ['tadpole-knox','family-man-knox','field-researcher-knox'];
+/* n: name, q: tagline, c: colour (a card frame class in play.html) */
+var STORY_LEVELS = [
+ {n:'Science', q:'Hypothesis: I can take this faculty. Method: all of it.', c:'green'},
+ {n:'Maths', q:'Show your working.', c:'blue'},
+ {n:'English', q:'It&rsquo;s not what you say. It&rsquo;s the subtext.', c:'red'},
+ {n:'Humanities', q:'Those who don&rsquo;t learn from history get it on the exam.', c:'gold'},
+ {n:'The Principal Class', q:'The door at the end of the hall is always open. That is the problem.', c:'black'}
+];
+/* The campus map on the Story screen (images/story/campus-map.jpg, 1376x768). Each pin sits on a building,
+   as a percentage of the image's width (x) and height (y). A faculty pin (lvl) covers that level's
+   chapters; a finale pin (ch) covers one chapter. Nudge x/y here to move a pin. */
+var STORY_MAP = {img:'images/story/campus-map.jpg', pins:[
+ {n:'Science', lvl:1, x:68.7, y:80.7},
+ {n:'Maths', lvl:2, x:34.9, y:37.8},
+ {n:'English', lvl:3, x:20.8, y:24.0},
+ {n:'Humanities', lvl:4, x:37.1, y:59.2},
+ {n:'Wellbeing', ch:12, x:31.6, y:14.0},
+ {n:'Curriculum', ch:12, x:26.2, y:47.0},
+ {n:'Principal', ch:13, x:14.6, y:41.7}
+]};
+var STORY = [
+ {lvl:1, t:'Prac Report Due', size:3, diff:'easy', reward:'harbour-seal-knox', txt:'The lab techs have locked the good equipment away. Get past the prep room.',
+  foes:['doctor-knox','field-researcher-knox','tadpole-knox']},
+ {lvl:1, t:'Out on the Ice', size:3, diff:'easy', reward:'hall-pass', txt:'Field trip to the breeding grounds. The seals were here first.',
+  foes:['weddell-seal-knox','sea-lion-knox','leopard-seal-knox']},
+ {lvl:1, t:'Head of Science Knox', size:3, diff:'medium', reward:'head-of-science-knox', boss:true, txt:'Four hundred pages of peer review and a Bunsen burner that&rsquo;s never been turned off.',
+  foes:['head-of-science-knox','elephant-seal-knox','research-vessel-knox']},
+ {lvl:2, t:'Show Your Working', size:3, diff:'medium', reward:'conference-knox', txt:'Staff Meeting Knox has an agenda item. It is you.',
+  foes:['staff-meeting-knox','director-knox','chaperone-knox','emeritus-knox']},
+ {lvl:2, t:'Reports Are Due', size:3, diff:'medium', reward:'staffroom-coffee', txt:'Every comment bank in the building has been deleted. Someone has to pay.',
+  foes:['pd-knox','sick-day-knox','yard-duty-knox','blue-suit-knox']},
+ {lvl:2, t:'Head of Maths Knox', size:3, diff:'hard', reward:'head-of-maths-knox', boss:true, txt:'Has calculated your odds. Won&rsquo;t tell you what they are.',
+  foes:['head-of-maths-knox','director-knox','staff-meeting-knox','pd-knox']},
+ {lvl:3, t:'The School Production', size:3, diff:'medium', reward:'yearbook-knox', txt:'Opening night. The lead has quit. The understudy is a seal.',
+  foes:['socs-got-talent-knox','mixtape-knox','parent-teacher-knox','beer-frog-knox','swimming-carnival-knox','family-man-knox']},
+ {lvl:3, t:'Yearbook Deadline', size:3, diff:'medium', reward:'relief-teacher', txt:'Everyone wants their quote changed. Nobody gets their quote changed.',
+  foes:['yearbook-knox','graduation-knox','staff-party-knox','excursion-knox','fire-drill-knox','sports-carnival-knox']},
+ {lvl:3, t:'Head of English Knox', size:3, diff:'hard', reward:'head-of-english-knox', boss:true, txt:'Has marked your life as &ldquo;developing&rdquo;. Wants a rewrite by Friday.',
+  foes:['head-of-english-knox','parent-teacher-knox','yearbook-knox','mixtape-knox','socs-got-talent-knox','staff-party-knox']},
+ {lvl:4, t:'History Repeats', size:3, diff:'hard', reward:'washington-knox', txt:'Caesar and Napoleon have formed a committee. It is already a coup.',
+  foes:['caesar-knox','napoleon-knox','samurai-knox','spartan-knox','pirate-knox','barbarian-knox']},
+ {lvl:4, t:'The Great Debate', size:3, diff:'hard', reward:'long-weekend', txt:'Geography versus Economics versus Legal Studies. Travis is the moderator. The moderator is the target.',
+  foes:['great-depression-knox','tech-bro-knox','woodstock-knox','crusader-knox','ww1-knox','ww2-knox']},
+ {lvl:4, t:'Head of Humanities Knox', size:3, diff:'hard', reward:'head-of-humanities-knox', boss:true, txt:'Has seen empires fall. Has not seen one like yours.',
+  foes:['head-of-humanities-knox','pharaoh-knox','caesar-knox','napoleon-knox','washington-knox','spartan-knox']},
+ {lvl:5, t:'Assistant Principals', size:3, diff:'hard', reward:null, txt:'Two of them, one clipboard each, and a roster that has somehow put Travis on yard duty for the rest of his life.',
+  foes:['wellbeing-ap-knox','curriculum-ap-knox','director-knox','yard-duty-knox','staff-meeting-knox','conference-knox']},
+ {lvl:5, t:'Principal Knox', size:3, diff:'hard', reward:'principal-travis-knox', boss:true, txt:'The Principal has been expecting this since your first day. The whole school is watching from the gym.',
+  foes:['principal-knox','wellbeing-ap-knox','curriculum-ap-knox','head-of-science-knox','head-of-maths-knox','head-of-humanities-knox']}
 ];
 
 /* Stable ids used by accounts, decks and packs. Never change an id once players own the card. */
 function cardSlug(n){ return n.replace(/&[a-z]+;/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''); }
-chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; c.img = c.img || 'images/'+c.id+'.jpg'; });
-acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; a.img = a.img || 'images/actions/'+a.id+'.jpg'; });
+chars.forEach(function(c){ c.id = c.id || cardSlug(c.n); c.set = c.set || 'base'; c.img = c.img===false ? null : c.img || 'images/'+c.id+'.jpg'; });
+acts.forEach(function(a){ a.id = a.id || cardSlug(a.n); a.set = a.set || 'base'; a.img = a.img===false ? null : a.img || 'images/actions/'+a.id+'.jpg'; });
 
 /* Each character has three attacks built from its base ATK: a plain Jab, its named signature move
    (keeps the card's old Power name, plus an optional simple effect), and a harder Overdrive that
@@ -194,7 +267,9 @@ var SIG_FX = {
  'WW1 Knox':'unshield', 'WW2 Knox':'stun',
  'Chairman Knox':undefined,
  'Bunnings BBQ Knox':'heal', 'Bushman Knox':'draw', 'First Fleet Knox':'shield', 'Outback Knox':'stun',
- 'Surf Lifesaver Knox':'unshield', 'Oakleigh Knox':'recoil'
+ 'Surf Lifesaver Knox':'unshield', 'Oakleigh Knox':'recoil',
+ 'Head of Science Knox':'unshield', 'Head of Maths Knox':'stun', 'Head of English Knox':'draw', 'Head of Humanities Knox':'shield',
+ 'Wellbeing AP Knox':'heal', 'Curriculum AP Knox':'stun', 'Principal Knox':'stun', 'Principal Travis Knox':'heal'
  /* Golden characters (set:'legendary') skip this table entirely — see the copy-from-original pass below. */
 };
 var FX_TEXT = {

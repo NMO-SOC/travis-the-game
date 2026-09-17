@@ -334,6 +334,15 @@ function gameEnded(){
   if(CFG.mode==='online') NET.finished = true;
   var me = CFG.mode==='online' ? CFG.me : 0;
   logResult(G.winner<0 ? 'draw' : G.winner===me ? 'win' : 'loss');
+  if(CFG.story!=null){
+    var gs = G, ch = CFG.story;
+    if(G.winner===me && ACC && ACC.user && ACC.profile && (ACC.profile.story_chapter||0)===ch){
+      G.storySaving = true;
+      ACC.storyClear(ch).then(function(r){ if(gs===G){ G.storySaving = false; G.storyReward = r; render(); } },
+        function(e){ if(gs===G){ G.storySaving = false; G.storyReward = {error:(e&&e.message)||String(e)}; render(); } });
+    }
+    return;
+  }
   if(CFG.stake>0 && stakeEligible()){
     var g = G, stake = CFG.stake, won = G.winner===me;
     G.wagerPending = true; CFG.stake = 0;
@@ -442,6 +451,42 @@ var ACT = {
    var e = await pickUnit(t, 'Detention: who skips their next turn?', living(1-t), function(e){ return effAtk(e)*2+(e.acted?0:3)-(e.skip?30:0); }, true);
    if(!e) return false;
    log(pn(t)+' plays '+card('Detention')+' on '+nm(e)+'.'); stun(e); return true;
+  }},
+ /* ---- story action cards ---- */
+ 'Hall Pass':{
+  can:function(t){ return living(1-t).length>0; },
+  ai:function(t){ return living(1-t).some(function(e){ return e.hp<=6 && !e.shield; }) ? 8 : 4; },
+  run:async function(t){
+   var e = await pickUnit(t, 'Hall Pass: deal 6 damage to whom?', living(1-t), function(e){ return hitScore(6, e); }, true);
+   if(!e) return false;
+   log(pn(t)+' plays '+card('Hall Pass')+' on '+nm(e)+'.');
+   await damage(e, 6); return true;
+  }},
+ 'Staffroom Coffee':{
+  can:function(t){ return living(t).some(function(f){ return f.hp<f.max; }); },
+  ai:function(t){ return Math.min(4, maxMissing(t)); },
+  run:async function(t){
+   log(pn(t)+' plays '+card('Staffroom Coffee')+'.');
+   living(t).forEach(function(f){ heal(f, 4); }); return true;
+  }},
+ 'Relief Teacher':{
+  can:function(t){ return living(t).length>0; },
+  ai:function(){ return 4; },
+  run:async function(t){
+   var f = await pickFriend(t, 'Relief Teacher: who gets +3 ATK?', living(t), function(f){ return effAtk(f)+f.hp*0.1; });
+   if(!f) return false;
+   f.atkGame += 3;
+   log(pn(t)+' plays '+card('Relief Teacher')+': '+nm(f)+' gets +3 ATK.'); return true;
+  }},
+ 'Long Weekend':{
+  can:function(t){ return living(t).some(function(f){ return !f.shield || f.hp<f.max; }); },
+  ai:function(t){ return Math.min.apply(null, living(t).map(function(f){ return f.hp; }))<=10 ? 6 : 2; },
+  run:async function(t){
+   var f = await pickFriend(t, 'Long Weekend: who gets a Shield and 5 HP?', living(t).filter(function(f){ return !f.shield || f.hp<f.max; }), function(f){ return -f.hp; });
+   if(!f) return false;
+   f.shield = true;
+   log(pn(t)+' plays '+card('Long Weekend')+': '+nm(f)+' gets a Shield.');
+   heal(f, 5); return true;
   }},
  /* ---- pack action cards ---- */
  'Reports':{
@@ -930,8 +975,8 @@ function chips(u){
   if(u.atkGame<0) c.push(['&minus;'+(-u.atkGame)+' ATK','r']);
   if(u.atkRound<0) c.push(['&minus;'+(-u.atkRound)+' ATK this round','r']);
   if(u.skip>0) c.push(['Skips turn','r']);
-  if(u.stunGuard) c.push(['Stunned last round &mdash; immune this round','g']);
-  return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
+  if(u.stunGuard) c.push(['Stun immune','g','Stunned last round &mdash; can&rsquo;t be stunned again this round']);
+  return c.map(function(x){ return '<span class="chip '+x[1]+'" title="'+(x[2]||x[0])+'">'+x[0]+'</span>'; }).join('');
 }
 function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
 function myTurn(){ var w = G.wait; return !!(w && w.kind==='cmd' && G.turnOf===viewer() && !isCPU(G.turnOf)); }
@@ -1114,8 +1159,19 @@ function overlays(){
                : '<p class="reward dim">High Stakes: lost your '+G.wagerResult.lost+' Grant Points.</p>';
     var chairman = G.chairmanWon ? '<p class="reward chairman">&#9733; 1 in 100 &mdash; that pack held a Chairman Knox! Check your Collection.</p>' : '';
     var again = CFG.mode==='online' ? '<button class="btn gold big" data-a="lobby">Back to the lobby</button>' : '<button class="btn gold big" data-a="start">Shuffle Up Again</button>';
+    var menuBtn = '<button class="lnk" data-a="menu">Menu</button>';
+    if(CFG.story!=null){
+      var won = G.winner===me, sc = STORY[CFG.story], cleared = ACC && ACC.profile && (ACC.profile.story_chapter||0)>CFG.story;
+      reward = !won ? '' : G.storySaving ? '<p class="reward dim">Saving your progress&hellip;</p>'
+        : G.storyReward && G.storyReward.error ? '<p class="reward dim">Couldn&rsquo;t save progress: '+esc(G.storyReward.error)+'</p>'
+        : (G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss && STORY[CFG.story+1] ? ' '+STORY_LEVELS[sc.lvl-1].n+' complete.' : '')+'</p>' : '')
+          + (cleared && !STORY[CFG.story+1] ? '<p class="reward">Principal Knox falls. The PA crackles. The lanyard changes colour. <b>Travis Knox becomes Principal.</b></p>' : '');
+      again = !won ? '<button class="btn gold big" data-a="storyplay" data-v="'+CFG.story+'">Retry</button>'
+        : cleared && STORY[CFG.story+1] ? '<button class="btn gold big" data-a="storyplay" data-v="'+(CFG.story+1)+'">Next chapter</button>' : '';
+      menuBtn = '<button class="lnk" data-a="go" data-v="story">Story</button>';
+    }
     o += '<div class="ov soft"><div class="panel over'+(you&&G.winner>=0&&G.winner!==me?' lose':'')+'"><div class="eyebrow">Round '+G.round+'</div><h2 class="vt">'+title+'</h2><p>'+sub+'</p>'+reward+wager+chairman
-      +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
+      +'<div class="row">'+again+'<button class="lnk" data-a="close">View board</button>'+menuBtn+'</div></div></div>';
   } else if(G.oppGone && !G.over){
     o += '<div class="ov soft"><div class="panel"><div class="eyebrow">Connection</div><h2>'+pname(1-CFG.me)+' left the game</h2><p>The match can&rsquo;t continue. No result is recorded.</p>'
       +'<div class="row"><button class="btn gold" data-a="lobby">Back to the lobby</button><button class="lnk" data-a="menu">Menu</button></div></div></div>';
@@ -1266,19 +1322,11 @@ function renderMenu(){
   var on = function(k,v){ return String(CFG[k])===String(v) ? ' on' : ''; };
   var o = function(k,v,label,sub){ return '<button class="choice'+on(k,v)+'" data-a="cfg" data-k="'+k+'" data-v="'+v+'"><b>'+label+'</b><span>'+sub+'</span></button>'; };
   var hero = heroFanHtml();
-  var user = ACC && ACC.user && ACC.profile, decks = user ? ACC.decks : [];
-  var deckGroup = '';
+  var user = ACC && ACC.user && ACC.profile;
   var live = user && CFG.mode!=='hot' ? ACC.liveEvents() : [];
   var eventGroup = live.length ? '<div class="group"><div class="gl">Special Event</div><div class="choices">'+o('event','','None','A normal game')
     + live.map(function(e){ return o('event', e.id, esc(e.name), esc(e.blurb) || eventRule(e)); }).join('')+'</div>'
     +(activeEvent() ? '<p class="hint">'+eventRule(activeEvent())+'. Choose your team from your own cards; everyone plays the event&rsquo;s action cards.</p>' : '')+'</div>' : '';
-  if(user && CFG.mode!=='hot' && !activeEvent()){
-    var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckpick" data-v="'+v+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
-    deckGroup = '<div class="group"><div class="gl">Your team</div><div class="choices">'
-      + dopt('random','Random deal','Base cards, shuffled')
-      + decks.map(function(d){ return dopt(d.id, d.name, 'Saved deck'); }).join('')
-      + '</div>'+(decks.length ? '' : '<p class="hint">Build a deck to bring your own cards. <button class="lnk" data-a="go" data-v="decks">Decks</button></p>')+'</div>';
-  }
   var go = CFG.mode==='online' ? 'Play Online' : 'Shuffle Up &amp; Deal';
   var menu = '<div class="menu"><div class="fan">'+hero+'</div>'
    +'<h1 class="logo"><span class="l1">Travis</span><span class="l2">The Game</span></h1>'
@@ -1296,7 +1344,6 @@ function renderMenu(){
      +'</div></div>' : '')
    + eventGroup
    + stakeGroup()
-   + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
    + o('size','6','6 v 6','Full squad') + o('size','4','4 v 4','Medium') + o('size','3','3 v 3','Quick game')
    +'</div>'+(CFG.mode==='online' ? '<p class="hint">Online, the player who creates the game sets the format.</p>' : '')+'</div>'
@@ -1322,7 +1369,7 @@ function field(name, label, type, auto){
   return '<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+(type||'text')+'" autocomplete="'+(auto||'off')+'" autocapitalize="off" spellcheck="false" value="'+esc(M.form[name]||'')+'"></label>';
 }
 function msgs(){ return (M.err ? '<p class="err-msg">'+M.err+'</p>' : '') + (M.note ? '<p class="ok-msg">'+M.note+'</p>' : ''); }
-function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
+function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); CFG.story = null; CFG.spectating = false; M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
 function needAccount(){ if(ACC && ACC.user) return false; M.authMode='in'; goScreen('auth'); M.err='Sign in first.'; return true; }
 function chosenDeck(){ return ACC && ACC.user ? ACC.decks.filter(function(d){ return d.id===M.deckSel; })[0] || null : null; }
 async function busy(fn){
@@ -1340,7 +1387,7 @@ function accountStrip(){
   var p = ACC.profile;
   var np = ACC.totalPacks();
   return '<div class="acct in"><div class="who-am-i"><b>'+esc(p.username)+'</b><span>'+np+' pack'+(np===1?'':'s')+' &middot; '+p.grant_points+' Grant Points</span></div>'
-    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button>'
+    +'<div class="acct-btns"><button class="btn sm'+(np?' gold':'')+'" data-a="go" data-v="packs">Packs'+(np?' ('+np+')':'')+'</button><button class="btn sm" data-a="go" data-v="collection">Collection</button><button class="btn sm" data-a="go" data-v="decks">Decks</button><button class="btn sm" data-a="go" data-v="story">Story</button>'
     +(p.is_admin ? '<button class="btn sm" data-a="go" data-v="admin">Admin</button>' : '')
     +'<button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
@@ -1568,6 +1615,7 @@ function saveDeck(){
 
 /* ---- choosing which of a deck's six characters to field (3 v 3 and 4 v 4) ---- */
 function teamPick(deck, n, title, done){
+  CFG.spectating = false;   // choosing your own team means you're playing, not watching (#15)
   if(!deck){ done(randomTeam(n)); return; }
   if(deck.characters.length<=n){ done(deckTeam(deck, deck.characters)); return; }
   G = {phase:'pick', log:[], fx:[], pick:{deck:deck, n:n, chosen:[], title:title, done:done}};
@@ -1600,13 +1648,101 @@ function startFromMenu(){
     });
     return;
   }
-  var deck = CFG.mode==='cpu' ? chosenDeck() : null;
+  /* The deck is chosen after pressing start (like online, see pickOnline), not on the menu. */
+  if(CFG.mode==='cpu' && ACC && ACC.user && ACC.decks.length){ G = {phase:'deckchoice', log:[], fx:[]}; render(); return; }
+  startCpuWithDeck(null);
+}
+function renderDeckChoice(){
+  var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckgo" data-v="'+esc(v)+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
+  return pageTop('Choose your team')+'<div class="panel-pg">'
+    +'<p>Versus <b>CPU</b> &middot; '+esc(CFG.diff)+' &middot; '+CFG.size+' v '+CFG.size+'. Choose your team.</p>'
+    +'<div class="choices">'+dopt('random', 'Random deal', 'Base cards, shuffled')
+    + ACC.decks.map(function(d){ return dopt(d.id, d.name, deckInvalidReason(d) ? 'Needs fixing in Decks' : 'Saved deck'); }).join('')+'</div>'
+    + msgs()
+    +'<div class="row"><button class="lnk" data-a="go" data-v="decks">Edit decks</button><button class="lnk" data-a="menu">Back</button></div></div></div>';
+}
+function startCpuWithDeck(deck){
   if(deck){ var dReason = deckInvalidReason(deck); if(dReason){ M.err = 'Can’t play with "'+deck.name+'" yet — '+dReason+' Fix it in Decks first.'; render(); return; } }
   if(!deck){ startGame(); return; }
   teamPick(deck, CFG.size, 'Choose your team', function(me){
     var cpu = randomTeam(CFG.size);
     startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
   });
+}
+
+/* ---- story mode ---- */
+/* Your story roster: the starting three plus every character cleared so far; actions are the base deck
+   plus every story action card cleared so far. */
+function storyDeck(){
+  var got = STORY.slice(0, ACC.profile.story_chapter||0).filter(function(s){ return s.reward; }).map(function(s){ return CARDID[s.reward]; });
+  return {name:'Story roster', foils:[], golds:[],
+    characters:STORY_START.concat(got.filter(function(c){ return chars.indexOf(c)>=0; }).map(function(c){ return c.id; })),
+    actions:baseActions().map(function(n){ return ACTD[n].id; }).concat(got.filter(function(c){ return acts.indexOf(c)>=0; }).map(function(c){ return c.id; }))};
+}
+function storyPlay(i){
+  var s = STORY[i];
+  if(!s || needAccount() || i>(ACC.profile.story_chapter||0)) return;
+  CFG.mode = 'cpu'; CFG.stake = 0; CFG.size = s.size; CFG.diff = s.diff; CFG.story = i; M.storySel = null;
+  teamPick(storyDeck(), s.size, s.t, function(me){
+    /* Chance: a fresh line-up from the chapter's pool every attempt; a boss (listed first) always shows up. */
+    var pool = s.boss ? s.foes.slice(1) : s.foes.slice();
+    var foes = (s.boss ? [s.foes[0]] : []).concat(shuffle(pool)).slice(0, s.size);
+    startWithTeams({teams:[me.chars, foes.map(function(id){ return CHARID[id]; })], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
+  });
+}
+/* Story map: one band per faculty, its chapters as a path of nodes (the boss as its portrait), and the
+   selected chapter's details underneath. M.storySel defaults to the next chapter to play. */
+function storyMini(id){ var c = CARDID[id]; return '<div class="card mini">'+(chars.indexOf(c)>=0 ? charFace(c) : actFace(c.n))+'</div>'; }
+function storyChapter(i, done){
+  var s = STORY[i], locked = i>done;
+  return '<div class="chap"><h3>'+(s.boss ? 'Boss: ' : '')+s.t+'</h3>'
+    +'<p class="meta">'+s.size+' v '+s.size+' &middot; '+s.diff+' &middot; '+s.size+' foes drawn at random from '+s.foes.length+(s.boss ? ', boss always included' : '')+'</p>'
+    +'<p>'+(locked ? 'Locked &mdash; clear the chapter before it.' : s.txt)+'</p>'
+    +'<div class="chap-row">'
+    +(locked ? '' : '<div class="chap-cards"><span class="lbl">Foe pool</span>'+s.foes.map(storyMini).join('')+'</div>')
+    +(s.reward ? '<div class="chap-cards"><span class="lbl">Reward'+(i<done ? ' &middot; earned' : '')+'</span>'+storyMini(s.reward)+'</div>' : '')
+    +'</div>'
+    +(locked ? '' : '<button class="btn gold" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button>')
+    +'</div>';
+}
+function storyLevelChs(lvl){ var a = []; STORY.forEach(function(s, i){ if(s.lvl===lvl) a.push(i); }); return a; }
+/* One faculty's band: its chapters as a path of nodes (the boss as its portrait) and the selected chapter's details. */
+function storyLevel(li, done){
+  var L = STORY_LEVELS[li], chs = storyLevelChs(li+1);
+  var cleared = chs.filter(function(i){ return i<done; }).length;
+  var state = cleared===chs.length ? 'cleared' : chs[0]>done ? 'locked' : 'current';
+  var nodes = chs.map(function(i, k){
+    var s = STORY[i], st = i<done ? 'done' : i===done ? 'next' : 'locked', sel = i===M.storySel;
+    var inner = s.boss ? '<div class="card mini">'+charFace(CARDID[s.foes[0]])+'</div>'
+      : '<span class="dot">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : (k+1))+'</span>';
+    return '<button class="node'+(s.boss ? ' boss' : '')+' '+st+(sel ? ' sel' : '')+'" data-a="storysel" data-v="'+i+'" aria-pressed="'+sel+'">'+inner+'<span>'+(s.boss ? 'Boss: ' : '')+s.t+'</span></button>';
+  }).join('');
+  return '<section class="fac f-'+L.c+' '+state+'">'
+    +'<div class="fac-band"><small>'+(STORY_LEVELS[li+1] ? 'Level '+(li+1) : 'Finale')+'</small><b>'+L.n+'</b><i>&ldquo;'+L.q+'&rdquo;</i><em>'+cleared+' / '+chs.length+'</em></div>'
+    +'<div class="fac-path">'+nodes+'</div>'
+    + storyChapter(M.storySel, done)
+    +'</section>';
+}
+/* Story screen: the campus map with a pin per faculty/office (see STORY_MAP), and the selected
+   location's faculty band underneath. M.storySel defaults to the next chapter to play. */
+function renderStory(){
+  var done = ACC.profile.story_chapter||0, total = STORY.length;
+  if(M.storySel==null || !STORY[M.storySel]) M.storySel = Math.min(done, total-1);
+  var pins = STORY_MAP.pins.map(function(p){
+    var chs = p.lvl ? storyLevelChs(p.lvl) : [p.ch], last = chs[chs.length-1];
+    var st = last<done ? 'done' : chs[0]>done ? 'locked' : 'next', on = chs.indexOf(M.storySel)>=0;
+    var pick = Math.min(Math.max(done, chs[0]), last);
+    return '<button class="pin '+st+(on ? ' sel' : '')+'" style="left:'+p.x+'%;top:'+p.y+'%" data-a="storysel" data-v="'+pick+'" aria-pressed="'+on+'" aria-label="'+p.n+(st==='done' ? ', cleared' : st==='locked' ? ', locked' : ', next')+'">'
+      +'<span class="pin-dot" aria-hidden="true">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : '&#9733;')+'</span><span class="pin-lbl">'+p.n+'</span></button>';
+  }).join('');
+  return pageTop('Story')+'<div class="story">'
+    +'<div class="story-hero"><h2>Knox for Principal</h2>'
+    +'<p>Graduate teacher. One lanyard. One ambition. Take the school faculty by faculty &mdash; beat each Head and they join you &mdash; then face the Principal Class.</p>'
+    +'<div class="story-bar"><i style="width:'+Math.round(done/total*100)+'%"></i></div><p class="meta">'+done+' / '+total+' chapters cleared &middot; tap a building</p></div>'
+    + msgs()
+    +'<div class="story-mapwrap"><img src="'+STORY_MAP.img+'" alt="Campus map" width="1376" height="768">'+pins+'</div>'
+    + storyLevel(STORY[M.storySel].lvl-1, done)
+    +'</div></div>';
 }
 
 /* ---- online lobby ----
@@ -2165,11 +2301,11 @@ function renderAdmin(){
 
 function renderMeta(){
   var signedIn = ACC && ACC.user && ACC.profile;
-  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1};
+  var needs = {packs:1, collection:1, decks:1, deckedit:1, lobby:1, admin:1, leaderboard:1, story:1, deckchoice:1};
   if(needs[G.phase] && !signedIn) return renderAuth();
   var html = G.phase==='auth' ? renderAuth() : G.phase==='packs' ? renderPacks() : G.phase==='collection' ? renderCollection()
     : G.phase==='decks' ? renderDecks() : G.phase==='deckedit' ? renderDeckEdit() : G.phase==='lobby' ? renderLobby()
-    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : renderPick();
+    : G.phase==='admin' ? renderAdmin() : G.phase==='leaderboard' ? renderLeaderboard() : G.phase==='story' ? renderStory() : G.phase==='deckchoice' ? renderDeckChoice() : renderPick();
   if(G.zoomOpen) html += '<div class="ov zoomov always" data-a="unzoom">'+zoomBlock()+'</div>';
   return html;
 }
@@ -2214,11 +2350,18 @@ function paint(){
   // going through here (see appendActivityRow), but this stays as a safety net for whatever still
   // triggers a full render while, say, the activity feed is scrolled mid-read.
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
-  var feedEl = root.querySelector('.feed'), feedScroll = feedEl ? feedEl.scrollTop : null;
+  // Every scrolling panel keeps its position (the battle log/rail used to jump back to the top on
+  // every re-render, e.g. the turn timer's nudge); chat only sticks to the bottom if it was already there.
+  var SCROLLERS = '.feed,.log,.rail,.chatfeed', scrolls = [].map.call(root.querySelectorAll(SCROLLERS), function(el){
+    return {top:el.scrollTop, bottom:el.scrollHeight-el.scrollTop-el.clientHeight<4};
+  });
   root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + australianaBannerHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
-  if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
-  var cf = root.querySelector('.chatfeed'); if(cf) cf.scrollTop = cf.scrollHeight;
+  [].forEach.call(root.querySelectorAll(SCROLLERS), function(el, i){
+    var was = scrolls[i];
+    if(el.classList.contains('chatfeed') && (!was || was.bottom)) el.scrollTop = el.scrollHeight;
+    else if(was) el.scrollTop = was.top;
+  });
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
   if(w && w.kind==='unit' && !w.scrolled){
@@ -2245,6 +2388,8 @@ function onClick(e){
   switch(a){
     case 'cfg': { var ck = el.getAttribute('data-k'); CFG[ck] = (ck==='size' || ck==='stake') ? +v : v; M.err=''; render(); break; }
     case 'start': startFromMenu(); break;
+    case 'storyplay': storyPlay(+v); break;
+    case 'storysel': M.storySel = +v; render(); break;
     case 'menu': goScreen('menu'); if(ACC && ACC.user) ACC.loadEvents(); break;
     /* ---- accounts & collection ---- */
     case 'go':
@@ -2269,7 +2414,7 @@ function onClick(e){
     case 'authmode': M.authMode = v; M.err=''; render(); break;
     case 'authsubmit': submitAuth(); break;
     case 'signout': busy(async function(){ await ACC.signOut(); M.deckSel='random'; M.board=null; M.admin=null; }); break;
-    case 'deckpick': M.deckSel = v; try{ localStorage.setItem('travis.deck', v); }catch(e){} render(); break;
+    case 'deckgo': M.deckSel = v; M.err = ''; try{ localStorage.setItem('travis.deck', v); }catch(e){} startCpuWithDeck(chosenDeck()); break;
     case 'packopen': openPack(v); break;
     case 'packbuy': busy(async function(){ await ACC.buyPack(v); render(); }); break;
     case 'rv': flipReveal(+v); break;
