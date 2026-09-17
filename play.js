@@ -1530,7 +1530,7 @@ function renderDecks(){
 }
 function renderDeckEdit(){
   var e = M.edit, total = editTotal(e), nc = e.characters.length;
-  var owned = chars.filter(function(c){ return ACC.ownsChar(c); });
+  var owned = chars.filter(function(c){ return ACC.ownsChar(c); }).sort(function(a,b){ return a.n<b.n?-1:a.n>b.n?1:0; });
   var charTiles = owned.map(function(c){
     var on = e.characters.indexOf(c.id)>=0, foil = on && e.foils.indexOf(c.id)>=0, gold = on && e.golds.indexOf(c.id)>=0;
     return '<div class="tile"><button class="card coll pickable'+(on?' sel':'')+((foil||gold)?' shine':'')+'" data-a="dchar" data-v="'+c.id+'" aria-pressed="'+on+'">'+charFace(c, {foil:foil, gold:gold})+'</button>'
@@ -1575,7 +1575,7 @@ function teamPick(deck, n, title, done){
 }
 function renderPick(){
   var p = G.pick, d = p.deck;
-  var tiles = d.characters.map(function(id){
+  var tiles = d.characters.slice().sort(function(a,b){ var na=chars[CHARID[a]].n, nb=chars[CHARID[b]].n; return na<nb?-1:na>nb?1:0; }).map(function(id){
     var c = chars[CHARID[id]], on = p.chosen.indexOf(id)>=0;
     return '<button class="card deal up'+(on?' sel':'')+'" data-a="pchar" data-v="'+id+'" aria-pressed="'+on+'">'+charFace(c, {foil:(d.foils||[]).indexOf(id)>=0, gold:(d.golds||[]).indexOf(id)>=0})+'</button>';
   }).join('');
