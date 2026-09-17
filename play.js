@@ -12,7 +12,7 @@ var TURN_NUDGE_MS = 10000;
 var TURN_TIMER_MS = 15000;
 var TURN_TIMER_MS_CPU = 30000;
 var ABORT_OVER = {abort:'over'}, ABORT_DEAD = {abort:'dead'};
-var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false};
+var CFG = {mode:'cpu', size:6, speed:1, diff:'medium', stake:0, spectating:false, event:''};
 
 /* Australiana battle themes: attacking with one of these characters starts (or keeps) its song
    looping for the whole game — no controls, ducking the persistent site player out of the way —
@@ -852,6 +852,28 @@ function randomTeam(n, exclude){
   var pool = shuffle(BASE_CHARS.filter(function(i){ return (exclude||[]).indexOf(i)<0; }));
   return {chars:pool.slice(0, n), foils:[], golds:[], actions:null};
 }
+/* ---- special events: saved on the admin screen (ACC.events), playable while live ---- */
+function activeEvent(){ return ACC && ACC.user && CFG.mode!=='hot' && ACC.liveEvents().filter(function(e){ return e.id===CFG.event; })[0] || null; }
+function eventFits(ev, c){ return !ev.char_sets.length || ev.char_sets.indexOf(c.set)>=0; }
+function eventRule(ev){
+  var sets = ev.char_sets.map(function(id){ return id==='base' ? 'Starter' : packName(id); }).join(', ');
+  return (ev.foil_only ? 'Foils only' : '')+(ev.foil_only && sets ? ' &middot; ' : '')+(sets || (ev.foil_only ? '' : 'Any character'));
+}
+/* Every character you own that fits the event, as a deck teamPick can choose from. */
+function eventDeck(ev){
+  var ids = chars.filter(function(c){ return eventFits(ev, c) && (ev.foil_only ? ACC.ownsFoil(c.id) : ACC.ownsChar(c) || ACC.ownsFoil(c.id) || ACC.ownsGold(c.id)); })
+    .map(function(c){ return c.id; });
+  var foils = ids.filter(function(id){ return ev.foil_only || ACC.ownsFoil(id); });
+  return {name:ev.name, characters:ids, foils:foils, golds:ids.filter(function(id){ return foils.indexOf(id)<0 && ACC.ownsGold(id); }), actions:ev.actions};
+}
+function eventShortfall(ev, n){
+  var have = eventDeck(ev).characters.length;
+  return have>=n ? '' : esc(ev.name)+' needs '+n+' of your characters that fit it ('+eventRule(ev)+'). You have '+have+'.';
+}
+function eventCpuTeam(ev, n){
+  var pool = shuffle(chars.map(function(_,i){ return i; }).filter(function(i){ return eventFits(ev, chars[i]); })).slice(0, n);
+  return {chars:pool, foils:pool.map(function(){ return ev.foil_only; }), golds:[], actions:ev.actions.map(function(id){ return ACTID[id].n; })};
+}
 
 /* ---------------- card faces ---------------- */
 var COLOR = {
@@ -1244,7 +1266,11 @@ function renderMenu(){
   var hero = heroFanHtml();
   var user = ACC && ACC.user && ACC.profile, decks = user ? ACC.decks : [];
   var deckGroup = '';
-  if(user && CFG.mode!=='hot'){
+  var live = user && CFG.mode!=='hot' ? ACC.liveEvents() : [];
+  var eventGroup = live.length ? '<div class="group"><div class="gl">Special Event</div><div class="choices">'+o('event','','None','A normal game')
+    + live.map(function(e){ return o('event', e.id, esc(e.name), esc(e.blurb) || eventRule(e)); }).join('')+'</div>'
+    +(activeEvent() ? '<p class="hint">'+eventRule(activeEvent())+'. Choose your team from your own cards; everyone plays the event&rsquo;s action cards.</p>' : '')+'</div>' : '';
+  if(user && CFG.mode!=='hot' && !activeEvent()){
     var dopt = function(v, label, sub){ return '<button class="choice'+(String(M.deckSel)===String(v)?' on':'')+'" data-a="deckpick" data-v="'+v+'"><b>'+esc(label)+'</b><span>'+sub+'</span></button>'; };
     deckGroup = '<div class="group"><div class="gl">Your team</div><div class="choices">'
       + dopt('random','Random deal','Base cards, shuffled')
@@ -1265,6 +1291,7 @@ function renderMenu(){
    +(CFG.mode==='cpu' ? '<div class="group"><div class="gl">CPU Difficulty</div><div class="choices">'
      + o('diff','easy','Easy','Very forgiving') + o('diff','medium','Medium','Makes mistakes') + o('diff','hard','Hard','A fair fight')
      +'</div></div>' : '')
+   + eventGroup
    + stakeGroup()
    + deckGroup
    +'<div class="group"><div class="gl">Format</div><div class="choices">'
@@ -1539,7 +1566,7 @@ function saveDeck(){
 /* ---- choosing which of a deck's six characters to field (3 v 3 and 4 v 4) ---- */
 function teamPick(deck, n, title, done){
   if(!deck){ done(randomTeam(n)); return; }
-  if(n>=6){ done(deckTeam(deck, deck.characters)); return; }
+  if(deck.characters.length<=n){ done(deckTeam(deck, deck.characters)); return; }
   G = {phase:'pick', log:[], fx:[], pick:{deck:deck, n:n, chosen:[], title:title, done:done}};
   render();
 }
@@ -1550,7 +1577,7 @@ function renderPick(){
     return '<button class="card deal up'+(on?' sel':'')+'" data-a="pchar" data-v="'+id+'" aria-pressed="'+on+'">'+charFace(c, {foil:(d.foils||[]).indexOf(id)>=0, gold:(d.golds||[]).indexOf(id)>=0})+'</button>';
   }).join('');
   return topbar(p.title||'Choose your team')+'<div class="pg"><div class="panel-pg wide">'
-    +'<p class="prompt">Choose <b>'+p.n+'</b> of your six characters from <b>'+esc(d.name)+'</b>. '+p.chosen.length+' / '+p.n+' chosen.</p>'
+    +'<p class="prompt">Choose <b>'+p.n+'</b> of your '+d.characters.length+' characters from <b>'+esc(d.name)+'</b>. '+p.chosen.length+' / '+p.n+' chosen.</p>'
     +'<div class="zone bottom pickzone">'+tiles+'</div>'
     +'<div class="row"><button class="btn gold big" data-a="pickdone"'+(p.chosen.length===p.n?'':' disabled')+'>Ready</button></div>'
     + msgs() + '</div></div>';
@@ -1560,6 +1587,16 @@ function renderPick(){
 function startFromMenu(){
   M.err = '';
   if(CFG.mode==='online'){ if(needAccount()) return; openLobby(); return; }
+  var ev = activeEvent();
+  if(ev && CFG.mode==='cpu'){
+    M.err = eventShortfall(ev, CFG.size);
+    if(M.err){ render(); return; }
+    teamPick(eventDeck(ev), CFG.size, esc(ev.name), function(me){
+      var cpu = eventCpuTeam(ev, CFG.size);
+      startWithTeams({teams:[me.chars, cpu.chars], foils:[me.foils, cpu.foils], golds:[me.golds, []], actions:[me.actions, cpu.actions]});
+    });
+    return;
+  }
   var deck = CFG.mode==='cpu' ? chosenDeck() : null;
   if(deck){ var dReason = deckInvalidReason(deck); if(dReason){ M.err = 'Can’t play with "'+deck.name+'" yet — '+dReason+' Fix it in Decks first.'; render(); return; } }
   if(!deck){ startGame(); return; }
@@ -1648,7 +1685,7 @@ function teamFromWire(t){ return {chars:t.chars.map(function(id){ return CHARID[
 function connect(code, role){
   NET.close(); NET.finished = false;
   WE_ARE_HOST = role==='host';
-  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null};
+  L = {stage:role==='host'?'hosting':'joining', role:role, code:code, size:role==='host'?CFG.size:null, event:role==='host' && activeEvent() ? CFG.event : null};
   G = {phase:'lobby', log:[], fx:[]};
   NET.conn = ACC.openMatch(code, role, {message:onNet, presence:onPresence, specJoin:onSpecJoin, chat:onChatMsg, error:function(m){ L.err = m; render(); }});
   render();
@@ -1660,11 +1697,22 @@ function onPresence(people){
   if(other.role===L.role){ L.err = 'Someone else is already using that code. Try another.'; render(); return; }
   if(L.role==='host' && L.stage==='hosting'){
     L.oppName = other.username;
-    NET.send({k:'hello', size:L.size, name:ACC.profile.username});
+    NET.send({k:'hello', size:L.size, event:L.event, name:ACC.profile.username});
     pickOnline();
   }
 }
 function pickOnline(){
+  if(L.event){
+    /* The host's event may have gone live after this player loaded, so fetch the list fresh. */
+    ACC.loadEvents().then(function(){
+      var ev = ACC.events.filter(function(e){ return e.id===L.event; })[0];
+      L.err = ev ? eventShortfall(ev, L.size) : 'Your opponent chose an event that no longer exists.';
+      if(L.err){ render(); return; }
+      L.deck = eventDeck(ev);
+      startTeamPick();
+    });
+    return;
+  }
   if(ACC.decks.length && L.deck===undefined){ L.stage = 'deck'; render(); return; }
   startTeamPick();
 }
@@ -1692,7 +1740,7 @@ function onSpecJoin(p){
 }
 function onNet(m){
   if(m.k==='in'){ NET.push(m.v); MATCHLOG.push(m.v); return; }
-  if(m.k==='hello' && L.role==='guest'){ L.size = m.size; L.oppName = m.name; pickOnline(); return; }
+  if(m.k==='hello' && L.role==='guest'){ L.size = m.size; L.event = m.event || null; L.oppName = m.name; pickOnline(); return; }
   if(m.k==='team' && L.role==='host'){ L.oppTeam = m.team; maybeStart(); render(); return; }
   if(m.k==='start' && L.role==='guest'){ LAST_START = m; beginOnline(m, 1); }
 }
@@ -2031,6 +2079,41 @@ function playerDetail(u, d){
   }
   return '<tr class="detail"><td colspan="8">'+giveRow(u.username)+facts+body+'</td></tr>';
 }
+/* Special events: save one once, switch it live whenever it should run. */
+function eventsAdmin(){
+  var list = ACC.events.length ? '<ul class="glist">'+ACC.events.map(function(e){
+    return '<li><span><b>'+esc(e.name)+'</b>'+(e.live?' <span class="adm-tag">live</span>':'')+' &mdash; '+eventRule(e)+'</span>'
+      +'<span class="row"><button class="btn sm'+(e.live?'':' gold')+'" data-a="evlive" data-v="'+e.id+'"'+(M.busy?' disabled':'')+'>'+(e.live?'End':'Go live')+'</button>'
+      +'<button class="lnk" data-a="evdel" data-v="'+e.id+'">Delete</button></span></li>';
+  }).join('')+'</ul>' : '<p class="muted">No events saved yet. (If saving fails, run <code>supabase/upgrade-18-special-events.sql</code> first.)</p>';
+  var e = M.evEdit;
+  if(!e) return '<h3 class="sec">Special events</h3>'+list+'<button class="btn" data-a="evnew">New event</button>';
+  var total = editTotal(e);
+  var sets = [{id:'base', name:'Starter'}].concat(PACKS).filter(function(pk){ return chars.some(function(c){ return c.set===pk.id; }); });
+  var chip = function(a, v, on, label){ return '<button class="choice'+(on?' on':'')+'" data-a="'+a+'" data-v="'+v+'" aria-pressed="'+on+'"><b>'+label+'</b></button>'; };
+  var actRows = acts.map(function(a){
+    var n = e.counts[a.id]||0;
+    return '<div class="actrow"><button class="aname" data-a="czoom" data-v="a:'+esc(a.n)+'"><b>'+a.n+'</b><span>'+a.a+'</span></button>'
+      +'<div class="stepper"><button class="btn sm" data-a="evact" data-v="'+a.id+'" data-d="-1"'+(n>0?'':' disabled')+'>&minus;</button><b>'+n+'</b>'
+      +'<button class="btn sm" data-a="evact" data-v="'+a.id+'" data-d="1"'+(n<3&&total<12?'':' disabled')+'>+</button></div></div>';
+  }).join('');
+  return '<h3 class="sec">Special events</h3>'+list
+    +'<h3 class="sec">New event</h3>'+field('evname','Name')+field('evblurb','Short description (optional)')
+    +'<p class="hint">Characters allowed &mdash; none selected means any character. Players use their own cards.</p>'
+    +'<div class="choices">'+sets.map(function(pk){ return chip('evset', pk.id, e.sets.indexOf(pk.id)>=0, pk.name); }).join('')
+    + chip('evfoil', '', e.foil, 'Foils only')+'</div>'
+    +'<h3 class="sec">Action cards <span class="count'+(total===12?' ok':'')+'">'+total+' / 12</span></h3><p class="hint">Everyone plays this exact deck. Up to three of each.</p><div class="actlist">'+actRows+'</div>'
+    +'<div class="row"><button class="btn gold" data-a="evsave"'+(total===12&&!M.busy?'':' disabled')+'>Save event</button><button class="lnk" data-a="evcancel">Cancel</button></div>';
+}
+function saveEvent(){
+  var e = M.evEdit, name = (M.form.evname||'').trim();
+  if(!name){ M.err = 'Give the event a name.'; render(); return; }
+  var actions = []; acts.forEach(function(a){ for(var i=0;i<(e.counts[a.id]||0);i++) actions.push(a.id); });
+  busy(async function(){
+    await ACC.saveEvent({name:name.slice(0,40), blurb:(M.form.evblurb||'').trim().slice(0,80), char_sets:e.sets, foil_only:e.foil, actions:actions});
+    M.evEdit = null; M.note = 'Event saved. Press Go live when you want players to see it.';
+  });
+}
 function renderAdmin(){
   if(!ACC.profile.is_admin) return pageTop('Admin')+'<div class="panel-pg"><p class="err-msg">Admin access only.</p></div></div>';
   var d = M.admin, top = pageTop('Admin')+'<div class="panel-pg wide admin">';
@@ -2070,7 +2153,7 @@ function renderAdmin(){
   var feed = d.stale ? '' : '<h3 class="sec">Latest games</h3>'+(d.games.length
     ? '<ul class="glist feed">'+d.games.map(function(g){ return '<li><span><b>'+esc(g.username)+'</b> '+gameDesc(g)+'</span><time>'+ago(g.ended_at)+'</time></li>'; }).join('')+'</ul>'
     : '<p class="muted">No games recorded yet. They appear here as soon as a signed-in player finishes or quits a game against the CPU or online.</p>');
-  return top+head+msgs()+notice+kpis+'<div class="giveall">'+givePicker(ov)+'</div>'+table+feed+'</div></div>';
+  return top+head+msgs()+notice+kpis+'<div class="giveall">'+givePicker(ov)+'</div>'+eventsAdmin()+table+feed+'</div></div>';
 }
 
 function renderMeta(){
@@ -2155,16 +2238,24 @@ function onClick(e){
   switch(a){
     case 'cfg': { var ck = el.getAttribute('data-k'); CFG[ck] = (ck==='size' || ck==='stake') ? +v : v; M.err=''; render(); break; }
     case 'start': startFromMenu(); break;
-    case 'menu': goScreen('menu'); break;
+    case 'menu': goScreen('menu'); if(ACC && ACC.user) ACC.loadEvents(); break;
     /* ---- accounts & collection ---- */
     case 'go':
       if(v==='deckedit' || (v!=='auth' && needAccount())) break;
       if(v==='packs') M.reveal = null;
       goScreen(v);
-      if(v==='admin' && ACC.profile && ACC.profile.is_admin) loadAdmin();
+      if(v==='admin' && ACC.profile && ACC.profile.is_admin) { loadAdmin(); ACC.loadEvents(); }
       if(v==='leaderboard') loadLeaderboard();
       break;
-    case 'adminrefresh': loadAdmin(); break;
+    case 'adminrefresh': loadAdmin(); ACC.loadEvents(); break;
+    case 'evnew': M.evEdit = {sets:[], foil:false, counts:{}}; M.form.evname = ''; M.form.evblurb = ''; render(); break;
+    case 'evcancel': M.evEdit = null; render(); break;
+    case 'evset': { var es = M.evEdit.sets, ek = es.indexOf(v); if(ek>=0) es.splice(ek,1); else es.push(v); render(); break; }
+    case 'evfoil': M.evEdit.foil = !M.evEdit.foil; render(); break;
+    case 'evact': { var ec = M.evEdit.counts; ec[v] = Math.max(0, (ec[v]||0) + (+el.getAttribute('data-d'))); render(); break; }
+    case 'evsave': saveEvent(); break;
+    case 'evlive': { var el1 = ACC.events.filter(function(x){ return x.id===v; })[0]; if(el1) busy(async function(){ await ACC.setEventLive(v, !el1.live); M.note = esc(el1.name)+(el1.live ? ' has ended.' : ' is live.'); }); break; }
+    case 'evdel': { var ed = ACC.events.filter(function(x){ return x.id===v; })[0]; if(ed && (typeof confirm!=='function' || confirm('Delete the event "'+ed.name+'"?'))) busy(async function(){ await ACC.deleteEvent(v); }); break; }
     case 'boardrefresh': loadLeaderboard(); break;
     case 'givepacks': if(v) givePacks(v); break;
     case 'adminsel': if(M.admin && M.admin.state==='ok') selectPlayer(v); break;
