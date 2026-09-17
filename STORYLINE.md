@@ -103,13 +103,14 @@ Eight new cards. Stats follow the game's formula in `cards.js`:
 - **Overdrive** = ATK × 2, and the character takes some damage back.
 - Signature effects can be `heal`, `shield`, `stun`, `unshield` (strip a shield), `draw` (draw a card) or none.
 
-The five you can collect (the four Heads of Faculty and Principal Travis Knox) are deliberately **the strongest cards
-in the game**. Their HP, ATK and SPD are above every pack card, and Head of Humanities and Principal Travis
-Knox can't be stunned. That's the reward for clearing a faculty or the whole story.
+Every story boss **out-ranks every pack card** but is capped so it isn't overpowered. The ranking is
+**HP + 3 × ATK + SPD**: the best pack card scores 45, and story bosses score **47–51** (the cap is 51).
 
-Every boss is meant to be hard to beat. The Assistant Principals (opponents only) have stats at Head of Faculty level. **Principal Knox**
-(the final boss, opponent only) is the strongest card in the game. All the Head of Faculty fights and the Assistant Principals
-fight are on **Hard**, and the final fight against Principal Knox is on **Insane**.
+- The five you can collect (the four Heads of Faculty and Principal Travis Knox) are top deck-building cards. Head of
+  Humanities and Principal Travis Knox also can't be stunned.
+- The Assistant Principals and **Principal Knox** are opponents only. Principal Knox, the final boss, sits at the cap.
+- All the Head of Faculty fights and the Assistant Principals fight are on **Hard**, and the final fight against
+  Principal Knox is on **Insane**.
 
 **Image style** (to match `images/knox-of-history/caesar-knox.jpg` and `images/daily-org/pd-knox.jpg`):
 Semi-realistic painterly portrait of the same man as the reference photo, from the waist up, warm
@@ -121,7 +122,7 @@ e.g. 800×1200). Saved as PNG. No text or logos in the image.
 |---|---|
 | id | `head-of-science-knox` |
 | Role line | Faculty of Science |
-| HP / ATK / SPD | 28 / 8 / 7 |
+| HP / ATK / SPD | 25 / 6 / 6 |
 | Signature | **Controlled Experiment** — `unshield` (strips the target's Shield first) |
 | Flavour | "Results are preliminary. Your defeat is not." |
 | Image file | `images/story/head-of-science-knox.jpg` |
@@ -136,7 +137,7 @@ a specimen shelf. A confident half-smile.
 |---|---|
 | id | `head-of-maths-knox` |
 | Role line | Faculty of Mathematics |
-| HP / ATK / SPD | 27 / 7 / 8 |
+| HP / ATK / SPD | 24 / 6 / 6 |
 | Signature | **Show Your Working** — `stun` (the target skips its next turn) |
 | Flavour | "He has calculated your odds. He will not be sharing them." |
 | Image file | `images/story/head-of-maths-knox.jpg` |
@@ -151,7 +152,7 @@ A raised eyebrow, unimpressed.
 |---|---|
 | id | `head-of-english-knox` |
 | Role line | Faculty of English |
-| HP / ATK / SPD | 26 / 9 / 7 |
+| HP / ATK / SPD | 23 / 7 / 5 |
 | Signature | **Red Pen** — `draw` (also draws an action card) |
 | Flavour | "Marked: developing. See comments." |
 | Image file | `images/story/head-of-english-knox.jpg` |
@@ -166,7 +167,7 @@ wall. A dramatic, theatrical expression.
 |---|---|
 | id | `head-of-humanities-knox` |
 | Role line | Faculty of Humanities |
-| HP / ATK / SPD | 30 / 7 / 6 · can’t be stunned |
+| HP / ATK / SPD | 27 / 5 / 6 · can’t be stunned |
 | Signature | **Primary Source** — `shield` (also gives this character a Shield) |
 | Flavour | "Has seen empires fall. Has marked their essays." |
 | Image file | `images/story/head-of-humanities-knox.jpg` |
@@ -181,7 +182,7 @@ emperors and generals in the background haze. A knowing, scholarly look.
 |---|---|
 | id | `wellbeing-ap-knox` |
 | Role line | Assistant Principal, Wellbeing |
-| HP / ATK / SPD | 28 / 7 / 7 |
+| HP / ATK / SPD | 25 / 5 / 7 |
 | Signature | **Restorative Conversation** — `heal` (also heals this character) |
 | Flavour | "How are we feeling about losing?" |
 | Image file | `images/story/wellbeing-ap-knox.jpg` |
@@ -196,7 +197,7 @@ A warm but slightly unsettling, too-patient smile.
 |---|---|
 | id | `curriculum-ap-knox` |
 | Role line | Assistant Principal, Curriculum |
-| HP / ATK / SPD | 28 / 8 / 6 |
+| HP / ATK / SPD | 25 / 6 / 5 |
 | Signature | **Timetable Clash** — `stun` (the target skips its next turn) |
 | Flavour | "You've been timetabled for yard duty. Permanently." |
 | Image file | `images/story/curriculum-ap-knox.jpg` |
@@ -211,7 +212,7 @@ A stern, efficient expression.
 |---|---|
 | id | `principal-knox` |
 | Role line | The Office at the End of the Hall |
-| HP / ATK / SPD | 34 / 10 / 8 · can’t be stunned |
+| HP / ATK / SPD | 27 / 6 / 6 · can’t be stunned |
 | Signature | **My Office. Now.** — `stun` (the target skips its next turn) |
 | Flavour | "The door is always open. That is the problem." |
 | Image file | `images/story/principal-knox.jpg` |
@@ -226,7 +227,7 @@ a school crest, and a window with dark storm clouds. Dramatic low light, a cold,
 |---|---|
 | id | `principal-travis-knox` |
 | Role line | Principal, at Last |
-| HP / ATK / SPD | 32 / 9 / 9 · can’t be stunned |
+| HP / ATK / SPD | 26 / 6 / 6 · can’t be stunned |
 | Signature | **Whole-School Assembly** — `heal` (also heals this character) |
 | Flavour | "First order of business: seals are now a compulsory subject." |
 | Image file | `images/story/principal-travis-knox.jpg` |

@@ -131,18 +131,18 @@ var chars=[
  {n:"Oakleigh Knox",r:"Souvlaki Break",i:"souvlaki",hp:21,atk:6,spd:4,an:"Extra Chilli",a:"This character takes 2 HP of recoil.",f:"Ordered a small. Regrets nothing.",set:"australiana",img:"images/australiana/oakleigh-knox.jpg"},
  /* Story mode — never in packs, never for sale. See STORYLINE.md. Heads of Faculty and Principal Travis
     Knox join your collection when beaten/earned in Story; the Assistant Principals and Principal Knox
-    are opponents only. Every story boss is deliberately above every pack card: the five collectible
-    ones are the best deck-building cards in the game (Humanities and Principal Travis can't be
-    stunned), the Assistant Principals match the Heads, and Principal Knox — the final boss, fought
-    on Insane — is the strongest card of all. */
- {n:"Head of Science Knox",r:"Faculty of Science",i:"thermo",hp:28,atk:8,spd:7,an:"Controlled Experiment",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Results are preliminary. Your defeat is not.",set:"story",img:"images/story/head-of-science-knox.jpg"},
- {n:"Head of Maths Knox",r:"Faculty of Mathematics",i:"clip",hp:27,atk:7,spd:8,an:"Show Your Working",a:"Also makes the target skip its next turn.",f:"He has calculated your odds. He will not be sharing them.",set:"story",img:"images/story/head-of-maths-knox.jpg"},
- {n:"Head of English Knox",r:"Faculty of English",i:"pass",hp:26,atk:9,spd:7,an:"Red Pen",a:"Also draws an action card.",f:"Marked: developing. See comments.",set:"story",img:"images/story/head-of-english-knox.jpg"},
- {n:"Head of Humanities Knox",r:"Faculty of Humanities",i:"laurel",hp:30,atk:7,spd:6,an:"Primary Source",a:"Also gives this character a Shield.",f:"Has seen empires fall. Has marked their essays.",set:"story",tank:true,img:"images/story/head-of-humanities-knox.jpg"},
- {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:28,atk:7,spd:7,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.jpg"},
- {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:28,atk:8,spd:6,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.jpg"},
- {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:34,atk:10,spd:8,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",tank:true,img:"images/story/principal-knox.jpg"},
- {n:"Principal Travis Knox",r:"Principal, at Last",i:"star",hp:32,atk:9,spd:9,an:"Whole-School Assembly",a:"Also heals this character.",f:"First order of business: seals are now a compulsory subject.",set:"story",tank:true,img:"images/story/principal-travis-knox.jpg"}
+    are opponents only. Every story boss out-ranks every pack card, capped so none is overpowered:
+    ranking = HP + 3*ATK + SPD, best pack card 45, story bosses 47-51 (cap 51). The five collectible
+    ones are top deck-building cards (Humanities and Principal Travis can't be stunned); Principal
+    Knox, the final boss fought on Insane, sits at the cap. */
+ {n:"Head of Science Knox",r:"Faculty of Science",i:"thermo",hp:25,atk:6,spd:6,an:"Controlled Experiment",a:"First strips the target&rsquo;s Shield, if it has one.",f:"Results are preliminary. Your defeat is not.",set:"story",img:"images/story/head-of-science-knox.jpg"},
+ {n:"Head of Maths Knox",r:"Faculty of Mathematics",i:"clip",hp:24,atk:6,spd:6,an:"Show Your Working",a:"Also makes the target skip its next turn.",f:"He has calculated your odds. He will not be sharing them.",set:"story",img:"images/story/head-of-maths-knox.jpg"},
+ {n:"Head of English Knox",r:"Faculty of English",i:"pass",hp:23,atk:7,spd:5,an:"Red Pen",a:"Also draws an action card.",f:"Marked: developing. See comments.",set:"story",img:"images/story/head-of-english-knox.jpg"},
+ {n:"Head of Humanities Knox",r:"Faculty of Humanities",i:"laurel",hp:27,atk:5,spd:6,an:"Primary Source",a:"Also gives this character a Shield.",f:"Has seen empires fall. Has marked their essays.",set:"story",tank:true,img:"images/story/head-of-humanities-knox.jpg"},
+ {n:"Wellbeing AP Knox",r:"Assistant Principal, Wellbeing",i:"chat",hp:25,atk:5,spd:7,an:"Restorative Conversation",a:"Also heals this character.",f:"How are we feeling about losing?",set:"story",img:"images/story/wellbeing-ap-knox.jpg"},
+ {n:"Curriculum AP Knox",r:"Assistant Principal, Curriculum",i:"agenda",hp:25,atk:6,spd:5,an:"Timetable Clash",a:"Also makes the target skip its next turn.",f:"You&rsquo;ve been timetabled for yard duty. Permanently.",set:"story",img:"images/story/curriculum-ap-knox.jpg"},
+ {n:"Principal Knox",r:"The Office at the End of the Hall",i:"lectern",hp:27,atk:6,spd:6,an:"My Office. Now.",a:"Also makes the target skip its next turn.",f:"The door is always open. That is the problem.",set:"story",tank:true,img:"images/story/principal-knox.jpg"},
+ {n:"Principal Travis Knox",r:"Principal, at Last",i:"star",hp:26,atk:6,spd:6,an:"Whole-School Assembly",a:"Also heals this character.",f:"First order of business: seals are now a compulsory subject.",set:"story",tank:true,img:"images/story/principal-travis-knox.jpg"}
 ];
 
 /* Action cards. A Shield blocks all damage from the next hit. */
