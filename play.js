@@ -1378,7 +1378,7 @@ function field(name, label, type, auto){
   return '<label class="field"><span>'+label+'</span><input name="'+name+'" type="'+(type||'text')+'" autocomplete="'+(auto||'off')+'" autocapitalize="off" spellcheck="false" value="'+esc(M.form[name]||'')+'"></label>';
 }
 function msgs(){ return (M.err ? '<p class="err-msg">'+M.err+'</p>' : '') + (M.note ? '<p class="ok-msg">'+M.note+'</p>' : ''); }
-function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); CFG.story = null; M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
+function goScreen(p){ if(G.phase==='battle' && !G.over) logResult('quit'); NET.close(); CFG.story = null; CFG.spectating = false; M.err=''; M.note=''; G = {phase:p, log:[], fx:[]}; if(typeof window!=='undefined' && window.scrollTo) window.scrollTo(0,0); render(); }
 function needAccount(){ if(ACC && ACC.user) return false; M.authMode='in'; goScreen('auth'); M.err='Sign in first.'; return true; }
 function chosenDeck(){ return ACC && ACC.user ? ACC.decks.filter(function(d){ return d.id===M.deckSel; })[0] || null : null; }
 async function busy(fn){
@@ -1624,6 +1624,7 @@ function saveDeck(){
 
 /* ---- choosing which of a deck's six characters to field (3 v 3 and 4 v 4) ---- */
 function teamPick(deck, n, title, done){
+  CFG.spectating = false;   // choosing your own team means you're playing, not watching (#15)
   if(!deck){ done(randomTeam(n)); return; }
   if(deck.characters.length<=n){ done(deckTeam(deck, deck.characters)); return; }
   G = {phase:'pick', log:[], fx:[], pick:{deck:deck, n:n, chosen:[], title:title, done:done}};

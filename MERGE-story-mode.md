@@ -13,21 +13,28 @@ Story mode is a single-player campaign played on a campus map:
 
 - `main` was merged into this branch on 17 Sep 2026 (commit `4ee39f4`). **It merges into `main` with no conflicts.**
 - The story migration is numbered **upgrade 21**, because 16–20 are already used on `main`.
+- This branch also fixes the bugs from the 17 Sep code review of `main`: **#15, #16, #17 and #18**. Merging closes them. See *Bug fixes included* below.
 
 ## 1. Update the database first
 
 Merge **after** this step. Otherwise the Story screen shows 0 chapters cleared and a win can't be saved ("function story_clear does not exist").
 
-1. Open Supabase → **SQL Editor** → New query.
-2. Paste in `supabase/upgrade-21-story-mode.sql` and **Run**. You can run it more than once safely.
-3. It needs `upgrade-15-foil-gold-economy.sql` (the `gold` column on `collection`), which is already live.
+Run these two files **in order**. Each can be run more than once safely.
 
-What it does:
+1. Open Supabase → **SQL Editor** → New query.
+2. Paste in `supabase/upgrade-21-story-mode.sql` and **Run**.
+3. New query → paste in `supabase/upgrade-22-review-fixes.sql` and **Run**.
+
+Upgrade 21 needs `upgrade-15-foil-gold-economy.sql`. Upgrade 22 needs upgrades 13, 16 and 19. All of those are already live.
+
+Upgrade 22 replaces three live functions: `open_pack`, `record_win` and `wager_battle`. No SQL syntax checker was available when it was written. Each function is replaced by its own statement, so if Supabase reports an error, the functions before it may already be updated. Fix the error and rerun the whole file; rerunning is safe.
+
+What upgrade 21 does:
 - Adds a `story` rarity and the 12 story cards (8 characters, 4 action cards).
 - Adds `profiles.story_chapter`.
 - Adds `story_clear(chapter)`. It gives each chapter's reward once, in order, and the database picks the card.
 
-Story cards can't be bought, sold or pulled from packs: `buy_card` and `sell_card` reject the `story` rarity, and the foil/gold pull skips cards with no `pack_id`.
+Story cards can't be bought, sold or pulled from packs: `buy_card` and `sell_card` reject the `story` rarity, and upgrade 22's foil/gold pull filters out `rarity = 'story'`.
 
 ## 2. Merge
 
@@ -53,7 +60,8 @@ The conflicts will almost certainly be in the files below, because both branches
 | `account.js` | the `A.canBuy` guard, and near `A.recordWin` | Keep every `c.set===...` check in the guard. Keep `A.storyClear` next to whatever `A.recordWin` is on `main`. |
 | `play.js` | the `onClick` switch, `gameEnded`, `teamPick` | Keep the `storyplay`/`storysel` cases. The `if(CFG.story!=null){ ... return; }` block in `gameEnded` must stay **before** the `ACC.recordWin(...)` call, so story wins don't also earn daily packs. |
 | `play.html`, `index.html` | the `?v=` numbers on the script tags | Use a new version newer than both sides. |
-| `supabase/` | migration number | If `main` has added an `upgrade-21-*.sql`, rename this file to the next free number, and update the mentions in `cards.js` and `STORYLINE.md`. |
+| `supabase/` | migration numbers | If `main` has added an `upgrade-21-*.sql` or `upgrade-22-*.sql`, renumber this branch's files to the next free numbers (story first, then review fixes). Update the mentions in `cards.js`, `STORYLINE.md` and this file. |
+| `supabase/upgrade-22-review-fixes.sql` | `open_pack`, `record_win`, `wager_battle` | If `main` has redefined any of these since 17 Sep, apply the three fixes to `main`'s newest version instead of the copy in upgrade 22. |
 
 After resolving, run a syntax check (`node --check cards.js account.js play.js`) and open `play.html` once to check that the Story screen loads.
 
@@ -68,17 +76,24 @@ After resolving, run a syntax check (`node --check cards.js account.js play.js`)
 5. Beat *Head of Science Knox*. The card is in Collection with no Buy/Sell buttons, and you can put it in a saved deck.
 6. A normal Versus CPU win still gives the daily win pack.
 
-## Proposed fix found while merging (already on `main`, not caused by this branch)
+## Bug fixes included
 
-The foil/gold pull in `open_pack` (`upgrade-16-australiana.sql`) filters with `pack_id <> 'australiana'`. In SQL, a missing `pack_id` never passes a `<>` comparison, so **base characters and Chairman Knox can no longer come up as foils or golds**. Holo and Legendary packs only ever give foil or gold versions of pack characters.
+These came from a code review of `main`. Each issue has the full details.
 
-This branch relies on that filter to keep story cards (which have no `pack_id`) out of the foil pool. So if you fix it, keep story cards out explicitly. In a new migration, redefine `open_pack` with both pulls changed to:
+| Issue | Fix | Where |
+|---|---|---|
+| #15 Game hangs after spectating | `CFG.spectating` is cleared in `teamPick()` (every deck, event and story game passes through it) and in `goScreen()`. | `play.js` |
+| #16 Holo/Legendary skip starters and Chairman as foil/gold | The foil/gold pool uses `pack_id is distinct from 'australiana'` (a `<>` comparison silently dropped null `pack_id`s), and keeps story cards out with `rarity <> 'story'`. | upgrade 22, `open_pack` |
+| #17 Pack wins missing from the activity feed | Activity inserts restored in `record_win` and `wager_battle`, including the Insane branch and wager losses. | upgrade 22 |
+| #18 High Stakes stake not checked | `wager_battle` locks the profile row and rejects a stake larger than the player's Grant Points. A loss then subtracts the full stake. | upgrade 22 |
 
-```sql
-select id into cid from cards
-  where kind = 'character' and pack_id is distinct from 'australiana' and rarity <> 'story'
-  order by random() limit 1;
-```
+#18 also mentions that the server trusts the difficulty the browser sends. That needs a larger change (recording each game on the server when it starts), so it isn't included here.
+
+To check the fixes after merging:
+- **#15:** watch a live match → Menu → Versus CPU with a saved deck. Your turn starts normally.
+- **#16:** open a few Holo packs. Starter characters can appear as foils.
+- **#17:** win a CPU game while signed in. A "won a pack" line appears in the activity feed.
+- **#18:** a player with fewer Grant Points than a stake gets "Not enough Grant Points for that stake" instead of the game settling it.
 
 ## Known limits
 
@@ -87,4 +102,6 @@ select id into cid from cards
 
 ## Rolling back
 
-Revert the merge commit on `main`. You can leave the database changes in place: nothing outside Story mode reads `story_chapter` or `story_clear`, and players keep any story cards they've already earned.
+Revert the merge commit on `main`. You can leave upgrade 21 in place: nothing outside Story mode reads `story_chapter` or `story_clear`, and players keep any story cards they've already earned.
+
+Leave upgrade 22 in place too; it only fixes bugs. If you must undo it, rerun `upgrade-16-australiana.sql` (for `open_pack`) and `upgrade-19-insane-difficulty.sql` (for `record_win` and `wager_battle`). That brings back bugs #16–#18.
