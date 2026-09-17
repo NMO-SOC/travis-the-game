@@ -419,5 +419,8 @@ A.openSpectate = function(code, handlers){
   };
 };
 
+/* T5 display (t5-display.html) hosts a session channel without signing in. */
+A.client = client;
+
 if(typeof window!=='undefined') window.TravisAccount = A;
 })();
