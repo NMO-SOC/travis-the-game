@@ -103,8 +103,10 @@ Eight new cards. Stats follow the game's formula in `cards.js`:
 - **Overdrive** = ATK × 2, and the character takes some damage back.
 - Signature effects can be `heal`, `shield`, `stun`, `unshield` (strip a shield), `draw` (draw a card) or none.
 
-Characters from story mode can be used online once won, so these are balanced against existing rares
-(the normal roster tops out at 25 HP). The bosses feel tougher in story mode because of the team around them.
+The five you can collect (the four Heads of Faculty and Principal Travis Knox) are deliberately **the strongest cards
+in the game**. Their HP, ATK and SPD are above every pack card, and Head of Humanities and Principal Travis
+Knox can't be stunned. That's the reward for clearing a faculty or the whole story. The Assistant Principals and
+Principal Knox are opponents only.
 
 **Image style** (to match `images/knox-of-history/caesar-knox.jpg` and `images/daily-org/pd-knox.jpg`):
 Semi-realistic painterly portrait of the same man as the reference photo, from the waist up, warm
@@ -116,7 +118,7 @@ e.g. 800×1200). Saved as PNG. No text or logos in the image.
 |---|---|
 | id | `head-of-science-knox` |
 | Role line | Faculty of Science |
-| HP / ATK / SPD | 24 / 4 / 4 |
+| HP / ATK / SPD | 28 / 8 / 7 |
 | Signature | **Controlled Experiment** — `unshield` (strips the target's Shield first) |
 | Flavour | "Results are preliminary. Your defeat is not." |
 | Image file | `images/story/head-of-science-knox.jpg` |
@@ -131,7 +133,7 @@ a specimen shelf. A confident half-smile.
 |---|---|
 | id | `head-of-maths-knox` |
 | Role line | Faculty of Mathematics |
-| HP / ATK / SPD | 23 / 4 / 5 |
+| HP / ATK / SPD | 27 / 7 / 8 |
 | Signature | **Show Your Working** — `stun` (the target skips its next turn) |
 | Flavour | "He has calculated your odds. He will not be sharing them." |
 | Image file | `images/story/head-of-maths-knox.jpg` |
@@ -146,7 +148,7 @@ A raised eyebrow, unimpressed.
 |---|---|
 | id | `head-of-english-knox` |
 | Role line | Faculty of English |
-| HP / ATK / SPD | 22 / 5 / 5 |
+| HP / ATK / SPD | 26 / 9 / 7 |
 | Signature | **Red Pen** — `draw` (also draws an action card) |
 | Flavour | "Marked: developing. See comments." |
 | Image file | `images/story/head-of-english-knox.jpg` |
@@ -161,7 +163,7 @@ wall. A dramatic, theatrical expression.
 |---|---|
 | id | `head-of-humanities-knox` |
 | Role line | Faculty of Humanities |
-| HP / ATK / SPD | 25 / 3 / 3 |
+| HP / ATK / SPD | 30 / 7 / 6 · can’t be stunned |
 | Signature | **Primary Source** — `shield` (also gives this character a Shield) |
 | Flavour | "Has seen empires fall. Has marked their essays." |
 | Image file | `images/story/head-of-humanities-knox.jpg` |
@@ -221,7 +223,7 @@ a school crest, and a window with dark storm clouds. Dramatic low light, a cold,
 |---|---|
 | id | `principal-travis-knox` |
 | Role line | Principal, at Last |
-| HP / ATK / SPD | 25 / 5 / 5 |
+| HP / ATK / SPD | 32 / 9 / 9 · can’t be stunned |
 | Signature | **Whole-School Assembly** — `heal` (also heals this character) |
 | Flavour | "First order of business: seals are now a compulsory subject." |
 | Image file | `images/story/principal-travis-knox.jpg` |
