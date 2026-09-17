@@ -181,7 +181,14 @@ var PACKS = [
    and story roster — the reward list is repeated server-side in upgrade-16-story-mode.sql, keep the two
    in the same order. */
 var STORY_START = ['tadpole-knox','family-man-knox','field-researcher-knox'];
-var STORY_LEVELS = ['Science','Maths','English','Humanities','The Principal Class'];
+/* n: name, q: tagline, c: colour (a card frame class in play.html) */
+var STORY_LEVELS = [
+ {n:'Science', q:'Hypothesis: I can take this faculty. Method: all of it.', c:'green'},
+ {n:'Maths', q:'Show your working.', c:'blue'},
+ {n:'English', q:'It&rsquo;s not what you say. It&rsquo;s the subtext.', c:'red'},
+ {n:'Humanities', q:'Those who don&rsquo;t learn from history get it on the exam.', c:'gold'},
+ {n:'The Principal Class', q:'The door at the end of the hall is always open. That is the problem.', c:'black'}
+];
 var STORY = [
  {lvl:1, t:'Prac Report Due', size:3, diff:'easy', reward:'harbour-seal-knox', txt:'The lab techs have locked the good equipment away. Get past the prep room.',
   foes:['doctor-knox','field-researcher-knox','tadpole-knox']},

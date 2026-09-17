@@ -1042,7 +1042,7 @@ function overlays(){
       var won = G.winner===me, sc = STORY[CFG.story], cleared = ACC && ACC.profile && (ACC.profile.story_chapter||0)>CFG.story;
       reward = !won ? '' : G.storySaving ? '<p class="reward dim">Saving your progress&hellip;</p>'
         : G.storyReward && G.storyReward.error ? '<p class="reward dim">Couldn&rsquo;t save progress: '+esc(G.storyReward.error)+'</p>'
-        : (G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss && STORY[CFG.story+1] ? ' '+STORY_LEVELS[sc.lvl-1]+' complete.' : '')+'</p>' : '')
+        : (G.storyReward ? '<p class="reward">&#10022; '+CARDID[G.storyReward].n+' joins your collection!'+(sc.boss && STORY[CFG.story+1] ? ' '+STORY_LEVELS[sc.lvl-1].n+' complete.' : '')+'</p>' : '')
           + (cleared && !STORY[CFG.story+1] ? '<p class="reward">Principal Knox falls. The PA crackles. The lanyard changes colour. <b>Travis Knox becomes Principal.</b></p>' : '');
       again = !won ? '<button class="btn gold big" data-a="storyplay" data-v="'+CFG.story+'">Retry</button>'
         : cleared && STORY[CFG.story+1] ? '<button class="btn gold big" data-a="storyplay" data-v="'+(CFG.story+1)+'">Next chapter</button>' : '';
@@ -1504,7 +1504,7 @@ function storyDeck(){
 function storyPlay(i){
   var s = STORY[i];
   if(!s || needAccount() || i>(ACC.profile.story_chapter||0)) return;
-  CFG.mode = 'cpu'; CFG.stake = 0; CFG.size = s.size; CFG.diff = s.diff; CFG.story = i;
+  CFG.mode = 'cpu'; CFG.stake = 0; CFG.size = s.size; CFG.diff = s.diff; CFG.story = i; M.storySel = null;
   teamPick(storyDeck(), s.size, s.t, function(me){
     /* Chance: a fresh line-up from the chapter's pool every attempt; a boss (listed first) always shows up. */
     var pool = s.boss ? s.foes.slice(1) : s.foes.slice();
@@ -1512,20 +1512,46 @@ function storyPlay(i){
     startWithTeams({teams:[me.chars, foes.map(function(id){ return CHARID[id]; })], foils:[me.foils, []], golds:[me.golds, []], actions:[me.actions, null]});
   });
 }
+/* Story map: one band per faculty, its chapters as a path of nodes (the boss as its portrait), and the
+   selected chapter's details underneath. M.storySel defaults to the next chapter to play. */
+function storyMini(id){ var c = CARDID[id]; return '<div class="card mini">'+(chars.indexOf(c)>=0 ? charFace(c) : actFace(c.n))+'</div>'; }
+function storyChapter(i, done){
+  var s = STORY[i], locked = i>done;
+  return '<div class="chap"><h3>'+(s.boss ? 'Boss: ' : '')+s.t+'</h3>'
+    +'<p class="meta">'+s.size+' v '+s.size+' &middot; '+s.diff+' &middot; '+s.size+' foes drawn at random from '+s.foes.length+(s.boss ? ', boss always included' : '')+'</p>'
+    +'<p>'+(locked ? 'Locked &mdash; clear the chapter before it.' : s.txt)+'</p>'
+    +'<div class="chap-row">'
+    +(locked ? '' : '<div class="chap-cards"><span class="lbl">Foe pool</span>'+s.foes.map(storyMini).join('')+'</div>')
+    +(s.reward ? '<div class="chap-cards"><span class="lbl">Reward'+(i<done ? ' &middot; earned' : '')+'</span>'+storyMini(s.reward)+'</div>' : '')
+    +'</div>'
+    +(locked ? '' : '<button class="btn gold" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button>')
+    +'</div>';
+}
 function renderStory(){
-  var done = ACC.profile.story_chapter||0;
-  var rows = STORY.map(function(s, i){
-    var head = !i || STORY[i-1].lvl!==s.lvl ? '<h3 class="sec">'+(STORY_LEVELS[s.lvl] ? 'Level '+s.lvl+' &mdash; ' : 'Finale &mdash; ')+STORY_LEVELS[s.lvl-1]+'</h3>' : '';
-    var locked = i>done, foes = s.foes.map(function(id){ return CARDID[id].n; }).join(' &middot; ');
-    return head+'<div class="deckrow"><div class="dinfo"><b>'+(i<done ? '&#10003; ' : '')+(s.boss ? 'Boss: ' : '')+s.t+'</b>'
-      +'<span>'+(locked ? 'Locked &mdash; clear the chapter before it.' : s.txt)+'</span>'
-      +'<span>'+s.size+' v '+s.size+' &middot; '+s.diff+(locked ? '' : ' &middot; vs '+s.size+' drawn from '+foes)+(s.reward ? ' &middot; Reward: '+CARDID[s.reward].n : '')+'</span></div>'
-      +(locked ? '' : '<div class="row"><button class="btn sm'+(i===done ? ' gold' : '')+'" data-a="storyplay" data-v="'+i+'">'+(i<done ? 'Replay' : 'Play')+'</button></div>')+'</div>';
+  var done = ACC.profile.story_chapter||0, total = STORY.length;
+  if(M.storySel==null || M.storySel>Math.min(done, total-1)) M.storySel = Math.min(done, total-1);
+  var levels = STORY_LEVELS.map(function(L, li){
+    var chs = []; STORY.forEach(function(s, i){ if(s.lvl===li+1) chs.push(i); });
+    var cleared = chs.filter(function(i){ return i<done; }).length;
+    var state = cleared===chs.length ? 'cleared' : chs[0]>done ? 'locked' : 'current';
+    var nodes = chs.map(function(i, k){
+      var s = STORY[i], st = i<done ? 'done' : i===done ? 'next' : 'locked', sel = i===M.storySel;
+      var inner = s.boss ? '<div class="card mini">'+charFace(CARDID[s.foes[0]])+'</div>'
+        : '<span class="dot">'+(st==='done' ? '&#10003;' : st==='locked' ? '&#128274;' : (k+1))+'</span>';
+      return '<button class="node'+(s.boss ? ' boss' : '')+' '+st+(sel ? ' sel' : '')+'" data-a="storysel" data-v="'+i+'" aria-pressed="'+sel+'">'+inner+'<span>'+(s.boss ? 'Boss: ' : '')+s.t+'</span></button>';
+    }).join('');
+    return '<section class="fac f-'+L.c+' '+state+'">'
+      +'<div class="fac-band"><small>'+(STORY_LEVELS[li+1] ? 'Level '+(li+1) : 'Finale')+'</small><b>'+L.n+'</b><i>&ldquo;'+L.q+'&rdquo;</i><em>'+cleared+' / '+chs.length+'</em></div>'
+      +'<div class="fac-path">'+nodes+'</div>'
+      +(chs.indexOf(M.storySel)>=0 ? storyChapter(M.storySel, done) : '')
+      +'</section>';
   }).join('');
-  return pageTop('Story')+'<div class="panel-pg">'
+  return pageTop('Story')+'<div class="story">'
+    +'<div class="story-hero"><h2>Knox for Principal</h2>'
+    +'<p>Graduate teacher. One lanyard. One ambition. Take the school faculty by faculty &mdash; beat each Head and they join you &mdash; then face the Principal Class.</p>'
+    +'<div class="story-bar"><i style="width:'+Math.round(done/total*100)+'%"></i></div><p class="meta">'+done+' / '+total+' chapters cleared</p></div>'
     + msgs()
-    +'<p class="hint">Clear chapters in order. Each one adds a card to your collection and your story roster, and every faculty ends with its Head, who joins you &mdash; usable in your own decks and online too. Beat all four and take on the Principal Class.</p>'
-    + rows
+    +'<div class="story-map">'+levels+'</div>'
     +'</div></div>';
 }
 
@@ -2093,6 +2119,7 @@ function onClick(e){
     case 'cfg': { var ck = el.getAttribute('data-k'); CFG[ck] = (ck==='size' || ck==='stake') ? +v : v; M.err=''; render(); break; }
     case 'start': startFromMenu(); break;
     case 'storyplay': storyPlay(+v); break;
+    case 'storysel': M.storySel = +v; render(); break;
     case 'menu': goScreen('menu'); break;
     /* ---- accounts & collection ---- */
     case 'go':
