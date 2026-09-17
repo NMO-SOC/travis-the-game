@@ -975,8 +975,8 @@ function chips(u){
   if(u.atkGame<0) c.push(['&minus;'+(-u.atkGame)+' ATK','r']);
   if(u.atkRound<0) c.push(['&minus;'+(-u.atkRound)+' ATK this round','r']);
   if(u.skip>0) c.push(['Skips turn','r']);
-  if(u.stunGuard) c.push(['Stunned last round &mdash; immune this round','g']);
-  return c.map(function(x){ return '<span class="chip '+x[1]+'">'+x[0]+'</span>'; }).join('');
+  if(u.stunGuard) c.push(['Stun immune','g','Stunned last round &mdash; can&rsquo;t be stunned again this round']);
+  return c.map(function(x){ return '<span class="chip '+x[1]+'" title="'+(x[2]||x[0])+'">'+x[0]+'</span>'; }).join('');
 }
 function isZoom(k, v){ return G.zoom && G.zoom.k===k && (G.zoom.id===v || G.zoom.uid===v || G.zoom.ci===v); }
 function myTurn(){ var w = G.wait; return !!(w && w.kind==='cmd' && G.turnOf===viewer() && !isCPU(G.turnOf)); }
@@ -2346,11 +2346,18 @@ function paint(){
   // going through here (see appendActivityRow), but this stays as a safety net for whatever still
   // triggers a full render while, say, the activity feed is scrolled mid-read.
   var ae = typeof document!=='undefined' && document.activeElement, fname = ae && ae.name && root.contains(ae) ? ae.name : null, sel = fname ? [ae.selectionStart, ae.selectionEnd] : null;
-  var feedEl = root.querySelector('.feed'), feedScroll = feedEl ? feedEl.scrollTop : null;
+  // Every scrolling panel keeps its position (the battle log/rail used to jump back to the top on
+  // every re-render, e.g. the turn timer's nudge); chat only sticks to the bottom if it was already there.
+  var SCROLLERS = '.feed,.log,.rail,.chatfeed', scrolls = [].map.call(root.querySelectorAll(SCROLLERS), function(el){
+    return {top:el.scrollTop, bottom:el.scrollHeight-el.scrollTop-el.clientHeight<4};
+  });
   root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + australianaBannerHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
-  if(feedScroll!=null){ var nf = root.querySelector('.feed'); if(nf) nf.scrollTop = feedScroll; }
-  var cf = root.querySelector('.chatfeed'); if(cf) cf.scrollTop = cf.scrollHeight;
+  [].forEach.call(root.querySelectorAll(SCROLLERS), function(el, i){
+    var was = scrolls[i];
+    if(el.classList.contains('chatfeed') && (!was || was.bottom)) el.scrollTop = el.scrollHeight;
+    else if(was) el.scrollTop = was.top;
+  });
   // When a target choice starts, bring the first valid target into view.
   var w = G.wait;
   if(w && w.kind==='unit' && !w.scrolled){

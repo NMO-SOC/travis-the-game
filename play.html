@@ -300,7 +300,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .unit.ko{filter:grayscale(1) brightness(.55);opacity:.7}
 .unit.ko.pick{filter:grayscale(.3);opacity:1}
 .unit .chips{position:absolute;left:8%;right:8%;top:24%;display:flex;flex-wrap:wrap;gap:3px;justify-content:center;z-index:4;pointer-events:none}
-.unit .chip{font-size:clamp(9px,1vw,11px);padding:1px 6px}
+.unit .chip{font-size:clamp(9px,1vw,11px);padding:1px 6px;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .kotag{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-14deg);z-index:5;font-family:var(--title);font-weight:900;font-size:clamp(10px,1.3vw,15px);letter-spacing:.08em;text-transform:uppercase;color:#ff5a48;border:2px solid #ff5a48;border-radius:6px;padding:2px 8px;background:rgba(0,0,0,.75);white-space:nowrap}
 .dmgb{position:absolute;right:-6px;bottom:-6px;z-index:4;min-width:30px;height:30px;padding:0 5px;border-radius:15px;display:grid;place-items:center;font-family:var(--title);font-weight:900;font-size:14px;color:#fff;background:radial-gradient(circle at 35% 30%,#ffc2a6,#d2372a 45%,#5a0d09);box-shadow:0 0 0 2px #000}
 .float{position:absolute;left:50%;top:38%;z-index:9;font-family:var(--title);font-weight:900;font-size:clamp(22px,3vw,34px);pointer-events:none;animation:rise 1.2s ease-out both;text-shadow:0 2px 0 #000,0 0 12px #000}
@@ -340,12 +340,14 @@ b.t0,b.t1,.who{color:var(--tc)}
 @keyframes untap{from{transform:rotate(90deg) scale(.74)}}
 
 /* action bar */
-.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 4px;min-height:10px}
+.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:8px 0 4px;min-height:10px;position:relative;z-index:25;pointer-events:none}
+/* Above a lifted/selected hand card (z-index 20) so attacks are never covered; gaps stay click-through. */
+.actions>*{pointer-events:auto}
 .actions.idle{margin:6px 0}
 .btn.act{flex-direction:column;gap:0;min-width:112px;padding:8px 12px;line-height:1.1}
 .btn.act i{font-style:normal;font-size:18px;line-height:1}
-.btn.act b{font-size:14px}
-.btn.act small{font-size:12.5px}
+.btn.act b{font-size:14px;max-width:100%;overflow-wrap:anywhere;text-align:center}
+.btn.act small{font-size:12.5px;max-width:100%;overflow-wrap:anywhere;text-align:center}
 .btn.abil{border-color:#8fc7ff;color:#d8ecff}
 .btn.end{min-width:120px;font-size:16px;border-radius:40px;color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a 45%,#9c7626);border-color:#f7e2a1}
 .btn.act.locked{opacity:.45;cursor:default}
@@ -375,7 +377,7 @@ b.t0,b.t1,.who{color:var(--tc)}
 .order li.now{background:linear-gradient(90deg,rgba(214,178,90,.35),rgba(214,178,90,.08));color:#fff}
 .order li b{font-family:var(--title)}
 .log{max-height:300px;overflow-y:auto;font-size:14.5px;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 1px rgba(214,178,90,.18)}
-.log p{margin:0 0 5px}
+.log p{margin:0 0 5px;overflow-wrap:anywhere}
 .log p.round{font-family:var(--title);font-weight:700;font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);border-top:1px solid rgba(214,178,90,.25);padding-top:7px;margin-top:7px}
 .log p.turn{color:var(--ink-soft)}
 .log p.reveal{color:#f3dc97}
@@ -769,9 +771,9 @@ table.adm{width:100%;border-collapse:collapse;font-size:15px;min-width:760px}
 <body>
 <div id="app"></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="cards.js?v=20260917b"></script>
-<script src="account.js?v=20260917b"></script>
-<script src="play.js?v=20260917b"></script>
+<script src="cards.js?v=20260917c"></script>
+<script src="account.js?v=20260917c"></script>
+<script src="play.js?v=20260917c"></script>
 <script src="music.js?v=20260915a"></script>
 <script>TravisGame.mount(document.getElementById('app'));</script>
 </body>
