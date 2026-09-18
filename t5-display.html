@@ -360,6 +360,8 @@ async function finish(tier) {
 }
 
 /* ---------------- wands ---------------- */
+/* Wand positions arrive as fractions of the calibrated square play area, which lines up with the board. */
+function stagePoint(w) { const r = stage.getBoundingClientRect(); return [r.left + w.x * r.width, r.top + w.y * r.height]; }
 function wandFor(team) {
   const live = wands.filter(w => w.x !== null);
   return live.find(w => w.id === WAND_OF[team]) || (live.length === 1 ? live[0] : null);  // one wand: it plays both sides
@@ -376,7 +378,7 @@ function loop(now) {
   const active = screen === 'game' && g.winner === null ? wandFor(g.turn) : wandFor(0) || wandFor(1);
   let p = 0;
   if (active && !busy && drag?.by !== 'mouse') {
-    const x = active.x * innerWidth, y = active.y * innerHeight, el = hitAt(x, y), key = keyOf(el);
+    const [x, y] = stagePoint(active), el = hitAt(x, y), key = keyOf(el);
     if (key !== dwell.key) Object.assign(dwell, {key, t0: now, fired: false});
     if (!dwell.fired && enabled(el) && (drag || el.dataset.drag || el.dataset.press)) {
       p = (now - dwell.t0) / DWELL_MS;
@@ -386,7 +388,8 @@ function loop(now) {
   }
   $('#cursors').innerHTML = wands.filter(w => w.x !== null).map(w => {
     const team = WAND_OF.indexOf(w.id);
-    return `<div class="cursor ${team >= 0 ? 't' + team : ''}" style="left:${w.x * innerWidth}px;top:${w.y * innerHeight}px;--p:${w === active ? p : 0}"></div>`;
+    const [cx, cy] = stagePoint(w);
+    return `<div class="cursor ${team >= 0 ? 't' + team : ''}" style="left:${cx}px;top:${cy}px;--p:${w === active ? p : 0}"></div>`;
   }).join('');
   const s = $('#status');
   if (s) s.textContent = !wandLink ? 'Mouse only (start the wand helper for wands)' : `${wands.length} wand(s)${calibrated ? '' : ' · NOT CALIBRATED'}`;
