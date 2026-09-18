@@ -118,6 +118,8 @@ const WAND_OF = [+q.get('p1') || 1, +q.get('p2') || 2];  // Motive rigid body Us
 const WAND_URL = (q.get('wands') || 'http://localhost:8765') + '/wands';
 const SITE = q.get('site') || (location.protocol.startsWith('http') ? new URL('.', location.href).href : 'https://nmo-soc.github.io/travis-the-game/');
 const $ = s => document.querySelector(s), stage = $('#stage'), ghost = $('#ghost');
+const ROTATE = ((+q.get('rotate') || 0) % 360 + 360) % 360;  // 0 or 90: which edges the players stand on
+stage.style.transform = ROTATE ? `rotate(${ROTATE}deg)` : '';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 
@@ -263,7 +265,7 @@ function isTargetFor(dr, t, i) { const was = drag; drag = dr; const ok = isTarge
 function moveGhost(x, y) {
   if (!drag) return;
   ghost.style.left = x + 'px'; ghost.style.top = y + 'px';
-  ghost.style.transform = `translate(-50%,-50%) ${drag.team ? 'rotate(180deg)' : ''}`;
+  ghost.style.transform = `translate(-50%,-50%) rotate(${ROTATE + (drag.team ? 180 : 0)}deg)`;
 }
 
 addEventListener('pointerdown', e => {
