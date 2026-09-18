@@ -2027,10 +2027,14 @@ function activityLine(row){
     case 'wager_lost':
       return who+' lost '+d.stake+' GP on a High Stakes gamble';
     case 'pack_opened': {
-      var pulls = (d.cards||[]).filter(function(x){ return !x.starter && !x.dupe; }).map(function(x){
+      var cardsD = d.cards||[];
+      var pulls = cardsD.filter(function(x){ return !x.starter && !x.dupe; }).map(function(x){
         var c = CARDID[x.id]; return c ? c.n+(x.gold?' (gold)':x.foil?' (foil)':'') : x.id;
       });
-      return who+' opened a '+esc(d.pack)+' pack'+(pulls.length ? ' <small>&middot; pulled '+pulls.join(', ')+'</small>' : '');
+      var pts = cardsD.reduce(function(s,x){ return s+(x.points||0); }, 0);
+      return who+' opened a '+esc(d.pack)+' pack'
+        + (pulls.length ? ' <small>&middot; pulled '+pulls.join(', ')+'</small>'
+           : pts ? ' <small>&middot; all duplicates &middot; +'+pts+' Grant Points</small>' : '');
     }
     case 'game_start': {
       var vs = d.mode==='online' ? 'a game vs '+esc(d.opponent) : (d.difficulty ? d.difficulty[0].toUpperCase()+d.difficulty.slice(1) : 'a') + ' CPU game';
