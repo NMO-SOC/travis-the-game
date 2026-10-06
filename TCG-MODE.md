@@ -11,14 +11,19 @@ SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 
 ## Core loop
 
-- You don't start with characters on the field. You **summon** Travis Knoxes from your hand by
-  spending **summon value** (a mana-curve-style cost per card).
-- You gain **1 summon point per turn** (classic mana-curve ramp).
+- You don't start with characters on the field. Cards — monsters and effects alike — sit in your
+  **hand**, drawn over the course of the game; nothing ever enters play by itself. Each card has a
+  **summon value** (a mana-curve-style cost), scaled to its strength — a stronger monster or a more
+  powerful effect costs more.
+- You gain **1 summon point per turn** (classic mana-curve ramp), banked into a pool.
+- On your turn, you choose which card in hand to pay for out of that pool and bring into play — you
+  are never forced to play a card just because you can afford it, and the game never auto-summons
+  anything for you.
 - Each player preselects a **hero**: a base character with **30 HP**. Once your field is empty, your
   hero is what gets hit.
-- Each hero has a **signature ability**, usable instead of summoning a monster or playing a card.
-  Spends the **same summon-point pool** — one resource total, spent on a monster, a card, or the hero
-  ability, never more than one of those per turn's budget.
+- Each hero has a **signature ability**, usable instead of playing a card from hand that turn. It
+  spends the **same summon-point pool** — one resource total, spent on a card or the hero ability,
+  never both in the same turn's budget.
 
 ## Cards
 
