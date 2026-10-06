@@ -14,7 +14,8 @@ SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 - You don't start with characters on the field. Cards — monsters and effects alike — sit in your
   **hand**, drawn over the course of the game; nothing ever enters play by itself. Each card has a
   **summon value** (a mana-curve-style cost), scaled to its strength — a stronger monster or a more
-  powerful effect costs more.
+  powerful effect costs more. E.g. Beer Frog Knox (a weak early card) costs 1, Principal Knox (a late-
+  game bomb) costs 5.
 - You gain **1 summon point per turn** (classic mana-curve ramp), banked into a pool.
 - On your turn, you choose which card in hand to pay for out of that pool and bring into play — you
   are never forced to play a card just because you can afford it, and the game never auto-summons
