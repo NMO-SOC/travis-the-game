@@ -16,17 +16,17 @@ SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 - You gain **1 summon point per turn** (classic mana-curve ramp).
 - Each player preselects a **hero**: a base character with **30 HP**. Once your field is empty, your
   hero is what gets hit.
-- Each hero has a **signature ability**, usable instead of summoning a monster or playing a card —
-  spends a separate resource ("mana" in the brief) rather than summon points. *Open question: is this
-  the same pool as summon points, or a second resource entirely? See Open questions below.*
+- Each hero has a **signature ability**, usable instead of summoning a monster or playing a card.
+  Spends the **same summon-point pool** — one resource total, spent on a monster, a card, or the hero
+  ability, never more than one of those per turn's budget.
 
 ## Cards
 
 - **Monsters** (Travis Knoxes): have a summon cost, ATK, HP, and sometimes an effect.
 - **Ability/effect cards**: NOT tied to a specific monster — any player can use them on their turn.
-  Stun is kept as a mechanic, but reworked so it doesn't just lock a character out forever (a problem
-  already fixed once in SmalLab mode's `stun()` — same principle should carry over here: no card should
-  be able to permanently remove a turn from the game).
+  Stun no longer skips a turn at all: turns still strictly alternate, player by player, no exceptions.
+  A "stun" card does something other than remove a turn from the game (debuff, delay an attack,
+  reduce effectiveness, etc.) — exact effect TBD, but "skip the opponent's turn" is off the table.
 - **Taunt**: some monsters must be killed before anything else can be attacked. Taunt creatures trade
   low ATK for high HP, and a high-ish summon cost — their whole purpose is forcing the opponent into
   removal/dispel/effect answers instead of just racing past them.
@@ -71,22 +71,20 @@ SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 - **30–40 second turn timer.**
 - Target total game length: **5–10 minutes.**
 
+## Resolved
+
+- **Resource model:** one shared pool. Summon points pay for monsters, cards, and the hero ability
+  alike — no separate mana track.
+- **Stun rework:** turns strictly alternate, always — a stun effect can never skip a player's turn.
+  Whatever a "stun" card does instead (debuff/delay/etc.) is still open, just not a skip.
+
 ## Open questions
 
 Nothing below blocks saving this doc — flagging them because they change what gets built once this
 moves past "brief" into an actual spec/implementation:
 
-1. **Resource model:** is the hero ability powered by the same summon-point pool as monster summons
-   (a single resource, spend it on a creature *or* the hero power each turn), or a second, separately
-   accumulating resource (closer to Hearthstone's 1-per-turn hero power on top of mana)? The brief says
-   "use for mana **instead of** using cards or summoning," which reads like one shared pool, but it's
-   worth confirming before the cost curve gets designed around it.
-2. **Stun rework:** "each player should get a turn" — does this mean stun now only ever delays, never
-   skips entirely (e.g. the target acts at reduced effectiveness instead of not at all), or does it mean
-   the existing SmalLab mode guard (one free turn after a stun before it can be stunned again) is enough
-   once ported over?
-3. **Card pool:** new card set from scratch, or reuse/adapt existing Travis Knox characters (stats,
+1. **Card pool:** new card set from scratch, or reuse/adapt existing Travis Knox characters (stats,
    flavor, art) into summon-cost + ATK/HP + effect format?
-4. **Platform:** new standalone mode in this repo (own HTML/JS, own Supabase tables, like T5 got its own
+2. **Platform:** new standalone mode in this repo (own HTML/JS, own Supabase tables, like T5 got its own
    files), or a from-scratch project?
-5. **Priority:** is this the next thing to build, or purely a spec to park for later?
+3. **Priority:** is this the next thing to build, or purely a spec to park for later?
