@@ -222,8 +222,8 @@ function renderPass() {
 
 function renderOver() {
   app.innerHTML = `<div class="over"><div><h1>${esc(names[g.winner])} wins!</h1>
-    <button class="btn gold" data-act="rematch">Rematch</button>
-    <button class="btn" data-act="setup">New game</button></div></div>`;
+    <button class="btn gold" data-act="rematch">Rematch &mdash; same heroes</button>
+    <button class="btn" data-act="setup">Change hero / new game</button></div></div>`;
 }
 
 function monCard(u, t, viewer) {
