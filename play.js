@@ -1192,6 +1192,14 @@ function chairmanGiftHtml(){
    +'<li>It can never be bought or sold. The only other way to get one: a <b>1-in-100 chance</b> on any pack you win from an <b>online battle</b> (CPU wins never drop it).</li></ul>'
    +'<button class="btn gold big" data-a="chairmangiftclose">Got it</button></div></div>';
 }
+/* A once-only login notice announcing Travis: Arena (tcg.html) — see ACC.claimSmalLabNotice. */
+function smalLabNoticeHtml(){
+  if(!M.smalLabNotice || G.phase==='battle' || G.phase==='deal') return '';
+  return '<div class="ov" data-a="noop"><div class="panel chairmangift" data-a="noop"><div class="eyebrow">New</div><h2>Travis: Arena</h2>'
+   +'<p>This game &mdash; packs, decks, Story, everything you already know &mdash; is still here, still playable, now called <b>SmalLab mode</b>.</p>'
+   +'<p>Alongside it: <b>Travis: Arena</b>, a new hero-and-deck card game personally designed by JRE, just for your fun. Summon Knoxes from your hand, build your mana curve, and bring down the enemy hero.</p>'
+   +'<div class="row"><a class="btn gold big" href="tcg.html">Play Travis: Arena</a><button class="lnk" data-a="smallabnoticeclose">Maybe later</button></div></div></div>';
+}
 /* A per-visit heads-up about the Australiana pack: shown once per page load (dismiss just hides it
    for the rest of this session — it comes back on the next refresh), any time a signed-in player has
    a pack still on offer, on any screen except mid-battle/deal. */
@@ -1387,7 +1395,8 @@ var NAVICON = {
   collection:'<path d="M3 8V6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2"/><path d="M3 8h18l-1.8 10.8A1 1 0 0 1 18.2 19H5.8a1 1 0 0 1-1-.8L3 8z"/>',
   decks:'<rect x="2.5" y="7" width="11" height="15" rx="1.6" transform="rotate(-9 8 14.5)"/><rect x="9" y="5.3" width="11" height="15" rx="1.6" transform="rotate(9 14.5 12.8)"/>',
   story:'<path d="M12 6.2c-1.6-1.5-4.3-2.2-8.5-2.2v14.4c4.2 0 6.9.7 8.5 2.2 1.6-1.5 4.3-2.2 8.5-2.2V4c-4.2 0-6.9.7-8.5 2.2z"/><path d="M12 6.2v14.4"/>',
-  admin:'<path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-3z"/><path d="M9.3 12.2l1.9 1.9L15 10"/>'
+  admin:'<path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6l7-3z"/><path d="M9.3 12.2l1.9 1.9L15 10"/>',
+  arena:'<path d="M12 2l2.2 6.6L21 11l-6.8 2.4L12 20l-2.2-6.6L3 11l6.8-2.4z"/>'
 };
 function navIcon(k){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'+NAVICON[k]+'</svg>'; }
 function navTile(a, icon, label, opts){
@@ -1407,6 +1416,7 @@ function accountStrip(){
     + navTile('go', 'collection', 'Cards', {v:'collection'})
     + navTile('go', 'decks', 'Decks', {v:'decks'})
     + navTile('go', 'story', 'Story', {v:'story'})
+    +'<a class="navtile gold" href="tcg.html">'+navIcon('arena')+'<b>Arena</b></a>'
     + (p.is_admin ? navTile('go', 'admin', 'Admin', {v:'admin'}) : '')
     +'</div><button class="lnk" data-a="signout">Sign out</button></div></div>';
 }
@@ -1433,6 +1443,7 @@ function submitAuth(){
     M.form = {}; goScreen('menu');
     if(up) M.note = 'Welcome! Your welcome pack is waiting.';
     if(ACC.justGiftedChairman){ M.chairmanGift = true; ACC.justGiftedChairman = false; }
+    if(ACC.justSawSmalLabNotice){ M.smalLabNotice = true; ACC.justSawSmalLabNotice = false; }
   });
 }
 
@@ -2378,7 +2389,7 @@ function paint(){
   var SCROLLERS = '.feed,.log,.rail,.chatfeed', scrolls = [].map.call(root.querySelectorAll(SCROLLERS), function(el){
     return {top:el.scrollTop, bottom:el.scrollHeight-el.scrollTop-el.clientHeight<4};
   });
-  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + australianaBannerHtml();
+  root.innerHTML = (G.phase==='deal' ? renderDeal() : G.phase==='battle' ? renderBattle() : G.phase==='menu' ? renderMenu() : renderMeta()) + rulesHtml() + inviteBanner() + chairmanGiftHtml() + smalLabNoticeHtml() + australianaBannerHtml();
   if(fname){ var ne = root.querySelector('[name="'+fname+'"]'); if(ne){ ne.focus(); try{ ne.setSelectionRange(sel[0], sel[1]); }catch(e){} } }
   [].forEach.call(root.querySelectorAll(SCROLLERS), function(el, i){
     var was = scrolls[i];
@@ -2552,6 +2563,7 @@ function onClick(e){
     case 'rules': G.showRules = true; render(); break;
     case 'rulesoff': G.showRules = false; render(); break;
     case 'chairmangiftclose': M.chairmanGift = false; render(); break;
+    case 'smallabnoticeclose': M.smalLabNotice = false; render(); break;
     case 'australianaclose': M.hideAustraliana = true; render(); break;
     case 'noop': break;
   }
@@ -2589,6 +2601,7 @@ var api = {CFG:CFG, state:function(){ return G; }, startGame:startGame, net:NET,
         if(ACC.user && M.deckSel!=='random' && !chosenDeck()) M.deckSel = 'random';
         if(ACC.user) ACC.loadActivity(80).then(function(rows){ M.activity = rows || []; if(G.phase!=='battle') render(); });
         if(ACC.justGiftedChairman){ M.chairmanGift = true; ACC.justGiftedChairman = false; }
+        if(ACC.justSawSmalLabNotice){ M.smalLabNotice = true; ACC.justSawSmalLabNotice = false; }
         if(G.phase!=='battle') render();
       });
     }

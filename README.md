@@ -65,6 +65,21 @@ A single-player campaign on a campus map: four faculties (Science, Maths, Englis
 
 Admins can run a time-limited event from the Admin screen: pick which packs' characters are allowed (or foils-only), set a fixed 12-card action deck everyone plays, and go live. Players see it as an extra menu option for CPU or Online. Events can optionally be restricted to specific usernames, so a new-player-hostile event doesn't show up for everyone.
 
+## Travis: Arena (hero-and-deck TCG)
+
+`tcg.html` is a separate game mode, not a variant of the rules above — see `TCG-MODE.md` for the full
+design brief. Two players share one device (pass it between turns, same convention as Two Players
+above). Pick a hero (30 HP, a signature power), then take turns: gain one more summon point each
+round, spend it from your hand on monsters or spells (cost scales with strength — Beer Frog Knox is 1,
+the biggest cards are 6), and attack. Monsters are the existing Travis Knox roster, adapted with a
+summon cost; once your field is empty, attacks hit your hero directly. Taunt monsters must be killed
+first. Turns always strictly alternate — nothing can ever skip a turn, "stun" cards debuff ATK instead.
+Decks don't reshuffle: drawing from empty costs you 2 HP instead, so stalling has a real clock.
+
+v1 ships with one shared 45-card default deck (no deckbuilder yet) and no CPU/online play — hotseat
+only. Logic lives in `tcg-cards.js` (card data, adapted from `cards.js`) and `tcg-rules.js` (rules
+engine, no DOM); run `node tcg-rules.test.js`.
+
 ## T5 (floor game, 1 v 1)
 
 `t5-display.html` runs on the T5 floor screen. Players scan its QR code (or open `t5.html` and type the code), sign in with their Travis account, pick 3 characters from a saved deck, and tap Ready. Nothing is saved and there's no game log. On the floor, drag an attack onto an enemy; the attacker and then the defender each get a quick skill challenge (hold a height, or stop a hidden clock) that scales the damage, and Shields are a coin flip. "Play with starter decks" skips phones entirely.

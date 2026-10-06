@@ -1,21 +1,41 @@
-# New mode (working title) — design brief
+# Travis: Arena — design brief
 
-Status: **captured, not built.** This is Nick's design brief for a new, more complex card-game mode,
-saved as-is (cleaned up into sections, nothing added or decided that wasn't said). The current browser
-game (`play.html`/`play.js`, packs/decks/Story/Events/High Stakes — everything `README.md` describes)
-is **unchanged and stays primary**. Internally we're now calling it **SmalLab mode** to distinguish it
-from this one. Nothing here touches SmalLab mode's code, cards, or database.
+Status: **v1 built and live** at `tcg.html` (`tcg-cards.js` + `tcg-rules.js`, tested by
+`tcg-rules.test.js`). This is Nick's design brief for the new hero-and-deck card game, saved as-is
+(cleaned up into sections) and then built against. The original browser game (`play.html`/`play.js`,
+packs/decks/Story/Events/High Stakes — everything the top of `README.md` describes) is **unchanged**
+and is now referred to as **SmalLab mode** to distinguish it. Nothing here touches SmalLab mode's code,
+cards, or database — Arena reuses the Travis Knox character roster (adapted into a new cost/stat
+format) but is otherwise a fully separate game, own files, own rules engine.
 
 This is a different game, not a variant: a hero-plus-deck TCG (closer to Hearthstone/Yu-Gi-Oh than to
 SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
+
+## v1 scope — what's in, what's deferred
+
+Built: single-device hotseat 2-player (pass between turns, hands hidden via a pass screen), hero
+select (3 heroes), the full 45-card default deck, every mechanic in the brief below (summon points,
+taunt, sacrifice, dice-roll risk cards, AOE/cleanse/extra-attack/draw/hand-peek/copy spells, fatigue).
+
+Deliberately deferred, not forgotten:
+- **No deckbuilder/collection integration.** Both players use the same preset 45-card deck. Building
+  your own deck from owned cards (the whole "point of collecting" question from the brief) is real
+  future work, not done here.
+- **No CPU opponent, no online play.** Hotseat only, same as SmalLab mode's Two Players.
+- **Monster Power text is flavor only in v1** — the adapted Travis Knox cards show their original
+  Power as card text but it isn't mechanically triggered on summon. Every mechanic in the brief instead
+  lives in the 14 hand-authored spell cards, which are fully implemented.
 
 ## Core loop
 
 - You don't start with characters on the field. Cards — monsters and effects alike — sit in your
   **hand**, drawn over the course of the game; nothing ever enters play by itself. Each card has a
   **summon value** (a mana-curve-style cost), scaled to its strength — a stronger monster or a more
-  powerful effect costs more. E.g. Beer Frog Knox (a weak early card) costs 1, Principal Knox (a late-
-  game bomb) costs 5.
+  powerful effect costs more. E.g. Beer Frog Knox (a weak early card) costs 1, Barbarian Knox (a late-
+  game bomb) costs 6. (The original example given was Principal Knox at 5 — but Principal Knox turned
+  out to be a Story-mode-only boss card, not part of the general collection, so it's excluded from
+  Arena's pool the same way it's excluded from everything else; Barbarian Knox is the actual top of
+  the curve instead.)
 - You gain **1 summon point per turn** (classic mana-curve ramp), banked into a pool.
 - On your turn, you choose which card in hand to pay for out of that pool and bring into play — you
   are never forced to play a card just because you can afford it, and the game never auto-summons
@@ -82,15 +102,24 @@ SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 - **Resource model:** one shared pool. Summon points pay for monsters, cards, and the hero ability
   alike — no separate mana track.
 - **Stun rework:** turns strictly alternate, always — a stun effect can never skip a player's turn.
-  Whatever a "stun" card does instead (debuff/delay/etc.) is still open, just not a skip.
+  The one spell that fills this role, Written Up, debuffs ATK until the target's controller's next
+  turn instead of skipping anything.
+- **Cards:** reused/adapted the existing Travis Knox roster (52 non-story, non-Chairman characters) —
+  cost derived from the same power-score formula Story mode bosses were balanced with, spread evenly
+  across a 1-6 curve, Taunt characters bumped a cost higher per the brief. Beer Frog Knox is hard-pinned
+  to cost 1 as the reference example given.
+- **Platform:** same repo, own files (`tcg.html`, `tcg-cards.js`, `tcg-rules.js`), same pattern T5 used.
+- **Priority:** built now, shipped live, announced with a one-time login notice (see below) rather than
+  parked.
 
-## Open questions
+## Login notice
 
-Nothing below blocks saving this doc — flagging them because they change what gets built once this
-moves past "brief" into an actual spec/implementation:
+Every signed-in player gets a one-time banner on their next login (server-enforced, same once-only
+pattern as the Chairman Knox gift — see `supabase/upgrade-23-smallab-notice.sql`): the original game is
+now called SmalLab mode and is still fully playable, and Travis: Arena — "personally designed by JRE,
+just for your fun" — is live, with a direct link to `tcg.html`.
 
-1. **Card pool:** new card set from scratch, or reuse/adapt existing Travis Knox characters (stats,
-   flavor, art) into summon-cost + ATK/HP + effect format?
-2. **Platform:** new standalone mode in this repo (own HTML/JS, own Supabase tables, like T5 got its own
-   files), or a from-scratch project?
-3. **Priority:** is this the next thing to build, or purely a spec to park for later?
+## Example cost curve
+
+Beer Frog Knox = 1 (early, weak), Barbarian Knox/Leopard Seal Knox/Samurai Knox = 6 (late-game bombs).
+Full list in `tcg-cards.js`.

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Travis: Arena</title>
+<style>
+:root{--bg:#07090d;--ink:#efe6cf;--ink-soft:#a99f88;--gold:#d6b25a;--gold-2:#f3dc97;--t0:#5aa8ff;--t1:#ff7a52;--red:#e0483a;--green:#6fcf4a}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.4 "Segoe UI",system-ui,Arial,sans-serif}
+main{max-width:720px;margin:0 auto;padding:12px 12px 140px}
+h1{font-size:26px;margin:10px 0 2px}
+h2{font-size:16px;margin:16px 0 6px;color:var(--gold-2)}
+p{margin:4px 0}
+.muted{opacity:.7;font-size:14px}
+.btn{display:inline-block;font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:1px solid var(--gold);background:linear-gradient(180deg,#2b2a2f,#141318);color:var(--gold-2);cursor:pointer;margin:4px 6px 4px 0}
+.btn.gold{color:#1c1405;background:linear-gradient(180deg,#f7e2a1,#d6b25a 45%,#9c7626);border-color:#f7e2a1}
+.btn:disabled{opacity:.35;cursor:default}
+.btn.sm{padding:5px 10px;font-size:13px}
+.hero-pick{display:flex;gap:10px;flex-wrap:wrap}
+.hero-opt{border:2px solid #333;border-radius:12px;padding:10px;width:150px;cursor:pointer;background:#141318}
+.hero-opt.on{border-color:var(--gold)}
+.hero-opt img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:8px;object-position:50% 12%}
+.hero-opt b{display:block;margin-top:6px;font-size:14px}
+.hero-opt small{opacity:.75}
+.pass{position:fixed;inset:0;z-index:20;background:#000e;display:grid;place-items:center;text-align:center;padding:24px}
+.pass h2{font-size:24px}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000d;backdrop-filter:blur(6px);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+.plate{display:flex;align-items:center;gap:10px;border-radius:12px;padding:8px 10px;background:#141318;border:1px solid #333}
+.plate.t0{border-color:var(--t0)}.plate.t1{border-color:var(--t1)}
+.plate img{width:40px;height:40px;border-radius:50%;object-fit:cover;object-position:50% 15%}
+.plate .hp{font-weight:900;font-size:18px}
+.plate .hp.low{color:var(--red)}
+.points{font-size:13px;opacity:.8}
+.field{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;min-height:70px;padding:8px;border-radius:10px;background:#0c0e13;margin:6px 0}
+.mon{position:relative;border:2px solid #333;border-radius:10px;padding:6px;background:#171a21;cursor:default;text-align:center}
+.mon.taunt{border-color:var(--gold)}
+.mon.ready{cursor:pointer;box-shadow:0 0 0 2px var(--green)}
+.mon.target{cursor:pointer;box-shadow:0 0 0 3px var(--gold-2);animation:pulse .6s infinite alternate}
+@keyframes pulse{to{box-shadow:0 0 0 3px #fff6}}
+.mon.sick{opacity:.6}
+.mon img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
+.mon .name{font-size:11px;font-weight:700;margin:4px 0 2px;line-height:1.1;min-height:2.2em}
+.mon .stats{font-size:13px;font-weight:900;display:flex;justify-content:space-between}
+.mon .stats .a{color:var(--t1)}.mon .stats .h{color:var(--green)}
+.mon .tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1c1405;font-size:9px;font-weight:900;padding:1px 6px;border-radius:8px}
+.hand{display:flex;gap:8px;overflow-x:auto;padding:8px 2px}
+.card{flex:none;width:96px;border:2px solid #333;border-radius:10px;padding:6px;background:#171a21;cursor:pointer;text-align:center;position:relative}
+.card.on{border-color:var(--gold-2);box-shadow:0 0 0 2px var(--gold-2)}
+.card.off{opacity:.4;cursor:default}
+.card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
+.card-icon{width:100%;aspect-ratio:3/4;border-radius:6px;background:#0c0e13;display:grid;place-items:center;font-size:22px}
+.card .cost{position:absolute;top:-6px;left:-6px;width:26px;height:26px;border-radius:50%;background:var(--gold);color:#1c1405;font-weight:900;display:grid;place-items:center;font-size:13px}
+.card .name{font-size:10px;font-weight:700;margin-top:4px;line-height:1.1;min-height:2.2em}
+.card .txt{font-size:9px;opacity:.75;line-height:1.2;min-height:2.6em}
+.log{background:#0c0e13;border-radius:10px;padding:8px 10px;max-height:140px;overflow-y:auto;font-size:13px}
+.log p{margin:2px 0;opacity:.85}
+.status{text-align:center;font-weight:700;margin:8px 0}
+.over{position:fixed;inset:0;z-index:30;background:#000e;display:grid;place-items:center;text-align:center;padding:24px}
+.over h1{font-size:40px}
+.peek{position:fixed;inset:0;z-index:25;background:#000c;display:grid;place-items:center;padding:20px}
+.peek .box{background:#141318;border:1px solid var(--gold);border-radius:14px;padding:16px;max-width:360px;text-align:center}
+</style>
+</head>
+<body>
+<main id="app"><p>Loading&hellip;</p></main>
+<script src="cards.js?v=20261006a"></script>
+<script src="tcg-cards.js?v=20261006a"></script>
+<script src="tcg-rules.js?v=20261006a"></script>
+<script>
+'use strict';
+/* Travis: Arena — hotseat 2-player, one device, pass between turns. No accounts, no online sync (v1):
+   see TCG-MODE.md for what's deferred. All game logic lives in tcg-rules.js; this file is render +
+   input only. */
+const R = TCGRules, app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
+const IMG = id => (R.MONSTER[id] && R.MONSTER[id].img) || (R.HERO[id] && R.HERO[id].img) || 'images/beer-frog-knox.jpg';
+
+let g = null, names = ['Player 1', 'Player 2'], heroPick = [TCG_HEROES[0].id, TCG_HEROES[1].id];
+let sel = null;          // {kind:'card', hi} or {kind:'mon', idx} or {kind:'power'} — what's "armed" to target
+let passFor = null;      // team that must tap "I'm ready" before seeing the board (hides the other's hand)
+let seenRound = 0;
+
+function render() {
+  if (!g) return renderSetup();
+  if (passFor !== null) return renderPass();
+  if (g.winner !== null) return renderOver();
+  renderBattle();
+}
+
+function renderSetup() {
+  const opt = (t) => `<div class="hero-pick">${TCG_HEROES.map(h => `
+    <div class="hero-opt ${heroPick[t] === h.id ? 'on' : ''}" data-pick="${t}:${h.id}">
+      <img src="${h.img}" alt=""><b>${esc(h.n)}</b><small>${esc(h.power.n)}: ${esc(h.power.txt)}</small>
+    </div>`).join('')}</div>`;
+  app.innerHTML = `<h1>Travis: Arena</h1>
+    <p class="muted">Pass the device between turns. Summon monsters and cast spells from your hand by spending summon points — you gain one more each turn. Your hero has 30 HP; once your field is empty, that's what gets hit.</p>
+    <h2>Player 1&rsquo;s hero</h2>${opt(0)}
+    <h2>Player 2&rsquo;s hero</h2>${opt(1)}
+    <button class="btn gold" data-act="start">Start game</button>
+    <p class="muted"><a href="play.html" style="color:var(--gold-2)">&larr; Back to SmalLab mode</a></p>`;
+}
+
+function renderPass() {
+  const t = passFor;
+  app.innerHTML = `<div class="pass"><div><h2>Pass the device to ${esc(names[t])}</h2>
+    <p class="muted">Nobody else look.</p>
+    <button class="btn gold" data-act="reveal">I&rsquo;m ${esc(names[t])} — show my turn</button></div></div>`;
+}
+
+function renderOver() {
+  app.innerHTML = `<div class="over"><div><h1>${esc(names[g.winner])} wins!</h1>
+    <button class="btn gold" data-act="rematch">Rematch</button>
+    <button class="btn" data-act="setup">New game</button></div></div>`;
+}
+
+function monCard(u, t, viewer) {
+  const canSelectAsAttacker = sel === null && t === viewer && g.turn === viewer && R.canAttack(g, t, u.idx);
+  const isTarget = sel && sel.kind !== 'power' ? targetsFor(viewer).some(x => x.kind === 'monster' && x.team === t && x.idx === u.idx) : false;
+  const cls = ['mon', u.taunt ? 'taunt' : '', u.sick ? 'sick' : '', canSelectAsAttacker ? 'ready' : '', isTarget ? 'target' : ''].join(' ');
+  return `<div class="${cls}" data-mon="${t}:${u.idx}">
+    ${u.taunt ? '<span class="tag">TAUNT</span>' : ''}
+    <img src="${IMG(u.id)}" alt="">
+    <div class="name">${esc(u.n)}</div>
+    <div class="stats"><span class="a">${Math.max(0, u.atk + (u.atkMod || 0))}&#9876;</span><span class="h">${u.hp}/${u.max}&#9829;</span></div>
+  </div>`;
+}
+
+/* What a currently-armed selection (a hand card, a ready monster, or the hero power) can legally hit —
+   drives both highlighting and the actual target sent to tcg-rules.js. kind:'monster' needs {team,idx};
+   attacks compute their own via R.attackTargets. */
+function targetsFor(viewer) {
+  if (!sel) return [];
+  const t = g.turn;
+  if (sel.kind === 'mon') return R.attackTargets(g, t);
+  const card = sel.kind === 'card' ? R.MONSTER[g.hand[t][sel.hi]] || R.SPELL[g.hand[t][sel.hi]] : R.HERO[g.hero[t].id].power;
+  const to = card.to;
+  if (to === 'enemy') return R.aliveField(g, 1 - t).map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
+  if (to === 'friend') return R.aliveField(g, t).map(u => ({ kind: 'monster', team: t, idx: u.idx }));
+  if (to === 'friendOrNone') return R.aliveField(g, t).map(u => ({ kind: 'monster', team: t, idx: u.idx })).concat([{ kind: 'none' }]);
+  return [];
+}
+
+function handCard(id, hi, t) {
+  const mon = R.MONSTER[id], c = mon || R.SPELL[id];
+  const affordable = c.cost <= g.points[t] && g.turn === t;
+  const on = sel && sel.kind === 'card' && sel.hi === hi;
+  const art = mon ? `<img src="${mon.img}" alt="">` : `<div class="card-icon">&#10024;</div>`;
+  return `<div class="card ${on ? 'on' : ''} ${affordable ? '' : 'off'}" data-card="${hi}">
+    <span class="cost">${c.cost}</span>${art}
+    <div class="name">${esc(c.n)}</div>
+    <div class="txt">${c.txt || c.flavor || ''}</div>
+  </div>`;
+}
+
+function renderBattle() {
+  const viewer = g.turn, me = viewer, opp = 1 - viewer;
+  const heroTargetable = t => t === opp && !!sel && sel.kind === 'mon' && targetsFor(viewer).some(x => x.kind === 'hero');
+  const hpTag = (h, t) => `<div class="plate t${t} ${heroTargetable(t) ? 'target' : ''}" ${heroTargetable(t) ? `data-hero="${t}"` : ''}><img src="${IMG(h.id)}" alt=""><div><div>${esc(names[t])}</div><div class="hp ${h.hp <= 10 ? 'low' : ''}">${h.hp}/${h.max}</div></div></div>`;
+  const power = R.HERO[g.hero[me].id].power;
+  const powerOn = sel && sel.kind === 'power';
+  const canPower = R.heroPowerUsable(g, me);
+  app.innerHTML = `
+    <div class="status">${esc(names[opp])}&rsquo;s field</div>
+    <div class="field">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
+    ${hpTag(g.hero[opp], opp)}
+    <div class="status">Round ${g.round} &middot; ${esc(names[me])}&rsquo;s turn &middot; <span class="points">${g.points[me]} / ${g.maxPoints[me]} summon points</span></div>
+    ${hpTag(g.hero[me], me)}
+    <div class="field">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
+    <h2>Your hand</h2>
+    <div class="hand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
+    <h2>Battle log</h2>
+    <div class="log" id="log">${g.log.slice(-40).map(l => `<p>${l}</p>`).join('')}</div>
+    <div class="bar">
+      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${canPower || powerOn ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button>
+      ${sel && targetsFor(me).some(x => x.kind === 'none') ? '<button class="btn sm gold" data-act="notarget">Target your hero</button>' : ''}
+      ${sel ? '<button class="btn sm" data-act="cancel">Cancel</button>' : ''}
+      <button class="btn gold" data-act="end">End turn</button>
+    </div>
+    ${g.peek && g.peek.team === me ? peekHtml() : ''}`;
+  const log = document.getElementById('log'); if (log) log.scrollTop = log.scrollHeight;
+}
+
+function peekHtml() {
+  const hand = g.peek.hand.map(id => (R.MONSTER[id] || R.SPELL[id]).n).join(', ') || 'nothing';
+  return `<div class="peek" data-act="peekclose"><div class="box"><h2>Opponent&rsquo;s hand</h2><p>${esc(hand)}</p>
+    <button class="btn gold sm" data-act="peekclose">Got it</button></div></div>`;
+}
+
+/* ---------------- actions ---------------- */
+function startGame() {
+  g = R.newGame(heroPick, null, Math.random);
+  seenRound = 1; passFor = 0; sel = null;
+  render();
+}
+function doTarget(target) {
+  const t = g.turn;
+  if (sel.kind === 'mon') { R.attack(g, t, sel.idx, target); }
+  else if (sel.kind === 'power') { R.useHeroPower(g, t, target && target.kind === 'monster' ? target : null); }
+  else {
+    const id = g.hand[t][sel.hi], c = R.SPELL[id];
+    if (c && c.sac) {
+      const alive = R.aliveField(g, t);
+      const weakest = alive.length ? alive.reduce((a, b) => a.hp <= b.hp ? a : b) : null;
+      R.playCard(g, t, sel.hi, target && target.kind === 'monster' ? target : null, weakest ? weakest.idx : null);
+    } else {
+      R.playCard(g, t, sel.hi, target && target.kind === 'monster' ? target : null);
+    }
+  }
+  sel = null; render();
+}
+app.addEventListener('click', e => {
+  const pick = e.target.closest('[data-pick]');
+  if (pick) { const [t, id] = pick.dataset.pick.split(':'); heroPick[+t] = id; return render(); }
+  const b = e.target.closest('[data-act]');
+  if (b) {
+    const act = b.dataset.act;
+    if (act === 'start') return startGame();
+    if (act === 'setup') { g = null; sel = null; passFor = null; return render(); }
+    if (act === 'rematch') return startGame();
+    if (act === 'reveal') { passFor = null; return render(); }
+    if (act === 'end') { sel = null; g.peek = null; R.endTurn(g); if (g.winner === null) passFor = g.turn; return render(); }
+    if (act === 'power') {
+      if (sel && sel.kind === 'power') { sel = null; return render(); }
+      if (!R.heroPowerUsable(g, g.turn)) return;
+      if (R.HERO[g.hero[g.turn].id].power.to === 'none') { R.useHeroPower(g, g.turn, null); sel = null; return render(); }
+      sel = { kind: 'power' }; return render();
+    }
+    if (act === 'notarget') { if (sel) doTarget(null); return; }
+    if (act === 'cancel') { sel = null; return render(); }
+    if (act === 'peekclose') { g.peek = null; return render(); }
+    return;
+  }
+  if (!g || g.winner !== null || passFor !== null) return;
+  const cardEl = e.target.closest('[data-card]');
+  if (cardEl) {
+    const hi = +cardEl.dataset.card;
+    const id = g.hand[g.turn][hi];
+    if (!id || !R.canPlay(g, g.turn, hi)) return;
+    if (R.MONSTER[id]) { R.playCard(g, g.turn, hi); sel = null; return render(); }
+    const spell = R.SPELL[id];
+    if (spell.to === 'none' && !spell.sac) { R.playCard(g, g.turn, hi, null); sel = null; return render(); }
+    sel = sel && sel.kind === 'card' && sel.hi === hi ? null : { kind: 'card', hi };
+    return render();
+  }
+  const heroEl = e.target.closest('[data-hero]');
+  if (heroEl && sel) { return doTarget({ kind: 'hero' }); }
+  const monEl = e.target.closest('[data-mon]');
+  if (monEl) {
+    const [t, idx] = monEl.dataset.mon.split(':').map(Number);
+    if (sel) {
+      const ok = targetsFor(g.turn).some(x => (sel.kind === 'mon' ? x.kind === 'monster' && x.team === t && x.idx === idx : x.kind === 'monster' && x.team === t && x.idx === idx));
+      if (ok) return doTarget({ kind: 'monster', team: t, idx });
+      sel = null; return render();
+    }
+    if (t === g.turn && R.canAttack(g, t, idx)) { sel = { kind: 'mon', idx }; return render(); }
+  }
+});
+render();
+</script>
+</body>
+</html>

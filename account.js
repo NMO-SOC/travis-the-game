@@ -43,7 +43,7 @@ A.init = async function(onChange){
   try{
     var s = await c.auth.getSession();
     A.user = s.data.session ? s.data.session.user : null;
-    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); }
+    if(A.user){ await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); await A.claimSmalLabNotice(); }
   }catch(e){ A.user = null; }
   A.ready = true; changed();
 };
@@ -66,6 +66,17 @@ A.claimAustralianaGift = async function(){
   if(!A.user) return;
   try{ var got = await call(client().rpc('claim_australiana_gift')); if(got) await A.refresh(); }catch(e){}
 };
+/* A once-only login notice announcing Travis: Arena (tcg.html) — same server-enforced,
+   run-as-many-times-as-you-like pattern as the two claims above. Sets A.justSawSmalLabNotice so the
+   UI can show it once; missing until upgrade-23 is run, in which case this silently does nothing. */
+A.justSawSmalLabNotice = false;
+A.claimSmalLabNotice = async function(){
+  if(!A.user) return;
+  try{
+    var got = await call(client().rpc('claim_smallab_notice'));
+    if(got) A.justSawSmalLabNotice = true;
+  }catch(e){}
+};
 A.signUp = async function(username, password){
   var u = clean(username);
   if(!USERNAME_RE.test(u)) throw new Error('Usernames are 3&ndash;20 characters: letters, numbers or _.');
@@ -74,12 +85,12 @@ A.signUp = async function(username, password){
   if(!free) throw new Error('That username is taken.');
   var d = await call(client().auth.signUp({email:emailFor(u), password:password, options:{data:{username:u}}}));
   if(!d.session) throw new Error('Account made, but sign-in is waiting on email confirmation. Ask the admin to turn off &ldquo;Confirm email&rdquo; in Supabase.');
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); await A.claimSmalLabNotice(); changed();
 };
 A.signIn = async function(username, password){
   var u = clean(username);
   var d = await call(client().auth.signInWithPassword({email:emailFor(u), password:password}));
-  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); changed();
+  A.user = d.user; await A.load(); A.touch(); await A.claimChairmanGift(); await A.claimAustralianaGift(); await A.claimSmalLabNotice(); changed();
 };
 A.signOut = async function(){
   A.leaveLobby();
