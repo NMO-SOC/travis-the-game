@@ -80,4 +80,19 @@ g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 4, hp: 20, max: 
 R.attack(g, 0, 0, { kind: 'hero' });
 assert.strictEqual(g.winner, 0);
 
+// CPU turn: plays cards/attacks and always hands the turn back to the human side (or wins)
+g = R.newGame(null, null, Math.random);
+R.endTurn(g); // get to player 1's turn (CPU side)
+assert.strictEqual(g.turn, 1);
+R.cpuTurn(g, 1);
+assert.ok(g.winner !== null || g.turn === 0, 'cpuTurn always hands the turn back (or wins)');
+
+// Run several full random CPU-vs-CPU games to shake out crashes across many card/board states
+for (let game = 0; game < 25; game++) {
+  g = R.newGame(null, null, Math.random);
+  let rounds = 0;
+  while (g.winner === null && rounds++ < 60) R.cpuTurn(g, g.turn);
+}
+console.log('25 CPU-vs-CPU games ran with no crash');
+
 console.log('tcg rules OK');

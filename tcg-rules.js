@@ -140,7 +140,7 @@ const SPELL_FX = {
   'double-period': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) u.attacked = false; },
   'pop-quiz': (g, t) => { draw(g, t, 2); if (g.hand[t].length) g.hand[t].splice(Math.floor(g.rng() * g.hand[t].length), 1); },
   'hall-monitor': (g, t) => { g.peek = { team: t, hand: g.hand[1 - t].slice() }; log(g, heroName(g, t) + ' looks at ' + heroName(g, 1 - t) + '&rsquo;s hand.'); },
-  'group-project': (g, t) => { const id = g.lastSpell[1 - t] || g.lastSpell[t]; if (id && SPELL_FX[id]) SPELL_FX[id](g, t, { kind: 'monster', idx: 0 }); },
+  'group-project': (g, t) => { const id = g.lastSpell[1 - t] || g.lastSpell[t]; if (id && id !== 'group-project' && SPELL_FX[id]) SPELL_FX[id](g, t, { kind: 'monster', idx: 0 }); },
   'written-up': (g, t, tgt) => { const u = g.field[1 - t][tgt.idx]; if (u) { u.atkMod -= 3; u.atkModOwner = 1 - t; u.atkModArmed = false; } },
   'faculty-meeting': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 6),
   'science-fair-volcano': (g, t, tgt) => {
@@ -175,6 +175,85 @@ function useHeroPower(g, t, target) {
   return true;
 }
 
+/* ---------------- CPU opponent (simple heuristic, no lookahead) ----------------
+   Plays every affordable card it has a reasonable use for, attacks with every ready monster, then
+   ends the turn. Picks targets greedily: a lethal/kill-securing hit first, then the biggest threat. */
+function bestEnemyTarget(g, t, dmg) {
+  const foes = aliveField(g, 1 - t);
+  if (!foes.length) return { kind: 'hero' };
+  const taunts = foes.filter(u => u.taunt);
+  const pool = taunts.length ? taunts : foes;
+  const kill = pool.find(u => u.hp <= dmg);
+  const pick = kill || pool.reduce((a, b) => (b.atk > a.atk ? b : a));
+  return { kind: 'monster', idx: pick.idx };
+}
+function cpuPlayCards(g, t) {
+  let guard = 60;
+  while (guard-- > 0 && g.winner === null) {
+    const hand = g.hand[t];
+    let played = false;
+    for (let hi = 0; hi < hand.length; hi++) {
+      const id = hand[hi];
+      if (!canPlay(g, t, hi)) continue;
+      if (MONSTER[id]) { playCard(g, t, hi); played = true; break; }
+      const s = SPELL[id];
+      if (s.to === 'enemy') {
+        const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;
+        const tgt = bestEnemyTarget(g, t, dmg);
+        if (tgt.kind !== 'monster') continue;
+        if (s.sac) { const w = weakest(g, t); if (!w) continue; playCard(g, t, hi, tgt, w.idx); }
+        else playCard(g, t, hi, tgt);
+        played = true; break;
+      }
+      if (s.to === 'friend') {
+        const mine = aliveField(g, t);
+        if (!mine.length) continue;
+        const hurt = mine.filter(u => u.hp < u.max);
+        const pick = hurt.length ? hurt.reduce((a, b) => a.hp <= b.hp ? a : b) : mine[0];
+        playCard(g, t, hi, { kind: 'monster', idx: pick.idx });
+        played = true; break;
+      }
+      if (s.to === 'friendOrNone') {
+        const mine = aliveField(g, t).filter(u => u.hp < u.max);
+        if (mine.length) { const pick = mine.reduce((a, b) => a.hp <= b.hp ? a : b); playCard(g, t, hi, { kind: 'monster', idx: pick.idx }); }
+        else if (g.hero[t].hp < g.hero[t].max) playCard(g, t, hi, null);
+        else continue;
+        played = true; break;
+      }
+      // to === 'none'
+      playCard(g, t, hi, null);
+      played = true; break;
+    }
+    if (!played) break;
+  }
+  if (heroPowerUsable(g, t)) {
+    const hero = HERO[g.hero[t].id];
+    if (hero.power.to === 'enemy') { const tgt = bestEnemyTarget(g, t, 3); if (tgt.kind === 'monster') useHeroPower(g, t, tgt); }
+    else useHeroPower(g, t, null);
+  }
+}
+function cpuAttack(g, t) {
+  let guard = 20;
+  while (guard-- > 0 && g.winner === null) {
+    const ready = aliveField(g, t).filter(u => !u.sick && !u.attacked);
+    if (!ready.length) break;
+    const u = ready[0], targets = attackTargets(g, t);
+    if (!targets.length) break;
+    const dmg = Math.max(0, u.atk + (u.atkMod || 0));
+    const kill = targets.find(x => x.kind === 'monster' && g.field[1 - t][x.idx].hp <= dmg);
+    const biggest = targets.filter(x => x.kind === 'monster').reduce((a, b) => !a || g.field[1 - t][b.idx].atk > g.field[1 - t][a.idx].atk ? b : a, null);
+    attack(g, t, u.idx, kill || biggest || targets[0]);
+  }
+}
+/* Runs a full CPU turn (cards, then attacks) and ends it. Call only when g.turn === t and t is the
+   bot side. */
+function cpuTurn(g, t) {
+  cpuPlayCards(g, t);
+  cpuAttack(g, t);
+  cpuPlayCards(g, t); // a second pass: points freed up by attacking (none currently) or late draws
+  if (g.winner === null) endTurn(g);
+}
+
 function startTurn(g, t) {
   g.turn = t;
   g.maxPoints[t] = Math.min(MAX_POINTS, g.maxPoints[t] + 1);
@@ -201,7 +280,7 @@ function endTurn(g) {
 return {
   START_HP, START_HAND, HAND_CAP, MAX_POINTS, FATIGUE_DMG, MONSTER, SPELL, HERO,
   newGame, draw, aliveField, tauntUp, attackTargets, canAttack, attack,
-  canPlay, playCard, heroPowerUsable, useHeroPower, startTurn, endTurn, roll20,
+  canPlay, playCard, heroPowerUsable, useHeroPower, startTurn, endTurn, roll20, cpuTurn,
 };
 })();
 if (typeof module !== 'undefined') module.exports = TCGRules;

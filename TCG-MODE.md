@@ -21,7 +21,9 @@ Deliberately deferred, not forgotten:
 - **No deckbuilder/collection integration.** Both players use the same preset 45-card deck. Building
   your own deck from owned cards (the whole "point of collecting" question from the brief) is real
   future work, not done here.
-- **No CPU opponent, no online play.** Hotseat only, same as SmalLab mode's Two Players.
+- **No online play.** Hotseat (pass the device) or Versus CPU only — no match codes/Supabase sync yet.
+  The CPU is a simple greedy heuristic in `tcg-rules.js` (`cpuTurn`): no lookahead, plays whatever it
+  can afford roughly best-first and attacks for lethal/biggest-threat. Not tuned for difficulty tiers.
 - **Monster Power text is flavor only in v1** — the adapted Travis Knox cards show their original
   Power as card text but it isn't mechanically triggered on summon. Every mechanic in the brief instead
   lives in the 14 hand-authored spell cards, which are fully implemented.

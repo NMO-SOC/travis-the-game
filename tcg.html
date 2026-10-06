@@ -64,14 +64,18 @@ p{margin:4px 0}
 </head>
 <body>
 <main id="app"><p>Loading&hellip;</p></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="cards.js?v=20261006a"></script>
+<script src="account.js?v=20261006a"></script>
 <script src="tcg-cards.js?v=20261006a"></script>
-<script src="tcg-rules.js?v=20261006a"></script>
+<script src="tcg-rules.js?v=20261006c"></script>
 <script>
 'use strict';
-/* Travis: Arena — hotseat 2-player, one device, pass between turns. No accounts, no online sync (v1):
-   see TCG-MODE.md for what's deferred. All game logic lives in tcg-rules.js; this file is render +
-   input only. */
+/* Travis: Arena — hotseat 2-player, one device, pass between turns. Online sync and a real
+   deckbuilder are still deferred (see TCG-MODE.md), but a signed-in player can bring one of their
+   saved SmalLab decks (account.js) instead of the shared default — see deckFromSmalLab() below. All
+   game logic lives in tcg-rules.js; this file is render + input only. */
+const ACC = window.TravisAccount;
 const R = TCGRules, app = document.getElementById('app');
 const esc = s => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const IMG = id => (R.MONSTER[id] && R.MONSTER[id].img) || (R.HERO[id] && R.HERO[id].img) || 'images/beer-frog-knox.jpg';
@@ -80,12 +84,40 @@ let g = null, names = ['Player 1', 'Player 2'], heroPick = [TCG_HEROES[0].id, TC
 let sel = null;          // {kind:'card', hi} or {kind:'mon', idx} or {kind:'power'} — what's "armed" to target
 let passFor = null;      // team that must tap "I'm ready" before seeing the board (hides the other's hand)
 let seenRound = 0;
+let vsCpu = false;       // team 1 is a bot (tcg-rules.js cpuTurn) — no pass screen, no hero pick for it
+let cpuThinking = false; // true while cpuTurn() is scheduled, to block input and show a status line
+let deckChoice = ['default', 'default'];  // 'default' or a SmalLab deck id, per team (team 1 ignored when vsCpu)
+let signinErr = '', signinBusy = false;
+
+/* A signed-in player can bring one of their saved SmalLab decks instead of the shared default. There's
+   no Arena deckbuilder yet (see TCG-MODE.md), so this is a mechanical conversion, not a real 1:1 port:
+   each of the deck's 6 characters becomes 3 copies of its Arena monster card (favoring what they
+   actually built around), plus every spell once, padded out to 45 by cycling the spell list. A
+   character with no Arena equivalent (story/Chairman cards aren't in TCG_MONSTERS) is just skipped. */
+function deckFromSmalLab(d) {
+  const list = [];
+  (d.characters || []).forEach(id => { if (R.MONSTER[id]) for (let i = 0; i < 3; i++) list.push(id); });
+  TCG_SPELLS.forEach(s => list.push(s.id));
+  for (let i = 0; list.length < 45; i++) list.push(TCG_SPELLS[i % TCG_SPELLS.length].id);
+  return list.slice(0, 45);
+}
+function resolvedDeck(t) {
+  if (t === 1 && vsCpu) return null; // the bot always plays the shared default deck
+  if (deckChoice[t] === 'default' || !ACC || !ACC.decks) return null;
+  const d = ACC.decks.find(x => String(x.id) === deckChoice[t]);
+  return d ? deckFromSmalLab(d) : null;
+}
 
 function render() {
   if (!g) return renderSetup();
   if (passFor !== null) return renderPass();
   if (g.winner !== null) return renderOver();
+  if (vsCpu && g.turn === 1) return renderThinking();
   renderBattle();
+}
+function renderThinking() {
+  app.innerHTML = `<div class="pass"><div><h2>CPU is thinking&hellip;</h2>
+    <p class="muted">Round ${g.round} &middot; ${esc(names[1])} is taking its turn.</p></div></div>`;
 }
 
 function renderSetup() {
@@ -93,10 +125,33 @@ function renderSetup() {
     <div class="hero-opt ${heroPick[t] === h.id ? 'on' : ''}" data-pick="${t}:${h.id}">
       <img src="${h.img}" alt=""><b>${esc(h.n)}</b><small>${esc(h.power.n)}: ${esc(h.power.txt)}</small>
     </div>`).join('')}</div>`;
+  const modeBtn = (v, label, sub) => `<div class="hero-opt ${vsCpu === v ? 'on' : ''}" data-mode="${v}" style="width:200px"><b>${label}</b><small>${sub}</small></div>`;
+  const signedIn = ACC && ACC.ready && ACC.user && ACC.profile;
+  // Only one Supabase session exists on this device, so only Player 1 can bring a signed-in account's
+  // deck in hotseat — Player 2/CPU always get the shared default (no sign-out/in dance mid-pass).
+  const deckPicker = (t) => {
+    if (t !== 0) return vsCpu ? '' : '<p class="muted">Plays the shared default deck (only one SmalLab account can be signed in per device).</p>';
+    if (!signedIn) return '<p class="muted">Sign in below to bring one of your saved decks — otherwise you play the shared default deck.</p>';
+    const decks = ACC.decks || [];
+    if (!decks.length) return '<p class="muted">No saved decks yet — build one in SmalLab mode&rsquo;s Decks screen, or just play the default deck.</p>';
+    return `<select data-deckpick="${t}">
+      <option value="default" ${deckChoice[t] === 'default' ? 'selected' : ''}>Default deck (shared, 45 cards)</option>
+      ${decks.map(d => `<option value="${esc(String(d.id))}" ${deckChoice[t] === String(d.id) ? 'selected' : ''}>${esc(d.name)} (your SmalLab deck)</option>`).join('')}
+    </select>`;
+  };
+  const signin = signedIn ? `<p>Signed in as <b>${esc(ACC.profile.username)}</b> &middot; <button class="btn sm" data-act="signout">Sign out</button></p>`
+    : !ACC || !ACC.available ? ''
+    : `<form id="signin"><input id="su" autocomplete="username" autocapitalize="none" placeholder="SmalLab username" required>
+      <input id="sp" type="password" autocomplete="current-password" placeholder="Password" required>
+      <button class="btn sm" ${signinBusy ? 'disabled' : ''}>Sign in to use my decks</button></form>
+      ${signinErr ? `<p class="muted" style="color:var(--red)">${esc(signinErr)}</p>` : ''}`;
   app.innerHTML = `<h1>Travis: Arena</h1>
-    <p class="muted">Pass the device between turns. Summon monsters and cast spells from your hand by spending summon points — you gain one more each turn. Your hero has 30 HP; once your field is empty, that's what gets hit.</p>
-    <h2>Player 1&rsquo;s hero</h2>${opt(0)}
-    <h2>Player 2&rsquo;s hero</h2>${opt(1)}
+    <p class="muted">Summon monsters and cast spells from your hand by spending summon points — you gain one more each turn. Your hero has 30 HP; once your field is empty, that's what gets hit.</p>
+    <h2>Opponent</h2>
+    <div class="hero-pick">${modeBtn(false, 'Two Players', 'Pass the device each turn')}${modeBtn(true, 'Versus CPU', 'Play solo against a bot opponent')}</div>
+    <h2>Your SmalLab account</h2>${signin}
+    <h2>Player 1&rsquo;s hero</h2>${opt(0)}${deckPicker(0)}
+    <h2>${vsCpu ? 'CPU&rsquo;s' : 'Player 2&rsquo;s'} hero</h2>${opt(1)}${deckPicker(1)}
     <button class="btn gold" data-act="start">Start game</button>
     <p class="muted"><a href="play.html" style="color:var(--gold-2)">&larr; Back to SmalLab mode</a></p>`;
 }
@@ -189,9 +244,24 @@ function peekHtml() {
 
 /* ---------------- actions ---------------- */
 function startGame() {
-  g = R.newGame(heroPick, null, Math.random);
-  seenRound = 1; passFor = 0; sel = null;
+  g = R.newGame(heroPick, [resolvedDeck(0), resolvedDeck(1)], Math.random);
+  names = vsCpu ? ['Player 1', 'CPU'] : ['Player 1', 'Player 2'];
+  seenRound = 1; sel = null; cpuThinking = false;
+  passFor = vsCpu ? null : 0; // CPU never needs a pass screen — only one human at the table
   render();
+}
+/* Runs after any action that might have ended the turn — if it's now the bot's turn, let it play
+   itself out on a short delay (so it reads as "thinking" rather than instant), then hand back.
+   cpuThinking is just a re-entrancy guard against scheduling two overlapping bot turns. */
+function maybeRunCpu() {
+  if (!vsCpu || !g || g.winner !== null || g.turn !== 1 || cpuThinking) return;
+  cpuThinking = true;
+  setTimeout(() => {
+    cpuThinking = false;
+    if (!g || g.turn !== 1 || g.winner !== null) return; // the player bailed to setup mid-think
+    R.cpuTurn(g, 1);
+    render();
+  }, 550);
 }
 function doTarget(target) {
   const t = g.turn;
@@ -212,6 +282,8 @@ function doTarget(target) {
 app.addEventListener('click', e => {
   const pick = e.target.closest('[data-pick]');
   if (pick) { const [t, id] = pick.dataset.pick.split(':'); heroPick[+t] = id; return render(); }
+  const mode = e.target.closest('[data-mode]');
+  if (mode) { vsCpu = mode.dataset.mode === 'true'; return render(); }
   const b = e.target.closest('[data-act]');
   if (b) {
     const act = b.dataset.act;
@@ -219,7 +291,11 @@ app.addEventListener('click', e => {
     if (act === 'setup') { g = null; sel = null; passFor = null; return render(); }
     if (act === 'rematch') return startGame();
     if (act === 'reveal') { passFor = null; return render(); }
-    if (act === 'end') { sel = null; g.peek = null; R.endTurn(g); if (g.winner === null) passFor = g.turn; return render(); }
+    if (act === 'end') {
+      sel = null; g.peek = null; R.endTurn(g);
+      if (g.winner === null) { passFor = vsCpu ? null : g.turn; render(); maybeRunCpu(); return; }
+      return render();
+    }
     if (act === 'power') {
       if (sel && sel.kind === 'power') { sel = null; return render(); }
       if (!R.heroPowerUsable(g, g.turn)) return;
@@ -229,9 +305,10 @@ app.addEventListener('click', e => {
     if (act === 'notarget') { if (sel) doTarget(null); return; }
     if (act === 'cancel') { sel = null; return render(); }
     if (act === 'peekclose') { g.peek = null; return render(); }
+    if (act === 'signout') { deckChoice = ['default', 'default']; ACC.signOut().then(render); return; }
     return;
   }
-  if (!g || g.winner !== null || passFor !== null) return;
+  if (!g || g.winner !== null || passFor !== null || cpuThinking || g.turn === 1 && vsCpu) return;
   const cardEl = e.target.closest('[data-card]');
   if (cardEl) {
     const hi = +cardEl.dataset.card;
@@ -256,7 +333,21 @@ app.addEventListener('click', e => {
     if (t === g.turn && R.canAttack(g, t, idx)) { sel = { kind: 'mon', idx }; return render(); }
   }
 });
-render();
+app.addEventListener('change', e => {
+  if (e.target.matches('[data-deckpick]')) { deckChoice[+e.target.dataset.deckpick] = e.target.value; return render(); }
+});
+app.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id !== 'signin') return;
+  signinErr = ''; signinBusy = true; render();
+  ACC.signIn(document.getElementById('su').value, document.getElementById('sp').value).then(() => {
+    signinBusy = false; render();
+  }, err => {
+    signinBusy = false; signinErr = (err && err.message) ? err.message.replace(/&[a-z]+;/g, '-') : String(err); render();
+  });
+});
+if (ACC) ACC.init(() => { if (!g) render(); });
+else render();
 </script>
 </body>
 </html>

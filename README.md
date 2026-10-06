@@ -68,17 +68,19 @@ Admins can run a time-limited event from the Admin screen: pick which packs' cha
 ## Travis: Arena (hero-and-deck TCG)
 
 `tcg.html` is a separate game mode, not a variant of the rules above — see `TCG-MODE.md` for the full
-design brief. Two players share one device (pass it between turns, same convention as Two Players
-above). Pick a hero (30 HP, a signature power), then take turns: gain one more summon point each
+design brief. Two players share one device (pass it between turns), or play solo against a simple CPU
+opponent. Pick a hero (30 HP, a signature power), then take turns: gain one more summon point each
 round, spend it from your hand on monsters or spells (cost scales with strength — Beer Frog Knox is 1,
 the biggest cards are 6), and attack. Monsters are the existing Travis Knox roster, adapted with a
 summon cost; once your field is empty, attacks hit your hero directly. Taunt monsters must be killed
 first. Turns always strictly alternate — nothing can ever skip a turn, "stun" cards debuff ATK instead.
 Decks don't reshuffle: drawing from empty costs you 2 HP instead, so stalling has a real clock.
 
-v1 ships with one shared 45-card default deck (no deckbuilder yet) and no CPU/online play — hotseat
-only. Logic lives in `tcg-cards.js` (card data, adapted from `cards.js`) and `tcg-rules.js` (rules
-engine, no DOM); run `node tcg-rules.test.js`.
+Sign in on the Arena screen to bring one of your saved SmalLab decks instead of the shared default
+(only Player 1 — one Supabase session per device). v1 still has no real Arena deckbuilder or online
+play: a SmalLab deck's 6 characters become 3 copies each of their Arena monster card, padded out with
+every spell. Logic lives in `tcg-cards.js` (card data, adapted from `cards.js`) and `tcg-rules.js`
+(rules engine, no DOM, including the CPU's `cpuTurn` heuristic); run `node tcg-rules.test.js`.
 
 ## T5 (floor game, 1 v 1)
 
