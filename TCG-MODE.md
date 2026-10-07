@@ -11,6 +11,44 @@ format) but is otherwise a fully separate game, own files, own rules engine.
 This is a different game, not a variant: a hero-plus-deck TCG (closer to Hearthstone/Yu-Gi-Oh than to
 SmalLab mode's "6 pre-dealt characters, attack or play a card" loop).
 
+## Playtest pass (round 2)
+
+Nick played it and reported several things. Found and fixed:
+- **The actual bug**: `attackTargets()` never set `team` on its monster-target objects, but the UI's
+  click handler validated every chosen target with `x.team === t` — always false for a monster target,
+  always true-ish only for the hero (a separate, unguarded code path). Attacking an enemy *monster* via
+  the UI silently did nothing, ever; attacking the hero worked; the CPU was unaffected since it calls
+  the engine directly. This was the root cause of both "CPU can attack but I can't" and the
+  summoning-sickness-sounding "monster can only attack while being summoned, then never again" reports
+  — verified the real mechanic is correct with an explicit 4-round test once the bug was fixed.
+- Monster summoning no longer requires its battlecry's target to exist — a battlecry monster on an
+  empty board now still enters play (battlecry just doesn't fire), instead of being unplayable.
+- A random opening hand had roughly a 1-in-3 chance of nothing costing &le;1 at the 1 starting summon
+  point, i.e. "nothing to play" on turn 1. Now guaranteed: the deal swaps in a cheap card if needed.
+- The monster card "flavor" text was, by content bug, the *old SmalLab Power description* (non-
+  functional in Arena, e.g. Doctor Knox showing "Choose an enemy, it can't use its Power" when nothing
+  like that exists here) rather than the character's actual joke/flavor quote — exactly the kind of
+  carried-over original-game content that was asked not to be here, and the likely source of the "Peer
+  Review" mix-up (Doctor Knox's hero power, separately, deals damage — Hall Monitor is the actual
+  look-at-hand card, and its peek direction was verified correct by test). Fixed: every monster now
+  shows its real flavor quote.
+- Science Fair Volcano's roll tiers had two bands dealing identical damage by coincidence (double vs.
+  +4 both landing on 8 given base 4) — no longer accidentally redundant. Excursion Bus's text had a
+  leftover "no wait, permanently" aside from drafting it; cleaned up.
+
+CPU turns changed from resolving instantly behind a "CPU is thinking" blackout to playing out one
+action at a time (`cpuStep`) with a small pulsing cursor pointing at whatever it just did, so the turn
+is watchable rather than hidden.
+
+Visual pass: hero portraits are centred in their row instead of stuck left; hovering a hand or field
+card scales it up with its full ability text revealed (previously truncated once summoned — "once
+monsters are summoned, you should still be able to see any mechanics the card has"); attacks now play
+a lunge/impact animation on the attacker and target instead of just updating numbers.
+
+Deferred rather than attempted here, given the size: a full card-by-card redesign of the remaining
+52 vanilla monsters and existing 14 spells against the official Hearthstone card library. The content
+fixes above (flavor text, two broken cards) were corrected; a deeper design pass is real future work.
+
 ## v1 scope — what's in, what's deferred
 
 Built: single-device hotseat 2-player (pass between turns, hands hidden via a pass screen), hero

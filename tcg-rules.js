@@ -206,7 +206,7 @@ const SPELL_FX = {
   'science-fair-volcano': (g, t, tgt) => {
     const r = roll20(g);
     if (r >= 15) damageMonster(g, 1 - t, tgt.idx, 8);
-    else if (r >= 10) damageMonster(g, 1 - t, tgt.idx, 8);
+    else if (r >= 10) damageMonster(g, 1 - t, tgt.idx, 5);
     else if (r >= 5) damageHero(g, t, 4);
     else { const w = weakest(g, t); if (w) w.hp = 0; }
     log(g, 'Rolled ' + r + '.');

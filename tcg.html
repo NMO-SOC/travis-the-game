@@ -26,11 +26,13 @@ p{margin:4px 0}
 .pass{position:fixed;inset:0;z-index:20;background:#000e;display:grid;place-items:center;text-align:center;padding:24px}
 .pass h2{font-size:24px}
 .bar{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000d;backdrop-filter:blur(6px);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
-/* ---- hero row: a big circular portrait per side, Hearthstone-style, with an HP gem overlapping
-   its bottom-right corner and (for the active player) mana crystals + hero power beside it ---- */
-.herorow{display:flex;align-items:center;gap:10px;margin:6px 0;flex-wrap:wrap}
-.herorow.me{flex-direction:row}
-.hero-circle{position:relative;flex:none;width:76px;height:76px;border-radius:50%;cursor:default}
+/* ---- hero row: a big circular portrait per side, Hearthstone-style, centred in its row, with an
+   HP gem overlapping its bottom-right corner and (for the active player) mana crystals + hero power
+   wrapping underneath it rather than stretching the row off-centre ---- */
+.herorow{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;text-align:center}
+.herorow.me{flex-direction:column}
+.herorow.me .hero-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.hero-circle{position:relative;flex:none;width:84px;height:84px;border-radius:50%;cursor:default}
 .hero-circle img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;border:3px solid #4a3a16;box-shadow:0 0 0 2px var(--gold),0 2px 6px #000}
 .hero-circle.t0 img{box-shadow:0 0 0 2px var(--t0),0 2px 6px #000}
 .hero-circle.t1 img{box-shadow:0 0 0 2px var(--t1),0 2px 6px #000}
@@ -44,29 +46,42 @@ p{margin:4px 0}
 .mana i{width:14px;height:14px;border-radius:3px;transform:rotate(45deg);background:#1a2b4a;box-shadow:inset 0 0 0 1px #2d4a7a}
 .mana i.full{background:linear-gradient(160deg,#7fc4ff,var(--t0));box-shadow:inset 0 0 0 1px #bfe4ff,0 0 4px rgba(90,168,255,.7)}
 .points{font-size:12px;opacity:.75;margin-left:2px}
-.field{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:10px 8px;min-height:76px;padding:10px 8px;border-radius:10px;background:#0c0e13;margin:6px 0}
-.mon{position:relative;border:2px solid #333;border-radius:10px;padding:4px;background:#171a21;cursor:default;text-align:center}
+.field{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 8px;min-height:84px;padding:10px 8px;border-radius:10px;background:#0c0e13;margin:6px 0}
+.mon{position:relative;flex:0 0 92px;border:2px solid #333;border-radius:10px;padding:4px;background:#171a21;cursor:default;text-align:center;
+  transition:transform .15s,box-shadow .15s,z-index 0s;transform-origin:50% 70%}
 .mon.taunt{border-color:var(--gold)}
 .mon.ready{cursor:pointer;box-shadow:0 0 0 2px var(--green)}
 .mon.target{cursor:pointer;box-shadow:0 0 0 3px var(--gold-2);animation:pulse .6s infinite alternate}
 @keyframes pulse{to{box-shadow:0 0 0 3px #fff6}}
 .mon.sick{opacity:.6}
+.mon:hover{transform:scale(1.8);z-index:15;box-shadow:0 10px 30px #000}
 .mon img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
 .mon .name{font-size:10.5px;font-weight:700;margin:9px 0 1px;line-height:1.1;min-height:2.2em}
 .mon .gem{position:absolute;bottom:20px;width:24px;height:24px;border-radius:50%;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;box-shadow:0 0 0 2px #000}
 .mon .gem.a{left:-4px;background:radial-gradient(circle at 35% 30%,#ffe9a8,var(--gold) 70%);color:#1c1405}
 .mon .gem.h{right:-4px;background:radial-gradient(circle at 35% 30%,#ff6a5a,var(--red) 70%)}
 .mon .tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1c1405;font-size:9px;font-weight:900;padding:1px 6px;border-radius:8px}
-.hand{display:flex;gap:6px;overflow-x:auto;padding:10px 2px 4px;justify-content:center}
-.card{flex:none;width:92px;border:2px solid #333;border-radius:10px 10px 14px 14px;padding:4px;background:#171a21;cursor:pointer;text-align:center;position:relative;transition:transform .1s}
-.card:not(.off):hover{transform:translateY(-6px)}
+/* Ability text: always there in the DOM (so it's never a mystery once a monster's on the board — the
+   brief complaint was that it vanished after summoning), just tucked under the name at normal size
+   and revealed in full by the hover-scale above. */
+.mon .ability{font-size:8px;line-height:1.2;color:var(--gold-2);opacity:.85;max-height:2.2em;overflow:hidden}
+.mon:hover .ability{max-height:none}
+.mon.atk-anim{animation:lunge .45s ease}
+.mon.hit-anim,.hero-circle.hit-anim img{animation:hitflash .4s ease}
+@keyframes lunge{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-10px) scale(1.12)}65%{transform:translateY(3px) scale(1.02)}100%{transform:translateY(0) scale(1)}}
+@keyframes hitflash{0%{filter:brightness(1)}25%{filter:brightness(2.4) saturate(2);transform:translateX(-4px)}55%{transform:translateX(4px)}100%{filter:brightness(1);transform:translateX(0)}}
+.hand{display:flex;gap:6px;overflow-x:auto;overflow-y:visible;padding:30px 2px 4px;justify-content:center}
+.card{flex:none;width:92px;border:2px solid #333;border-radius:10px 10px 14px 14px;padding:4px;background:#171a21;cursor:pointer;text-align:center;position:relative;
+  transition:transform .15s,box-shadow .15s,z-index 0s;transform-origin:50% 100%}
+.card:not(.off):hover{transform:translateY(-6px) scale(1.7);z-index:15;box-shadow:0 10px 30px #000}
 .card.on{border-color:var(--gold-2);box-shadow:0 0 0 2px var(--gold-2);transform:translateY(-6px)}
 .card.off{opacity:.4;cursor:default}
 .card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
 .card-icon{width:100%;aspect-ratio:3/4;border-radius:6px;background:#0c0e13;display:grid;place-items:center;font-size:22px}
 .card .cost{position:absolute;top:-8px;left:-8px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7fc4ff,var(--t0) 70%);color:#06203f;font-weight:900;display:grid;place-items:center;font-size:14px;box-shadow:0 0 0 2px #000}
 .card .name{font-size:10px;font-weight:700;margin-top:4px;line-height:1.1;min-height:2.2em}
-.card .txt{font-size:9px;opacity:.75;line-height:1.2;min-height:2.6em}
+.card .txt{font-size:9px;opacity:.75;line-height:1.2;max-height:2.6em;overflow:hidden}
+.card:hover .txt{max-height:none}
 .log{background:#0c0e13;border-radius:10px;padding:8px 10px;max-height:140px;overflow-y:auto;font-size:13px}
 .log p{margin:2px 0;opacity:.85}
 .status{text-align:center;font-weight:700;margin:8px 0}
@@ -90,8 +105,8 @@ p{margin:4px 0}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="cards.js?v=20261006a"></script>
 <script src="account.js?v=20261006a"></script>
-<script src="tcg-cards.js?v=20261007a"></script>
-<script src="tcg-rules.js?v=20261007d"></script>
+<script src="tcg-cards.js?v=20261007b"></script>
+<script src="tcg-rules.js?v=20261007e"></script>
 <script>
 'use strict';
 /* Travis: Arena — hotseat 2-player, one device, pass between turns. Online sync and a real
@@ -110,6 +125,7 @@ let seenRound = 0;
 let vsCpu = false;       // team 1 is a bot (tcg-rules.js cpuTurn) — no pass screen, no hero pick for it
 let cpuThinking = false; // true while a cpuStep() is scheduled, to block input
 let cpuCursor = null;    // last R.cpuStep() result, so placeCpuCursor() can point at what it just did
+let fxAttack = null;     // {kind:'atk'|'hit', team, idx} | {kind:'hit', hero:team} — one-shot attack animation
 let deckChoice = ['default', 'default'];  // 'default' or a SmalLab deck id, per team (team 1 ignored when vsCpu)
 let signinErr = '', signinBusy = false;
 
@@ -192,11 +208,16 @@ function renderOver() {
 function monCard(u, t, viewer) {
   const canSelectAsAttacker = sel === null && t === viewer && g.turn === viewer && R.canAttack(g, t, u.idx);
   const isTarget = sel && sel.kind !== 'power' ? targetsFor(viewer).some(x => x.kind === 'monster' && x.team === t && x.idx === u.idx) : false;
-  const cls = ['mon', u.taunt ? 'taunt' : '', u.sick ? 'sick' : '', canSelectAsAttacker ? 'ready' : '', isTarget ? 'target' : ''].join(' ');
+  const card = R.MONSTER[u.id];
+  const fx = fxAttack;
+  const atkFx = fx && fx.atk && fx.atk.team === t && fx.atk.idx === u.idx ? ' atk-anim' : '';
+  const hitFx = fx && fx.hit && fx.hit.team === t && fx.hit.idx === u.idx ? ' hit-anim' : '';
+  const cls = ['mon', u.taunt ? 'taunt' : '', u.sick ? 'sick' : '', canSelectAsAttacker ? 'ready' : '', isTarget ? 'target' : '', atkFx, hitFx].join(' ');
   return `<div class="${cls}" data-mon="${t}:${u.idx}">
     ${u.taunt ? '<span class="tag">TAUNT</span>' : ''}
     <img src="${IMG(u.id)}" alt="">
     <div class="name">${esc(u.n)}</div>
+    <div class="ability">${card && card.bc ? esc(card.bc) : card && card.flavor ? '<i>' + card.flavor + '</i>' : ''}</div>
     <span class="gem a">${Math.max(0, u.atk + (u.atkMod || 0))}</span><span class="gem h">${u.hp}</span>
   </div>`;
 }
@@ -246,7 +267,8 @@ function renderBattle() {
      active player's own hero gets mana crystals and the hero-power button beside it. */
   const heroCircle = (h, t) => {
     const low = h.hp <= 10;
-    return `<div class="hero-circle t${t} ${heroTargetable(t) ? 'target' : ''}" ${heroTargetable(t) ? `data-hero="${t}"` : ''}>
+    const hitFx = fxAttack && fxAttack.hit && fxAttack.hit.hero === t ? ' hit-anim' : '';
+    return `<div class="hero-circle t${t}${heroTargetable(t) ? ' target' : ''}${hitFx}" ${heroTargetable(t) ? `data-hero="${t}"` : ''}>
       <img src="${IMG(h.id)}" alt=""><span class="hpgem ${low ? 'low' : ''}">${h.hp}</span></div>`;
   };
   const power = R.HERO[g.hero[me].id].power;
@@ -265,8 +287,9 @@ function renderBattle() {
     <div class="status">Round ${g.round} &middot; <b>${esc(names[watching ? opp : me])}&rsquo;s turn</b></div>
     <p class="muted" style="text-align:center">${hint}</p>
     <div class="field" id="mefield">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
-    <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
-      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${(canPower || powerOn) && !watching ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div>
+    <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>
+      <div class="hero-controls">${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
+      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${(canPower || powerOn) && !watching ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div></div>
     <h2>Your hand</h2>
     <div class="hand" id="myhand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
     <h2>Battle log</h2>
@@ -314,6 +337,11 @@ function runCpuStep() {
       return render();
     }
     cpuCursor = r;
+    if (r.kind === 'attack') {
+      const hit = r.target.kind === 'hero' ? { hero: 0 } : { team: r.target.team, idx: r.target.idx };
+      fxAttack = { atk: { team: 1, idx: r.idx }, hit };
+      setTimeout(() => { fxAttack = null; }, 450); // cleared silently — the next render() below already moves on
+    }
     render();
     runCpuStep();
   }, 700);
@@ -335,9 +363,19 @@ function placeCpuCursor() {
   el.style.top = (r.top + r.height / 2) + 'px';
   el.hidden = false;
 }
+/* A one-shot CSS animation: render once with the fx class present, then clear it on a timer so the
+   next render (whenever it happens) comes back to normal rather than re-triggering forever. */
+function flashAttack(fx) {
+  fxAttack = fx;
+  setTimeout(() => { fxAttack = null; render(); }, 450);
+}
 function doTarget(target) {
   const t = g.turn;
-  if (sel.kind === 'mon') { R.attack(g, t, sel.idx, target); }
+  if (sel.kind === 'mon') {
+    const hit = target.kind === 'hero' ? { hero: 1 - t } : { team: 1 - t, idx: target.idx };
+    R.attack(g, t, sel.idx, target);
+    flashAttack({ atk: { team: t, idx: sel.idx }, hit });
+  }
   else if (sel.kind === 'power') { R.useHeroPower(g, t, target && target.kind === 'monster' ? target : null); }
   else {
     const id = g.hand[t][sel.hi], c = R.SPELL[id];

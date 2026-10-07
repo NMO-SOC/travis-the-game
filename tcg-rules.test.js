@@ -182,4 +182,31 @@ while (steps++ < 200) { const r = R.cpuStep(g, 1); if (r.done) { sawDone = true;
 assert.ok(sawDone, 'cpuStep eventually finishes the turn');
 assert.strictEqual(g.turn, 1, 'cpuStep never ends the turn itself — that\'s the caller\'s job (cpuTurn, or the UI)');
 
+// Hall Monitor peeks the OPPONENT's hand, never your own (reported as "shows my own hand instead").
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.hand[0] = ['hall-monitor'];
+g.hand[1] = ['beer-frog-knox', 'written-up', 'assembly'];
+assert.ok(R.playCard(g, 0, 0, null));
+assert.deepStrictEqual(g.peek.hand.slice().sort(), ['assembly', 'beer-frog-knox', 'written-up'].sort(), 'peeked the opponent\'s hand, not the caster\'s own');
+assert.strictEqual(g.peek.team, 0, 'tagged with the CASTER\'s team, so the UI shows it only to them');
+
+// A monster can attack every round from the one after it's summoned, not just the round it's
+// summoned, and not just once ever — reported as "can only attack while being summoned, then never
+// again." Simulate several full rounds by hand rather than trusting a single round's canAttack call.
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.hand[0] = ['beer-frog-knox'];
+assert.ok(R.playCard(g, 0, 0));
+const mon = g.field[0][0];
+assert.ok(!R.canAttack(g, 0, 0), 'summoning sickness: cannot attack the turn it was summoned');
+for (let round = 0; round < 4; round++) {
+  R.endTurn(g); // -> player 1's turn
+  R.endTurn(g); // -> player 0's turn again; startTurn(0) clears sickness/attacked
+  assert.ok(R.canAttack(g, 0, 0), 'round ' + round + ': ready to attack again at the start of its controller\'s turn');
+  assert.ok(R.attack(g, 0, 0, { kind: 'hero' }), 'round ' + round + ': the attack itself succeeds');
+  assert.ok(!R.canAttack(g, 0, 0), 'round ' + round + ': cannot attack twice in the same turn');
+}
+assert.strictEqual(mon.hp, mon.max, 'it never took damage itself, so it\'s still the same monster throughout');
+
 console.log('tcg rules OK');
