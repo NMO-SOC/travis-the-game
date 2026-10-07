@@ -242,10 +242,17 @@ function renderBattle() {
   const power = R.HERO[g.hero[me].id].power;
   const powerOn = sel && sel.kind === 'power';
   const canPower = R.heroPowerUsable(g, me);
+  /* A one-line nudge so an empty field + a greyed-out hand (quite possible turn 1 — your 3-card
+     starting hand has no guaranteed 1-cost card) doesn't just look broken. */
+  const hint = sel ? 'Tap a glowing target to confirm.'
+    : g.hand[me].some((id, hi) => R.canPlay(g, me, hi)) ? 'Tap a card in your hand to summon or cast it.'
+    : R.aliveField(g, me).some(u => R.canAttack(g, me, u.idx)) ? 'Tap a glowing monster, then an enemy, to attack.'
+    : 'Nothing to play this turn &mdash; tap End turn.';
   app.innerHTML = `
     <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}</span></div>
     <div class="field">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
     <div class="status">Round ${g.round} &middot; <b>${esc(names[me])}&rsquo;s turn</b></div>
+    <p class="muted" style="text-align:center">${hint}</p>
     <div class="field">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
     <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
       <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${canPower || powerOn ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div>
