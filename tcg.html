@@ -46,6 +46,7 @@ p{margin:4px 0}
 .hero-circle .hpgem{position:absolute;right:-6px;bottom:-6px;width:30px;height:30px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ff6a5a,var(--red) 70%);
   color:#fff;font-weight:900;font-size:14px;display:grid;place-items:center;box-shadow:0 0 0 2px #000,0 1px 3px #000}
 .hero-circle .hpgem.low{animation:pulse .7s infinite alternate}
+.hero-circle .hpgem.ar{right:auto;left:-6px;background:radial-gradient(circle at 35% 30%,#d8d8d8,#8a8a8a 70%);color:#1c1405;width:24px;height:24px;font-size:12px}
 .hero-circle.target{cursor:pointer}
 .hero-circle.target img{box-shadow:0 0 0 3px var(--gold-2),0 0 16px rgba(243,220,151,.6);animation:pulse .6s infinite alternate}
 .hero-name{font-size:13px;font-weight:700;opacity:.85}
@@ -57,6 +58,10 @@ p{margin:4px 0}
 .mon{position:relative;flex:0 0 clamp(56px,11vh,88px);border:2px solid #333;border-radius:10px;padding:3px;background:#171a21;cursor:default;text-align:center;
   transition:transform .15s,box-shadow .15s,z-index 0s;transform-origin:50% 70%}
 .mon.taunt{border-color:var(--gold)}
+.mon.frozen{filter:saturate(.3) brightness(1.1)}
+.mon.frozen img{box-shadow:inset 0 0 0 2px #7fc4ff}
+.frosticon{position:absolute;top:2px;right:2px;font-size:11px;color:#9fd4ff;z-index:1}
+.typ{display:block;font-size:7.5px;font-weight:400;text-transform:capitalize;opacity:.6;color:var(--ink-soft)}
 .mon.ready{cursor:pointer;box-shadow:0 0 0 2px var(--green)}
 .mon.target{cursor:pointer;box-shadow:0 0 0 3px var(--gold-2);animation:pulse .6s infinite alternate}
 @keyframes pulse{to{box-shadow:0 0 0 3px #fff6}}
@@ -68,6 +73,7 @@ p{margin:4px 0}
 .mon .gem{position:absolute;bottom:20px;width:24px;height:24px;border-radius:50%;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;box-shadow:0 0 0 2px #000}
 .mon .gem.a{left:-4px;background:radial-gradient(circle at 35% 30%,#ffe9a8,var(--gold) 70%);color:#1c1405}
 .mon .gem.h{right:-4px;background:radial-gradient(circle at 35% 30%,#ff6a5a,var(--red) 70%)}
+.mon .gem.ar{right:-4px;bottom:44px;background:radial-gradient(circle at 35% 30%,#d8d8d8,#8a8a8a 70%);color:#1c1405;width:20px;height:20px;font-size:10px}
 .mon .tag{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1c1405;font-size:9px;font-weight:900;padding:1px 6px;border-radius:8px}
 /* Ability text: always there in the DOM (so it's never a mystery once a monster's on the board — the
    brief complaint was that it vanished after summoning), just tucked under the name at normal size
@@ -93,6 +99,9 @@ p{margin:4px 0}
 .card:hover .txt{max-height:none}
 .status{text-align:center;font-weight:700;font-size:13px;margin:0;line-height:1.3}
 .hint{text-align:center;margin:0 0 2px;font-size:12px}
+.turntimer{height:4px;background:#222;border-radius:2px;overflow:hidden;margin:3px auto 0;max-width:260px}
+.turntimer i{display:block;height:100%;background:var(--t0);width:100%;animation:countdown linear forwards}
+@keyframes countdown{to{width:0%}}
 /* Battle log: a slide-up drawer instead of a permanent block under the hand — that permanent block
    was most of why the board needed scrolling to begin with. Toggled from the action bar. */
 .logdrawer{position:fixed;left:0;right:0;bottom:0;max-height:45vh;background:#0c0e13;border-top:1px solid #8a6a22;
@@ -167,10 +176,11 @@ function resolvedDeck(t) {
 }
 
 function render() {
-  if (!g) { setBattleMode(false); return renderSetup(); }
-  if (passFor !== null) { setBattleMode(false); return renderPass(); }
-  if (g.winner !== null) { setBattleMode(false); return renderOver(); }
+  if (!g) { setBattleMode(false); clearTurnTimer(); return renderSetup(); }
+  if (passFor !== null) { setBattleMode(false); clearTurnTimer(); return renderPass(); }
+  if (g.winner !== null) { setBattleMode(false); clearTurnTimer(); return renderOver(); }
   setBattleMode(true);
+  armTurnTimer();
   renderBattle();
   if (vsCpu && g.turn === 1) placeCpuCursor();
 }
@@ -178,6 +188,30 @@ function render() {
    screen is a normal scrolling page. Toggled on <body> rather than baked into main's CSS alone so
    setup/pass/game-over never accidentally inherit the fixed height on a short screen. */
 function setBattleMode(on) { document.body.classList.toggle('battle-mode', on); }
+
+/* 30-second turn timer, as asked: whoever's turn it actually is (the CPU's "turn" is paced by
+   runCpuStep instead, not this) gets 30s before their turn is forfeited — mirrors SmalLab mode's own
+   timer. Only (re)armed when the turn actually changes, not on every render within the same turn, so
+   playing a card doesn't quietly reset your clock. */
+let turnTimer = null, turnDeadline = 0, timedTurnKey = null;
+function clearTurnTimer() { if (turnTimer) { clearTimeout(turnTimer); turnTimer = null; } }
+function armTurnTimer() {
+  const watching = vsCpu && g.turn === 1;
+  if (watching) { clearTurnTimer(); timedTurnKey = null; return; }
+  const key = g.turn + ':' + g.round;
+  if (key === timedTurnKey) return;
+  clearTurnTimer();
+  timedTurnKey = key;
+  turnDeadline = Date.now() + 30000;
+  turnTimer = setTimeout(() => {
+    if (!g || g.winner !== null) return;
+    sel = null;
+    R.endTurn(g);
+    if (g.winner === null && !vsCpu) passFor = g.turn;
+    render();
+    maybeRunCpu();
+  }, 30000);
+}
 
 function renderSetup() {
   const opt = (t) => `<div class="hero-pick">${TCG_HEROES.map(h => `
@@ -235,13 +269,17 @@ function monCard(u, t, viewer) {
   const fx = fxAttack;
   const atkFx = fx && fx.atk && fx.atk.team === t && fx.atk.idx === u.idx ? ' atk-anim' : '';
   const hitFx = fx && fx.hit && fx.hit.team === t && fx.hit.idx === u.idx ? ' hit-anim' : '';
-  const cls = ['mon', u.taunt ? 'taunt' : '', u.sick ? 'sick' : '', canSelectAsAttacker ? 'ready' : '', isTarget ? 'target' : '', atkFx, hitFx].join(' ');
+  const cls = ['mon', u.taunt ? 'taunt' : '', u.frozen ? 'frozen' : '', u.sick ? 'sick' : '', canSelectAsAttacker ? 'ready' : '', isTarget ? 'target' : '', atkFx, hitFx].join(' ');
+  const tags = [u.taunt ? 'TAUNT' : '', u.poisonous ? 'POISON' : ''].filter(Boolean);
   return `<div class="${cls}" data-mon="${t}:${u.idx}">
-    ${u.taunt ? '<span class="tag">TAUNT</span>' : ''}
+    ${tags.length ? '<span class="tag">' + tags.join(' &middot; ') + '</span>' : ''}
+    ${u.frozen ? '<span class="frosticon">&#10052;</span>' : ''}
     <img src="${IMG(u.id)}" alt="">
-    <div class="name">${esc(u.n)}</div>
+    <div class="name">${esc(u.n)}${u.type ? ' <small class="typ">' + esc(u.type) + '</small>' : ''}</div>
     <div class="ability">${card && card.bc ? esc(card.bc) : card && card.flavor ? '<i>' + card.flavor + '</i>' : ''}</div>
-    <span class="gem a">${Math.max(0, u.atk + (u.atkMod || 0))}</span><span class="gem h">${u.hp}</span>
+    <span class="gem a">${Math.max(0, u.atk + (u.atkMod || 0))}</span>
+    ${u.armor ? '<span class="gem ar">' + u.armor + '</span>' : ''}
+    <span class="gem h">${u.hp}</span>
   </div>`;
 }
 /* Hearthstone-style mana crystal row: one diamond per point of this turn's max, lit for what's
@@ -262,6 +300,7 @@ function targetsFor(viewer) {
   const card = sel.kind === 'card' ? R.MONSTER[g.hand[t][sel.hi]] || R.SPELL[g.hand[t][sel.hi]] : R.HERO[g.hero[t].id].power;
   const to = card.to;
   if (to === 'enemy') return R.aliveField(g, 1 - t).map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
+  if (to === 'enemyOrHero') return R.enemyOrHeroTargets(g, t);
   if (to === 'friend') return R.aliveField(g, t).map(u => ({ kind: 'monster', team: t, idx: u.idx }));
   if (to === 'friendOrNone') return R.aliveField(g, t).map(u => ({ kind: 'monster', team: t, idx: u.idx })).concat([{ kind: 'none' }]);
   return [];
@@ -285,14 +324,15 @@ function renderBattle() {
      doing" cursor overlay. In hotseat, each pass still flips the perspective to whoever's playing. */
   const watching = vsCpu && g.turn === 1;
   const viewer = vsCpu ? 0 : g.turn, me = viewer, opp = 1 - viewer;
-  const heroTargetable = t => t === opp && !!sel && sel.kind === 'mon' && targetsFor(viewer).some(x => x.kind === 'hero');
+  const heroTargetable = t => t === opp && !!sel && targetsFor(viewer).some(x => x.kind === 'hero');
   /* Hearthstone-style hero: a circular portrait with an HP gem overlapping its corner. Only the
      active player's own hero gets mana crystals and the hero-power button beside it. */
   const heroCircle = (h, t) => {
     const low = h.hp <= 10;
     const hitFx = fxAttack && fxAttack.hit && fxAttack.hit.hero === t ? ' hit-anim' : '';
     return `<div class="hero-circle t${t}${heroTargetable(t) ? ' target' : ''}${hitFx}" ${heroTargetable(t) ? `data-hero="${t}"` : ''}>
-      <img src="${IMG(h.id)}" alt=""><span class="hpgem ${low ? 'low' : ''}">${h.hp}</span></div>`;
+      <img src="${IMG(h.id)}" alt=""><span class="hpgem ${low ? 'low' : ''}">${h.hp}</span>
+      ${h.armor ? '<span class="hpgem ar">' + h.armor + '</span>' : ''}</div>`;
   };
   const power = R.HERO[g.hero[me].id].power;
   const powerOn = sel && sel.kind === 'power';
@@ -309,7 +349,8 @@ function renderBattle() {
       <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}${watching ? ' <i class="cpu-tag">thinking&hellip;</i>' : ''}</span></div>
       <div class="field" id="oppfield">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
       <div><div class="status">Round ${g.round} &middot; <b>${esc(names[watching ? opp : me])}&rsquo;s turn</b></div>
-      <p class="hint muted">${hint}</p></div>
+      <p class="hint muted">${hint}</p>
+      ${!watching ? '<div class="turntimer" title="30s per turn"><i style="animation-duration:' + Math.max(0, turnDeadline - Date.now()) + 'ms"></i></div>' : ''}</div>
       <div class="field" id="mefield">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
       <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>
         <div class="hero-controls">${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>

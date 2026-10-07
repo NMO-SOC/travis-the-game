@@ -6,7 +6,7 @@ const R = require('./tcg-rules.js');
 const fixed = v => () => v;
 
 // Every card in the default deck is a known monster or spell; deck is 45 cards
-assert.strictEqual(TCG_DEFAULT_DECK.length, 45);
+assert.strictEqual(TCG_DEFAULT_DECK.length, 48);
 TCG_DEFAULT_DECK.forEach(id => assert.ok(R.MONSTER[id] || R.SPELL[id], 'unknown card ' + id));
 
 // New game: both heroes at 30 HP, 3-card starting hand, 1 summon point
@@ -31,7 +31,7 @@ const targets = R.attackTargets(g, 0);
 assert.deepStrictEqual(targets, [{ kind: 'hero' }]);
 const before = g.hero[1].hp;
 assert.ok(R.attack(g, 0, 0, { kind: 'hero' }));
-assert.strictEqual(before - g.hero[1].hp, 4, 'Beer Frog Knox ATK 4');
+assert.strictEqual(before - g.hero[1].hp, 2, 'Beer Frog Knox ATK 2 (cost 1)');
 assert.ok(!R.canAttack(g, 0, 0), 'can\'t attack twice in one turn');
 
 // Taunt forces targeting: a taunt monster must be killed before the hero or anything else
@@ -156,7 +156,7 @@ g = R.newGame(null, null, fixed(0.9));
 g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 4, hp: 20, max: 20, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
 g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
 const targs = R.attackTargets(g, 0);
-assert.strictEqual(targs.length, 1);
+assert.strictEqual(targs.length, 2, 'the enemy monster AND the hero are both legal targets now (no Taunt up)');
 assert.strictEqual(targs[0].team, 1, 'monster targets must carry a team, or the UI can never match them');
 // Simulate the UI's exact validation predicate for clicking that target.
 const uiAccepts = targs.some(x => x.kind === 'monster' && x.team === 1 && x.idx === 0);
@@ -208,5 +208,55 @@ for (let round = 0; round < 4; round++) {
   assert.ok(!R.canAttack(g, 0, 0), 'round ' + round + ': cannot attack twice in the same turn');
 }
 assert.strictEqual(mon.hp, mon.max, 'it never took damage itself, so it\'s still the same monster throughout');
+
+// Armor: absorbs damage before HP, on both monsters and heroes; healing never tops it up.
+g = R.newGame(null, null, fixed(0.9));
+g.hero[0].armor = 3;
+R.attack(g, 0, 0, { kind: 'hero' }); // no-op, just to prove armor alone doesn't crash anything — real hit below
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 5, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0, armor: 2 }];
+g.turn = 1;
+R.attack(g, 1, 0, { kind: 'hero' });
+assert.strictEqual(g.hero[0].armor, 0, 'armor absorbed 3 of the 5 damage');
+assert.strictEqual(g.hero[0].hp, g.hero[0].max - 2, 'only the overflow (2) came off HP');
+
+// Taunt still overrides everything, including the new "always hit hero" rule and enemyOrHero spells.
+g = R.newGame(null, null, fixed(0.9));
+g.field[1] = [
+  { id: 'elephant-seal-knox', n: 'Elephant Seal Knox', atk: 2, hp: 10, max: 10, taunt: true, sick: false, attacked: false, atkMod: 0, idx: 0 },
+  { id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 1 },
+];
+assert.deepStrictEqual(R.attackTargets(g, 0), [{ kind: 'monster', team: 1, idx: 0 }], 'Taunt is still the only legal attack target');
+g.points[0] = 5; g.hand[0] = ['detention-slip'];
+assert.ok(!R.playCard(g, 0, 0, { kind: 'hero' }), 'enemyOrHero spells can\'t snipe the hero while Taunt is up');
+assert.ok(R.playCard(g, 0, 0, { kind: 'monster', team: 1, idx: 0 }), 'but the Taunt monster itself is still a legal target');
+
+// enemyOrHero: with no Taunt in the way, a direct-damage (non-AoE) spell can go face.
+g = R.newGame(null, null, fixed(0.9));
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+g.points[0] = 5; g.hand[0] = ['detention-slip'];
+const heroHpBefore = g.hero[1].hp;
+assert.ok(R.playCard(g, 0, 0, { kind: 'hero' }));
+assert.strictEqual(heroHpBefore - g.hero[1].hp, 2, 'Detention Slip hit the hero for its 2 damage');
+
+// Freeze: a frozen monster can't attack until its controller's next turn starts.
+g = R.newGame(null, null, fixed(0.9));
+g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 2, hp: 5, max: 5, taunt: false, sick: false, attacked: false, atkMod: 0, frozen: true, idx: 0 }];
+assert.ok(!R.canAttack(g, 0, 0), 'frozen monsters cannot attack');
+R.endTurn(g); R.endTurn(g); // back around to this side's next turn — startTurn clears frozen
+assert.ok(R.canAttack(g, 0, 0), 'unfrozen at the start of its controller\'s next turn');
+
+// Poisonous: combat damage from a poisonous attacker destroys the target outright, armor and all.
+g = R.newGame(null, null, fixed(0.9));
+g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 1, hp: 20, max: 20, taunt: false, sick: false, attacked: false, atkMod: 0, poisonous: true, idx: 0 }];
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, armor: 10, idx: 0 }];
+R.attack(g, 0, 0, { kind: 'monster', team: 1, idx: 0 });
+assert.strictEqual(g.field[1].length, 0, 'a 1 ATK poisonous hit destroyed a 21 HP + 10 armor monster outright');
+
+// Type synergy: Director Knox's battlecry buffs other Scholar monsters you control.
+g = R.newGame(null, null, fixed(0.9));
+g.field[0] = [{ id: 'field-researcher-knox', n: 'Field Researcher Knox', type: 'scholar', atk: 3, hp: 5, max: 5, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+g.points[0] = 5; g.hand[0] = ['director-knox'];
+assert.ok(R.playCard(g, 0, 0));
+assert.strictEqual(g.field[0][0].atkMod, 1, 'the existing Scholar monster got buffed by the battlecry');
 
 console.log('tcg rules OK');

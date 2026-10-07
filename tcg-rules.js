@@ -24,7 +24,7 @@ function newGame(heroIds, decks, rng = Math.random) {
   decks = (decks || [TCG_DEFAULT_DECK, TCG_DEFAULT_DECK]).map(d => (d && d.length ? d : TCG_DEFAULT_DECK).filter(id => MONSTER[id] || SPELL[id]));
   const g = {
     rng, turn: 0, winner: null, round: 1, log: [], lastSpell: [null, null],
-    hero: heroIds.map(id => ({ id, hp: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, max: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, powerUsed: false })),
+    hero: heroIds.map(id => ({ id, hp: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, max: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, armor: 0, powerUsed: false })),
     points: [1, 1], maxPoints: [1, 1],
     deck: [], hand: [[], []], field: [[], []], fatigue: [0, 0], graveyard: [[], []],
   };
@@ -74,38 +74,66 @@ function draw(g, t, n) {
 function aliveField(g, t) { return g.field[t].filter(u => u.hp > 0); }
 function tauntUp(g, t) { return aliveField(g, t).some(u => u.taunt); }
 
-/* Legal attack targets for a friendly attacker: taunt monsters take priority; otherwise any enemy
-   monster, or the enemy hero if their field is empty. Mirrors the "damage can hit the hero if no
-   monsters are up" rule from the brief. */
+/* Legal attack targets for a friendly attacker: while the enemy has any Taunt monster alive, those
+   are the only legal targets. Otherwise every enemy monster AND the enemy hero are all simultaneously
+   legal — a monster can always swing at the hero even with enemies still standing, same as a direct-
+   damage card (see enemyOrHeroTargets below); Taunt is the only thing that blocks it. */
 function attackTargets(g, t) {
   const foes = aliveField(g, 1 - t);
   const taunts = foes.filter(u => u.taunt);
-  const list = (taunts.length ? taunts : foes).map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
-  if (!foes.length) list.push({ kind: 'hero' });
-  return list;
+  if (taunts.length) return taunts.map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
+  return foes.map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx })).concat([{ kind: 'hero' }]);
 }
 function canAttack(g, t, fi) {
   const u = g.field[t][fi];
-  return g.winner === null && g.turn === t && u && u.hp > 0 && !u.sick && !u.attacked;
+  return g.winner === null && g.turn === t && u && u.hp > 0 && !u.sick && !u.attacked && !u.frozen;
 }
-/* n negative heals (clamped to max HP) — used by a few spells/powers instead of a separate heal fn. */
+/* n negative heals (clamped to max HP) — used by a few spells/powers instead of a separate heal fn.
+   Positive damage is absorbed by Armor first (a stacking extra-HP pool; see tcg-cards.js "Shield
+   Duty" etc.) before touching HP itself. Healing never tops up Armor. */
 function damageHero(g, t, n) {
   const h = g.hero[t];
+  if (n > 0 && h.armor) { const absorb = Math.min(h.armor, n); h.armor -= absorb; n -= absorb; }
   h.hp = Math.max(0, Math.min(h.max, h.hp - n));
   if (h.hp <= 0 && g.winner === null) { g.winner = 1 - t; log(g, heroName(g, t) + ' is defeated!'); }
 }
 function damageMonster(g, t, idx, n) {
   const u = g.field[t][idx];
   if (!u || u.hp <= 0) return;
+  if (n > 0 && u.armor) { const absorb = Math.min(u.armor, n); u.armor -= absorb; n -= absorb; }
   u.hp = Math.max(0, u.hp - n);
   if (u.hp <= 0) log(g, u.n + ' is destroyed.');
+}
+/* A direct-damage effect that isn't an AoE (a single monster or spell target) can always also hit the
+   enemy hero, same rule as a combat attack — but only while no enemy Taunt monster is alive to answer
+   it first. Shared by playCard/useHeroPower's target validation and by the UI's targetsFor(). */
+function enemyOrHeroTargets(g, t) {
+  const foes = aliveField(g, 1 - t);
+  if (foes.some(u => u.taunt)) return foes.filter(u => u.taunt).map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
+  return foes.map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx })).concat([{ kind: 'hero' }]);
+}
+function legalTarget(list, target) {
+  if (!target) return false;
+  return list.some(x => x.kind === target.kind && (x.kind === 'hero' || x.idx === target.idx));
+}
+/* Applies n damage to whichever the target turned out to be — the single place every enemyOrHero
+   effect (spells, battlecries, hero powers) routes through so hero-vs-monster isn't duplicated. */
+function hitEnemy(g, t, target, n) {
+  if (target.kind === 'hero') damageHero(g, 1 - t, n);
+  else damageMonster(g, 1 - t, target.idx, n);
 }
 function attack(g, t, fi, target) {
   if (!canAttack(g, t, fi)) return false;
   const u = g.field[t][fi], atk = Math.max(0, u.atk + (u.atkMod || 0));
   u.attacked = true;
   if (target.kind === 'hero') { damageHero(g, 1 - t, atk); log(g, u.n + ' hits ' + heroName(g, 1 - t) + ' for ' + atk + '.'); }
-  else { const e = g.field[1 - t][target.idx]; damageMonster(g, 1 - t, target.idx, atk); log(g, u.n + ' hits ' + e.n + ' for ' + atk + '.'); }
+  else {
+    const e = g.field[1 - t][target.idx];
+    damageMonster(g, 1 - t, target.idx, atk);
+    log(g, u.n + ' hits ' + e.n + ' for ' + atk + '.');
+    // Poisonous: any combat damage to a monster destroys it outright, bypassing remaining HP/Armor.
+    if (u.poisonous && e.hp > 0) { e.hp = 0; log(g, e.n + ' is poisoned and destroyed.'); }
+  }
   cleanupField(g);
   return true;
 }
@@ -128,14 +156,16 @@ function playCard(g, t, hi, target, sacIdx) {
       const side = c.to === 'friend' ? g.field[t] : g.field[1 - t];
       if (!side[target.idx] || side[target.idx].hp <= 0) return false;
     }
+    if (target && target.kind === 'hero' && !(c.to === 'enemyOrHero' && !tauntUp(g, 1 - t))) return false;
     g.points[t] -= c.cost;
     g.hand[t].splice(hi, 1);
-    g.field[t].push({ id, n: c.n, atk: c.atk, hp: c.hp, max: c.hp, taunt: !!c.taunt, sick: true, attacked: false, atkMod: 0, atkModOwner: null, atkModArmed: false, idx: g.field[t].length });
+    g.field[t].push({ id, n: c.n, type: c.type, atk: c.atk, hp: c.hp, max: c.hp, taunt: !!c.taunt, poisonous: false,
+      armor: 0, frozen: false, sick: true, attacked: false, atkMod: 0, atkModOwner: null, atkModArmed: false, idx: g.field[t].length });
     reindex(g, t);
     log(g, heroName(g, t) + ' summons ' + c.n + (c.bc ? ' — ' + c.bc.replace(/^Battlecry: /, '') : '') + '.');
     if (MONSTER_FX[id]) {
-      const bcTarget = target && target.kind === 'monster' ? target
-        : c.to === 'enemy' ? (aliveField(g, 1 - t).length ? bestEnemyTarget(g, t, 0) : null)
+      const bcTarget = target && (target.kind === 'monster' || target.kind === 'hero') ? target
+        : (c.to === 'enemy' || c.to === 'enemyOrHero') ? (aliveField(g, 1 - t).length || c.to === 'enemyOrHero' ? bestEnemyTarget(g, t, 0) : null)
         : c.to === 'friend' ? (aliveField(g, t).length ? { kind: 'monster', idx: aliveField(g, t)[0].idx } : null)
         : null;
       if (!c.to || c.to === 'none' || bcTarget) MONSTER_FX[id](g, t, bcTarget);
@@ -149,6 +179,7 @@ function playCard(g, t, hi, target, sacIdx) {
   }
   if ((s.to === 'enemy' || s.to === 'friend') && (!target || target.kind !== 'monster')) return false;
   if (s.to === 'friendOrNone' && target && target.kind !== 'monster') return false;
+  if (s.to === 'enemyOrHero' && !legalTarget(enemyOrHeroTargets(g, t), target)) return false;
   g.points[t] -= s.cost;
   g.hand[t].splice(hi, 1);
   if (s.sac) { g.field[t][sacIdx].hp = 0; log(g, heroName(g, t) + ' sacrifices ' + g.field[t][sacIdx].n + '.'); }
@@ -173,6 +204,8 @@ function roll20(g) { return 1 + Math.floor(g.rng() * 20); }
 /* Battlecry effects — abilities tied to a specific monster, triggered the moment it's summoned (not
    reusable, unlike a spell). Most monsters are vanilla stats; this is deliberately a short list, not
    every card. Signature matches SPELL_FX: (g, t, target), target only present when card.to needs one. */
+function healTeam(g, t, n) { aliveField(g, t).forEach(u => { u.hp = Math.min(u.max, u.hp + n); }); }
+function sameType(g, t, type) { return aliveField(g, t).filter(u => u.type === type); }
 const MONSTER_FX = {
   'tadpole-knox': (g, t) => {
     const gy = g.graveyard[t];
@@ -182,40 +215,66 @@ const MONSTER_FX = {
     const id = gy.splice(bi, 1)[0];
     if (g.hand[t].length < HAND_CAP) { g.hand[t].push(id); log(g, heroName(g, t) + ' returns ' + MONSTER[id].n + ' to hand.'); }
   },
-  'field-researcher-knox': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 2),
+  'field-researcher-knox': (g, t, tgt) => hitEnemy(g, t, tgt, 2),
   'fire-drill-knox': (g, t) => draw(g, t, 1),
   'harbour-seal-knox': (g, t) => damageHero(g, t, -3),
   'yard-duty-knox': (g, t) => aliveField(g, 1 - t).forEach(u => damageMonster(g, 1 - t, u.idx, 1)),
   'seal-whisperer-knox': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) { u.max += 3; u.hp += 3; } },
-  'mixtape-knox': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 3),
+  'mixtape-knox': (g, t, tgt) => hitEnemy(g, t, tgt, 3),
   'emeritus-knox': (g, t, tgt) => {
-    damageMonster(g, 1 - t, tgt.idx, 4);
+    hitEnemy(g, t, tgt, 4);
     const self = g.field[t][g.field[t].length - 1];
     if (self) damageMonster(g, t, self.idx, 2);
   },
+  // Expanded roster of monster-tied keyword abilities (freeze/poison/armor/heal/draw/mana/type-synergy),
+  // alongside the spell cards — "some monsters will have abilities" per the brief.
+  'outback-knox': (g, t, tgt) => { if (tgt) g.field[1 - t][tgt.idx].frozen = true; },
+  'weddell-seal-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.armor += 3; },
+  'pharaoh-knox': (g, t) => damageHero(g, t, -2),
+  'caesar-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.poisonous = true; },
+  'spartan-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.armor += 4; },
+  'crusader-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.armor += 4; },
+  'washington-knox': (g, t) => { g.points[t] = Math.min(g.maxPoints[t], g.points[t] + 1); },
+  'tech-bro-knox': (g, t) => draw(g, t, 1),
+  'great-depression-knox': (g, t) => draw(g, t, 1),
+  'research-vessel-knox': (g, t) => { damageHero(g, t, -2); healTeam(g, t, 2); },
+  'family-man-knox': (g, t) => healTeam(g, t, 2),
+  'excursion-knox': (g, t) => draw(g, t, 1),
+  'sea-lion-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.poisonous = true; },
+  'leopard-seal-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) self.poisonous = true; },
+  'director-knox': (g, t) => { const self = g.field[t][g.field[t].length - 1]; if (self) sameType(g, t, self.type).forEach(u => { u.atkMod += 1; }); },
 };
 const SPELL_FX = {
   'food-fight': (g, t) => aliveField(g, 1 - t).forEach(u => damageMonster(g, 1 - t, u.idx, 2)),
-  'clean-slate': g => [0, 1].forEach(t => g.field[t].forEach(u => { u.atkMod = 0; })),
+  'clean-slate': g => [0, 1].forEach(t => g.field[t].forEach(u => { u.atkMod = 0; u.frozen = false; })),
   'double-period': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) u.attacked = false; },
   'pop-quiz': (g, t) => { draw(g, t, 2); if (g.hand[t].length) g.hand[t].splice(Math.floor(g.rng() * g.hand[t].length), 1); },
   'hall-monitor': (g, t) => { g.peek = { team: t, hand: g.hand[1 - t].slice() }; log(g, heroName(g, t) + ' looks at ' + heroName(g, 1 - t) + '&rsquo;s hand.'); },
   'group-project': (g, t) => { const id = g.lastSpell[1 - t] || g.lastSpell[t]; if (id && id !== 'group-project' && SPELL_FX[id]) SPELL_FX[id](g, t, { kind: 'monster', idx: 0 }); },
   'written-up': (g, t, tgt) => { const u = g.field[1 - t][tgt.idx]; if (u) { u.atkMod -= 3; u.atkModOwner = 1 - t; u.atkModArmed = false; } },
-  'faculty-meeting': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 6),
+  'faculty-meeting': (g, t, tgt) => hitEnemy(g, t, tgt, 6),
   'science-fair-volcano': (g, t, tgt) => {
     const r = roll20(g);
-    if (r >= 15) damageMonster(g, 1 - t, tgt.idx, 8);
-    else if (r >= 10) damageMonster(g, 1 - t, tgt.idx, 5);
+    if (r >= 15) hitEnemy(g, t, tgt, 8);
+    else if (r >= 10) hitEnemy(g, t, tgt, 5);
     else if (r >= 5) damageHero(g, t, 4);
     else { const w = weakest(g, t); if (w) w.hp = 0; }
     log(g, 'Rolled ' + r + '.');
   },
   'excursion-bus': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) { u.max += 4; u.hp += 4; u.taunt = true; } },
   'low-tide': (g, t) => aliveField(g, 1 - t).forEach(u => { u.atkMod -= 2; u.atkModOwner = 1 - t; u.atkModArmed = false; }),
-  'detention-slip': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 2),
+  'detention-slip': (g, t, tgt) => hitEnemy(g, t, tgt, 2),
   'staffroom-coffee': (g, t, tgt) => { if (tgt && tgt.kind === 'monster') { const u = g.field[t][tgt.idx]; if (u) u.hp = Math.min(u.max, u.hp + 5); } else damageHero(g, t, -5); },
   'assembly': (g, t) => { damageHero(g, t, -6); draw(g, t, 1); },
+  // New spells: freeze, poison, armor, taunt-grant, mana-restore, draw+refund, type synergy — each a
+  // different keyword/mechanic so a deck has real tools to build around, per the brief.
+  'extra-credit': (g, t) => { draw(g, t, 1); const id = g.hand[t][g.hand[t].length - 1]; if (id && SPELL[id]) g.points[t] = Math.min(g.maxPoints[t], g.points[t] + 1); },
+  'recess': (g, t) => { g.points[t] = Math.min(g.maxPoints[t], g.points[t] + 2); },
+  'cold-snap': (g, t, tgt) => { const u = g.field[1 - t][tgt.idx]; if (u) u.frozen = true; },
+  'venom-vial': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) u.poisonous = true; },
+  'shield-duty': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) u.armor += 3; },
+  'house-spirit': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) sameType(g, t, u.type).forEach(x => { x.atkMod += 1; x.max += 1; x.hp += 1; }); },
+  'rally': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) u.taunt = true; },
 };
 
 function heroPowerUsable(g, t) {
@@ -226,9 +285,10 @@ function useHeroPower(g, t, target) {
   if (!heroPowerUsable(g, t)) return false;
   const h = g.hero[t], hero = HERO[h.id];
   if (hero.power.to === 'enemy' && (!target || target.kind !== 'monster')) return false;
+  if (hero.power.to === 'enemyOrHero' && !legalTarget(enemyOrHeroTargets(g, t), target)) return false;
   g.points[t] -= hero.power.cost; h.powerUsed = true;
   log(g, heroName(g, t) + ' uses ' + hero.power.n + '.');
-  if (hero.id === 'doctor-knox') damageMonster(g, 1 - t, target.idx, 3);
+  if (hero.id === 'doctor-knox') hitEnemy(g, t, target, 3);
   else if (hero.id === 'elephant-seal-knox') damageHero(g, t, -4);
   else if (hero.id === 'beer-frog-knox') aliveField(g, 1 - t).forEach(u => damageMonster(g, 1 - t, u.idx, 1));
   cleanupField(g);
@@ -247,6 +307,17 @@ function bestEnemyTarget(g, t, dmg) {
   const pick = kill || pool.reduce((a, b) => (b.atk > a.atk ? b : a));
   return { kind: 'monster', idx: pick.idx };
 }
+/* Same idea, but for an effect allowed to hit the hero even with enemy monsters still up (no Taunt in
+   the way): go face once the enemy's board no longer has a real kill/threat worth the damage instead,
+   same greedy spirit as bestEnemyTarget. */
+function bestEnemyOrHeroTarget(g, t, dmg) {
+  const foes = aliveField(g, 1 - t);
+  const taunts = foes.filter(u => u.taunt);
+  if (taunts.length) return bestEnemyTarget(g, t, dmg);
+  const kill = foes.find(u => u.hp <= dmg);
+  if (kill) return { kind: 'monster', idx: kill.idx };
+  return { kind: 'hero' };
+}
 /* One action: play the first sensible card, else use the hero power, else attack with one ready
    monster, in that priority order. Returns a descriptor of what it did — {kind:'card'|'power'|
    'attack', ...} — or {done:true} once there's nothing left to do this turn, so a caller can drive
@@ -264,9 +335,15 @@ function cpuStep(g, t) {
     }
     const s = SPELL[id];
     if (s.to === 'enemy') {
-      const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;
+      const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'cold-snap' ? 0 : 0;
       const tgt = bestEnemyTarget(g, t, dmg);
       if (tgt.kind !== 'monster') continue;
+      if (playCard(g, t, hi, tgt)) return { kind: 'card', hi, id, target: tgt };
+      continue;
+    }
+    if (s.to === 'enemyOrHero') {
+      const dmg = s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;
+      const tgt = bestEnemyOrHeroTarget(g, t, dmg);
       const sacIdx = s.sac ? (weakest(g, t) || {}).idx : undefined;
       if (s.sac && sacIdx == null) continue;
       if (playCard(g, t, hi, tgt, sacIdx)) return { kind: 'card', hi, id, target: tgt };
@@ -295,6 +372,7 @@ function cpuStep(g, t) {
     const hero = HERO[g.hero[t].id];
     let tgt = null;
     if (hero.power.to === 'enemy') { tgt = bestEnemyTarget(g, t, 3); if (tgt.kind !== 'monster') tgt = undefined; }
+    else if (hero.power.to === 'enemyOrHero') { tgt = bestEnemyOrHeroTarget(g, t, 3); }
     if (tgt !== undefined && useHeroPower(g, t, tgt)) return { kind: 'power', target: tgt };
   }
   const ready = aliveField(g, t).filter(u => !u.sick && !u.attacked);
@@ -303,8 +381,12 @@ function cpuStep(g, t) {
     if (targets.length) {
       const dmg = Math.max(0, u.atk + (u.atkMod || 0));
       const kill = targets.find(x => x.kind === 'monster' && g.field[1 - t][x.idx].hp <= dmg);
+      const heroTarget = targets.find(x => x.kind === 'hero');
       const biggest = targets.filter(x => x.kind === 'monster').reduce((a, b) => !a || g.field[1 - t][b.idx].atk > g.field[1 - t][a.idx].atk ? b : a, null);
-      const target = kill || biggest || targets[0];
+      // A clean kill always comes first; otherwise go face rather than trade a non-lethal hit into a
+      // monster that just shrugs it off — keeps games actually closing out instead of stalling on
+      // forever-trades (see TCG-MODE.md's pacing note).
+      const target = kill || heroTarget || biggest || targets[0];
       if (attack(g, t, u.idx, target)) return { kind: 'attack', idx: u.idx, target };
     }
   }
@@ -324,7 +406,7 @@ function startTurn(g, t) {
   g.maxPoints[t] = Math.min(MAX_POINTS, g.maxPoints[t] + 1);
   g.points[t] = g.maxPoints[t];
   g.hero[t].powerUsed = false;
-  g.field[t].forEach(u => { u.sick = false; u.attacked = false; });
+  g.field[t].forEach(u => { u.sick = false; u.attacked = false; u.frozen = false; });
   // a Written Up-style debuff lasts through the target's very next turn, then clears at the start of
   // the turn after that — "armed" marks that the one free turn has already happened.
   g.field.flat().forEach(u => {
@@ -344,7 +426,7 @@ function endTurn(g) {
 
 return {
   START_HP, START_HAND, HAND_CAP, MAX_POINTS, FATIGUE_DMG, MONSTER, SPELL, HERO,
-  newGame, draw, aliveField, tauntUp, attackTargets, canAttack, attack,
+  newGame, draw, aliveField, tauntUp, attackTargets, enemyOrHeroTargets, canAttack, attack,
   canPlay, playCard, heroPowerUsable, useHeroPower, startTurn, endTurn, roll20, cpuTurn, cpuStep,
 };
 })();
