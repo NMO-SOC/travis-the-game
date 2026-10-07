@@ -31,9 +31,23 @@ function newGame(heroIds, decks, rng = Math.random) {
   for (const t of [0, 1]) {
     g.deck[t] = shuffle(decks[t], rng);
     for (let i = 0; i < START_HAND; i++) draw(g, t);
+    guaranteeOpeningPlay(g, t);
   }
   log(g, 'Round 1 — ' + heroName(g, 0) + ' goes first.');
   return g;
+}
+/* With a 45-card deck spread 1-6 cost, a random 3-card hand has roughly a 1-in-3 chance of nothing
+   affordable at 1 starting point — turn 1 would just be "tap End turn," which reads as broken, not
+   unlucky. Swap in a cost-1-or-less card from the deck if the hand doesn't already have one. */
+function guaranteeOpeningPlay(g, t) {
+  if (g.hand[t].some(id => cardOf(id).cost <= 1)) return;
+  const di = g.deck[t].findIndex(id => cardOf(id).cost <= 1);
+  if (di < 0) return;
+  const cheap = g.deck[t].splice(di, 1)[0];
+  const outIdx = Math.floor(g.rng() * g.hand[t].length);
+  const backIn = g.hand[t][outIdx];
+  g.hand[t][outIdx] = cheap;
+  g.deck[t].splice(Math.floor(g.rng() * (g.deck[t].length + 1)), 0, backIn); // random spot, not drawn next
 }
 function heroName(g, t) { const h = HERO[g.hero[t].id]; return h ? h.n : 'Hero'; }
 function log(g, s) { g.log.push(s); if (g.log.length > 300) g.log.shift(); }
@@ -233,74 +247,75 @@ function bestEnemyTarget(g, t, dmg) {
   const pick = kill || pool.reduce((a, b) => (b.atk > a.atk ? b : a));
   return { kind: 'monster', idx: pick.idx };
 }
-function cpuPlayCards(g, t) {
-  let guard = 60;
-  while (guard-- > 0 && g.winner === null) {
-    const hand = g.hand[t];
-    let played = false;
-    for (let hi = 0; hi < hand.length; hi++) {
-      const id = hand[hi];
-      if (!canPlay(g, t, hi)) continue;
-      if (MONSTER[id]) {
-        // Summoning never needs a target now — playCard auto-picks the battlecry's target itself.
-        playCard(g, t, hi);
-        played = true; break;
-      }
-      const s = SPELL[id];
-      if (s.to === 'enemy') {
-        const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;
-        const tgt = bestEnemyTarget(g, t, dmg);
-        if (tgt.kind !== 'monster') continue;
-        if (s.sac) { const w = weakest(g, t); if (!w) continue; playCard(g, t, hi, tgt, w.idx); }
-        else playCard(g, t, hi, tgt);
-        played = true; break;
-      }
-      if (s.to === 'friend') {
-        const mine = aliveField(g, t);
-        if (!mine.length) continue;
-        const hurt = mine.filter(u => u.hp < u.max);
-        const pick = hurt.length ? hurt.reduce((a, b) => a.hp <= b.hp ? a : b) : mine[0];
-        playCard(g, t, hi, { kind: 'monster', idx: pick.idx });
-        played = true; break;
-      }
-      if (s.to === 'friendOrNone') {
-        const mine = aliveField(g, t).filter(u => u.hp < u.max);
-        if (mine.length) { const pick = mine.reduce((a, b) => a.hp <= b.hp ? a : b); playCard(g, t, hi, { kind: 'monster', idx: pick.idx }); }
-        else if (g.hero[t].hp < g.hero[t].max) playCard(g, t, hi, null);
-        else continue;
-        played = true; break;
-      }
-      // to === 'none'
-      playCard(g, t, hi, null);
-      played = true; break;
+/* One action: play the first sensible card, else use the hero power, else attack with one ready
+   monster, in that priority order. Returns a descriptor of what it did — {kind:'card'|'power'|
+   'attack', ...} — or {done:true} once there's nothing left to do this turn, so a caller can drive
+   this with a delay between calls to show the turn playing out instead of resolving instantly. */
+function cpuStep(g, t) {
+  if (g.winner !== null) return { done: true };
+  const hand = g.hand[t];
+  for (let hi = 0; hi < hand.length; hi++) {
+    const id = hand[hi];
+    if (!canPlay(g, t, hi)) continue;
+    if (MONSTER[id]) {
+      // Summoning never needs a target now — playCard auto-picks the battlecry's target itself.
+      if (playCard(g, t, hi)) return { kind: 'card', hi, id };
+      continue;
     }
-    if (!played) break;
+    const s = SPELL[id];
+    if (s.to === 'enemy') {
+      const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;
+      const tgt = bestEnemyTarget(g, t, dmg);
+      if (tgt.kind !== 'monster') continue;
+      const sacIdx = s.sac ? (weakest(g, t) || {}).idx : undefined;
+      if (s.sac && sacIdx == null) continue;
+      if (playCard(g, t, hi, tgt, sacIdx)) return { kind: 'card', hi, id, target: tgt };
+      continue;
+    }
+    if (s.to === 'friend') {
+      const mine = aliveField(g, t);
+      if (!mine.length) continue;
+      const hurt = mine.filter(u => u.hp < u.max);
+      const pick = hurt.length ? hurt.reduce((a, b) => a.hp <= b.hp ? a : b) : mine[0];
+      const tgt = { kind: 'monster', idx: pick.idx };
+      if (playCard(g, t, hi, tgt)) return { kind: 'card', hi, id, target: tgt };
+      continue;
+    }
+    if (s.to === 'friendOrNone') {
+      const mine = aliveField(g, t).filter(u => u.hp < u.max);
+      let tgt = null;
+      if (mine.length) tgt = { kind: 'monster', idx: mine.reduce((a, b) => a.hp <= b.hp ? a : b).idx };
+      else if (g.hero[t].hp >= g.hero[t].max) continue;
+      if (playCard(g, t, hi, tgt)) return { kind: 'card', hi, id, target: tgt };
+      continue;
+    }
+    if (playCard(g, t, hi, null)) return { kind: 'card', hi, id };
   }
   if (heroPowerUsable(g, t)) {
     const hero = HERO[g.hero[t].id];
-    if (hero.power.to === 'enemy') { const tgt = bestEnemyTarget(g, t, 3); if (tgt.kind === 'monster') useHeroPower(g, t, tgt); }
-    else useHeroPower(g, t, null);
+    let tgt = null;
+    if (hero.power.to === 'enemy') { tgt = bestEnemyTarget(g, t, 3); if (tgt.kind !== 'monster') tgt = undefined; }
+    if (tgt !== undefined && useHeroPower(g, t, tgt)) return { kind: 'power', target: tgt };
   }
-}
-function cpuAttack(g, t) {
-  let guard = 20;
-  while (guard-- > 0 && g.winner === null) {
-    const ready = aliveField(g, t).filter(u => !u.sick && !u.attacked);
-    if (!ready.length) break;
+  const ready = aliveField(g, t).filter(u => !u.sick && !u.attacked);
+  if (ready.length) {
     const u = ready[0], targets = attackTargets(g, t);
-    if (!targets.length) break;
-    const dmg = Math.max(0, u.atk + (u.atkMod || 0));
-    const kill = targets.find(x => x.kind === 'monster' && g.field[1 - t][x.idx].hp <= dmg);
-    const biggest = targets.filter(x => x.kind === 'monster').reduce((a, b) => !a || g.field[1 - t][b.idx].atk > g.field[1 - t][a.idx].atk ? b : a, null);
-    attack(g, t, u.idx, kill || biggest || targets[0]);
+    if (targets.length) {
+      const dmg = Math.max(0, u.atk + (u.atkMod || 0));
+      const kill = targets.find(x => x.kind === 'monster' && g.field[1 - t][x.idx].hp <= dmg);
+      const biggest = targets.filter(x => x.kind === 'monster').reduce((a, b) => !a || g.field[1 - t][b.idx].atk > g.field[1 - t][a.idx].atk ? b : a, null);
+      const target = kill || biggest || targets[0];
+      if (attack(g, t, u.idx, target)) return { kind: 'attack', idx: u.idx, target };
+    }
   }
+  return { done: true };
 }
-/* Runs a full CPU turn (cards, then attacks) and ends it. Call only when g.turn === t and t is the
-   bot side. */
+/* Runs a full CPU turn (cards, then attacks, repeated — points can free up a later card) and ends
+   it. Used directly by tests/CPU-vs-CPU; the UI instead calls cpuStep itself in a timed loop so the
+   turn is watchable instead of resolving instantly. Call only when g.turn === t and t is the bot. */
 function cpuTurn(g, t) {
-  cpuPlayCards(g, t);
-  cpuAttack(g, t);
-  cpuPlayCards(g, t); // a second pass: points freed up by attacking (none currently) or late draws
+  let guard = 100;
+  while (guard-- > 0) { if (cpuStep(g, t).done) break; }
   if (g.winner === null) endTurn(g);
 }
 
@@ -330,7 +345,7 @@ function endTurn(g) {
 return {
   START_HP, START_HAND, HAND_CAP, MAX_POINTS, FATIGUE_DMG, MONSTER, SPELL, HERO,
   newGame, draw, aliveField, tauntUp, attackTargets, canAttack, attack,
-  canPlay, playCard, heroPowerUsable, useHeroPower, startTurn, endTurn, roll20, cpuTurn,
+  canPlay, playCard, heroPowerUsable, useHeroPower, startTurn, endTurn, roll20, cpuTurn, cpuStep,
 };
 })();
 if (typeof module !== 'undefined') module.exports = TCGRules;

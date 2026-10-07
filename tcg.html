@@ -74,6 +74,15 @@ p{margin:4px 0}
 .over h1{font-size:40px}
 .peek{position:fixed;inset:0;z-index:25;background:#000c;display:grid;place-items:center;padding:20px}
 .peek .box{background:#141318;border:1px solid var(--gold);border-radius:14px;padding:16px;max-width:360px;text-align:center}
+.cpu-tag{font-size:11px;opacity:.7;font-style:italic}
+/* A small floating marker that jumps to whatever the CPU just acted on (see placeCpuCursor in the
+   script), so its turn is watchable instead of a blackout — a lightweight stand-in for a real
+   mouse/wand cursor. */
+.cpu-cursor{position:fixed;z-index:40;width:34px;height:34px;margin:-17px 0 0 -17px;border-radius:50%;
+  border:3px solid #ff6a5a;box-shadow:0 0 0 4px rgba(255,106,90,.25),0 0 14px rgba(255,106,90,.6);
+  pointer-events:none;transition:left .5s ease,top .5s ease;animation:cpuPulse .6s infinite alternate}
+.cpu-cursor::after{content:'';position:absolute;inset:-8px;border-radius:50%;border:1px solid rgba(255,106,90,.5)}
+@keyframes cpuPulse{to{transform:scale(1.15)}}
 </style>
 </head>
 <body>
@@ -82,7 +91,7 @@ p{margin:4px 0}
 <script src="cards.js?v=20261006a"></script>
 <script src="account.js?v=20261006a"></script>
 <script src="tcg-cards.js?v=20261007a"></script>
-<script src="tcg-rules.js?v=20261007c"></script>
+<script src="tcg-rules.js?v=20261007d"></script>
 <script>
 'use strict';
 /* Travis: Arena — hotseat 2-player, one device, pass between turns. Online sync and a real
@@ -99,7 +108,8 @@ let sel = null;          // {kind:'card', hi} or {kind:'mon', idx} or {kind:'pow
 let passFor = null;      // team that must tap "I'm ready" before seeing the board (hides the other's hand)
 let seenRound = 0;
 let vsCpu = false;       // team 1 is a bot (tcg-rules.js cpuTurn) — no pass screen, no hero pick for it
-let cpuThinking = false; // true while cpuTurn() is scheduled, to block input and show a status line
+let cpuThinking = false; // true while a cpuStep() is scheduled, to block input
+let cpuCursor = null;    // last R.cpuStep() result, so placeCpuCursor() can point at what it just did
 let deckChoice = ['default', 'default'];  // 'default' or a SmalLab deck id, per team (team 1 ignored when vsCpu)
 let signinErr = '', signinBusy = false;
 
@@ -126,12 +136,8 @@ function render() {
   if (!g) return renderSetup();
   if (passFor !== null) return renderPass();
   if (g.winner !== null) return renderOver();
-  if (vsCpu && g.turn === 1) return renderThinking();
   renderBattle();
-}
-function renderThinking() {
-  app.innerHTML = `<div class="pass"><div><h2>CPU is thinking&hellip;</h2>
-    <p class="muted">Round ${g.round} &middot; ${esc(names[1])} is taking its turn.</p></div></div>`;
+  if (vsCpu && g.turn === 1) placeCpuCursor();
 }
 
 function renderSetup() {
@@ -230,7 +236,11 @@ function handCard(id, hi, t) {
 }
 
 function renderBattle() {
-  const viewer = g.turn, me = viewer, opp = 1 - viewer;
+  /* In Versus CPU, the board is always shown from the human's own side (bottom = you, top = CPU),
+     even during the CPU's turn, instead of blacking out — see placeCpuCursor() for the "what is it
+     doing" cursor overlay. In hotseat, each pass still flips the perspective to whoever's playing. */
+  const watching = vsCpu && g.turn === 1;
+  const viewer = vsCpu ? 0 : g.turn, me = viewer, opp = 1 - viewer;
   const heroTargetable = t => t === opp && !!sel && sel.kind === 'mon' && targetsFor(viewer).some(x => x.kind === 'hero');
   /* Hearthstone-style hero: a circular portrait with an HP gem overlapping its corner. Only the
      active player's own hero gets mana crystals and the hero-power button beside it. */
@@ -244,27 +254,29 @@ function renderBattle() {
   const canPower = R.heroPowerUsable(g, me);
   /* A one-line nudge so an empty field + a greyed-out hand (quite possible turn 1 — your 3-card
      starting hand has no guaranteed 1-cost card) doesn't just look broken. */
-  const hint = sel ? 'Tap a glowing target to confirm.'
+  const hint = watching ? 'Watching ' + esc(names[opp]) + '&rsquo;s turn&hellip;'
+    : sel ? 'Tap a glowing target to confirm.'
     : g.hand[me].some((id, hi) => R.canPlay(g, me, hi)) ? 'Tap a card in your hand to summon or cast it.'
     : R.aliveField(g, me).some(u => R.canAttack(g, me, u.idx)) ? 'Tap a glowing monster, then an enemy, to attack.'
     : 'Nothing to play this turn &mdash; tap End turn.';
   app.innerHTML = `
-    <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}</span></div>
-    <div class="field">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
-    <div class="status">Round ${g.round} &middot; <b>${esc(names[me])}&rsquo;s turn</b></div>
+    <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}${watching ? ' <i class="cpu-tag">thinking&hellip;</i>' : ''}</span></div>
+    <div class="field" id="oppfield">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
+    <div class="status">Round ${g.round} &middot; <b>${esc(names[watching ? opp : me])}&rsquo;s turn</b></div>
     <p class="muted" style="text-align:center">${hint}</p>
-    <div class="field">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
+    <div class="field" id="mefield">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
     <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
-      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${canPower || powerOn ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div>
+      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${(canPower || powerOn) && !watching ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div>
     <h2>Your hand</h2>
-    <div class="hand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
+    <div class="hand" id="myhand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
     <h2>Battle log</h2>
     <div class="log" id="log">${g.log.slice(-40).map(l => `<p>${l}</p>`).join('')}</div>
     <div class="bar">
       ${sel && targetsFor(me).some(x => x.kind === 'none') ? '<button class="btn sm gold" data-act="notarget">Target your hero</button>' : ''}
       ${sel ? '<button class="btn sm" data-act="cancel">Cancel</button>' : ''}
-      <button class="btn gold" data-act="end">End turn</button>
+      <button class="btn gold" data-act="end" ${watching ? 'disabled' : ''}>End turn</button>
     </div>
+    <div id="cpucursor" class="cpu-cursor" hidden></div>
     ${g.peek && g.peek.team === me ? peekHtml() : ''}`;
   const log = document.getElementById('log'); if (log) log.scrollTop = log.scrollHeight;
 }
@@ -283,18 +295,45 @@ function startGame() {
   passFor = vsCpu ? null : 0; // CPU never needs a pass screen — only one human at the table
   render();
 }
-/* Runs after any action that might have ended the turn — if it's now the bot's turn, let it play
-   itself out on a short delay (so it reads as "thinking" rather than instant), then hand back.
-   cpuThinking is just a re-entrancy guard against scheduling two overlapping bot turns. */
+/* Runs after any action that might have ended the turn — if it's now the bot's turn, plays it one
+   action at a time (R.cpuStep), rendering and pointing the cursor at each action in turn instead of
+   resolving the whole turn instantly behind a blackout. cpuThinking is a re-entrancy guard against
+   scheduling two overlapping bot turns. */
 function maybeRunCpu() {
   if (!vsCpu || !g || g.winner !== null || g.turn !== 1 || cpuThinking) return;
   cpuThinking = true;
+  runCpuStep();
+}
+function runCpuStep() {
   setTimeout(() => {
-    cpuThinking = false;
-    if (!g || g.turn !== 1 || g.winner !== null) return; // the player bailed to setup mid-think
-    R.cpuTurn(g, 1);
+    if (!g || g.turn !== 1 || g.winner !== null) { cpuThinking = false; cpuCursor = null; return; }
+    const r = R.cpuStep(g, 1);
+    if (r.done) {
+      cpuThinking = false; cpuCursor = null;
+      R.endTurn(g);
+      return render();
+    }
+    cpuCursor = r;
     render();
-  }, 550);
+    runCpuStep();
+  }, 700);
+}
+/* Points #cpucursor at whatever DOM element corresponds to the last R.cpuStep() result: the newly
+   summoned monster, the attacker, or (for a spell/power with no stable card element left in hand)
+   just the CPU's own portrait as a generic "it did something" marker. */
+function placeCpuCursor() {
+  const el = document.getElementById('cpucursor');
+  if (!el) return;
+  if (!cpuCursor) { el.hidden = true; return; }
+  let target = null;
+  if (cpuCursor.kind === 'card' && R.MONSTER[cpuCursor.id]) target = document.querySelector('#oppfield .mon:last-child');
+  else if (cpuCursor.kind === 'attack') target = document.querySelector(`#oppfield [data-mon="1:${cpuCursor.idx}"]`);
+  if (!target) target = document.querySelector('.herorow.opp .hero-circle');
+  if (!target) { el.hidden = true; return; }
+  const r = target.getBoundingClientRect();
+  el.style.left = (r.left + r.width / 2) + 'px';
+  el.style.top = (r.top + r.height / 2) + 'px';
+  el.hidden = false;
 }
 function doTarget(target) {
   const t = g.turn;

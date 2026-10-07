@@ -162,4 +162,24 @@ assert.strictEqual(targs[0].team, 1, 'monster targets must carry a team, or the 
 const uiAccepts = targs.some(x => x.kind === 'monster' && x.team === 1 && x.idx === 0);
 assert.ok(uiAccepts, 'the UI click handler would accept this as a valid attack target');
 
+// Opening hand always has something affordable at 1 starting point — a random 3-card hand from the
+// 45-card deck misses that ~31% of the time otherwise, which reads as "nothing to play" on turn 1.
+for (let i = 0; i < 200; i++) {
+  g = R.newGame(null, null, Math.random);
+  for (const t of [0, 1]) {
+    assert.ok(g.hand[t].some(id => (R.MONSTER[id] || R.SPELL[id]).cost <= 1), 'every opening hand has a 1-cost-or-cheaper card');
+    assert.strictEqual(g.hand[t].length, 3, 'the guarantee swaps a card in, it doesn\'t add one');
+  }
+}
+
+// Watchable CPU turns: cpuStep does exactly one action per call and eventually reports done, instead
+// of resolving the whole turn atomically (the UI drives this with a delay between calls so the
+// player can see what happened, with a cursor — see tcg.html placeCpuCursor/runCpuStep).
+g = R.newGame(null, null, Math.random);
+g.turn = 1;
+let steps = 0, sawDone = false;
+while (steps++ < 200) { const r = R.cpuStep(g, 1); if (r.done) { sawDone = true; break; } assert.ok(r.kind, 'every non-done step reports what it did'); }
+assert.ok(sawDone, 'cpuStep eventually finishes the turn');
+assert.strictEqual(g.turn, 1, 'cpuStep never ends the turn itself — that\'s the caller\'s job (cpuTurn, or the UI)');
+
 console.log('tcg rules OK');
