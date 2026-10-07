@@ -45,6 +45,16 @@ card scales it up with its full ability text revealed (previously truncated once
 monsters are summoned, you should still be able to see any mechanics the card has"); attacks now play
 a lunge/impact animation on the attacker and target instead of just updating numbers.
 
+## Battlefield layout (round 3)
+
+"I have to scroll and it looks stupid" — the board was a stacked document, not a battle mat, and the
+always-visible battle log under the hand was the main thing pushing it past one screen. Rebuilt as a
+fixed `100dvh` stage with zero page scroll: hero rows, both field rows and the hand all get explicit
+grid rows sized to fit, monster/hand cards scale off viewport height (`clamp(..,vh,..)`) instead of a
+fixed px size, and the log moved into a slide-up drawer opened on demand from the action bar instead of
+permanently eating space. Also: Versus CPU is now the default opponent choice on the setup screen,
+not Two Players.
+
 Deferred rather than attempted here, given the size: a full card-by-card redesign of the remaining
 52 vanilla monsters and existing 14 spells against the official Hearthstone card library. The content
 fixes above (flavor text, two broken cards) were corrected; a deeper design pass is real future work.

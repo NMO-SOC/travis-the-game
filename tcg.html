@@ -7,8 +7,15 @@
 <style>
 :root{--bg:#07090d;--ink:#efe6cf;--ink-soft:#a99f88;--gold:#d6b25a;--gold-2:#f3dc97;--t0:#5aa8ff;--t1:#ff7a52;--red:#e0483a;--green:#6fcf4a}
 *{box-sizing:border-box}
+html,body{height:100%}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.4 "Segoe UI",system-ui,Arial,sans-serif}
 main{max-width:720px;margin:0 auto;padding:12px 12px 140px}
+/* Battle mode: the board is a fixed stage, not a web page — nothing above it scrolls. Set on <body>
+   only while renderBattle() is showing (see setBattleMode in the script). */
+body.battle-mode{overflow:hidden}
+body.battle-mode main{height:100dvh;max-width:860px;padding:0;display:flex;flex-direction:column}
+.stage{flex:1;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto minmax(0,1fr) auto auto auto;
+  padding:8px 10px env(safe-area-inset-bottom);gap:2px}
 h1{font-size:26px;margin:10px 0 2px}
 h2{font-size:16px;margin:16px 0 6px;color:var(--gold-2)}
 p{margin:4px 0}
@@ -25,14 +32,14 @@ p{margin:4px 0}
 .hero-opt small{opacity:.75}
 .pass{position:fixed;inset:0;z-index:20;background:#000e;display:grid;place-items:center;text-align:center;padding:24px}
 .pass h2{font-size:24px}
-.bar{position:fixed;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000d;backdrop-filter:blur(6px);display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+.bar{padding:8px 4px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
 /* ---- hero row: a big circular portrait per side, Hearthstone-style, centred in its row, with an
    HP gem overlapping its bottom-right corner and (for the active player) mana crystals + hero power
    wrapping underneath it rather than stretching the row off-centre ---- */
-.herorow{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0;flex-wrap:wrap;text-align:center}
-.herorow.me{flex-direction:column}
+.herorow{display:flex;align-items:center;justify-content:center;gap:8px;margin:2px 0;flex-wrap:wrap;text-align:center}
+.herorow.me{flex-direction:column;gap:2px}
 .herorow.me .hero-controls{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
-.hero-circle{position:relative;flex:none;width:84px;height:84px;border-radius:50%;cursor:default}
+.hero-circle{position:relative;flex:none;width:clamp(44px,8vh,72px);height:clamp(44px,8vh,72px);border-radius:50%;cursor:default}
 .hero-circle img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:50% 12%;border:3px solid #4a3a16;box-shadow:0 0 0 2px var(--gold),0 2px 6px #000}
 .hero-circle.t0 img{box-shadow:0 0 0 2px var(--t0),0 2px 6px #000}
 .hero-circle.t1 img{box-shadow:0 0 0 2px var(--t1),0 2px 6px #000}
@@ -46,8 +53,8 @@ p{margin:4px 0}
 .mana i{width:14px;height:14px;border-radius:3px;transform:rotate(45deg);background:#1a2b4a;box-shadow:inset 0 0 0 1px #2d4a7a}
 .mana i.full{background:linear-gradient(160deg,#7fc4ff,var(--t0));box-shadow:inset 0 0 0 1px #bfe4ff,0 0 4px rgba(90,168,255,.7)}
 .points{font-size:12px;opacity:.75;margin-left:2px}
-.field{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 8px;min-height:84px;padding:10px 8px;border-radius:10px;background:#0c0e13;margin:6px 0}
-.mon{position:relative;flex:0 0 92px;border:2px solid #333;border-radius:10px;padding:4px;background:#171a21;cursor:default;text-align:center;
+.field{display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:6px;min-height:0;height:100%;padding:4px 8px;border-radius:10px;background:#0c0e13;margin:2px 0;overflow:hidden}
+.mon{position:relative;flex:0 0 clamp(56px,11vh,88px);border:2px solid #333;border-radius:10px;padding:3px;background:#171a21;cursor:default;text-align:center;
   transition:transform .15s,box-shadow .15s,z-index 0s;transform-origin:50% 70%}
 .mon.taunt{border-color:var(--gold)}
 .mon.ready{cursor:pointer;box-shadow:0 0 0 2px var(--green)}
@@ -56,7 +63,8 @@ p{margin:4px 0}
 .mon.sick{opacity:.6}
 .mon:hover{transform:scale(1.8);z-index:15;box-shadow:0 10px 30px #000}
 .mon img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
-.mon .name{font-size:10.5px;font-weight:700;margin:9px 0 1px;line-height:1.1;min-height:2.2em}
+.mon .name{font-size:9.5px;font-weight:700;margin:7px 0 1px;line-height:1.1;min-height:1.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mon:hover .name{white-space:normal}
 .mon .gem{position:absolute;bottom:20px;width:24px;height:24px;border-radius:50%;color:#fff;font-weight:900;font-size:12px;display:grid;place-items:center;box-shadow:0 0 0 2px #000}
 .mon .gem.a{left:-4px;background:radial-gradient(circle at 35% 30%,#ffe9a8,var(--gold) 70%);color:#1c1405}
 .mon .gem.h{right:-4px;background:radial-gradient(circle at 35% 30%,#ff6a5a,var(--red) 70%)}
@@ -64,14 +72,14 @@ p{margin:4px 0}
 /* Ability text: always there in the DOM (so it's never a mystery once a monster's on the board — the
    brief complaint was that it vanished after summoning), just tucked under the name at normal size
    and revealed in full by the hover-scale above. */
-.mon .ability{font-size:8px;line-height:1.2;color:var(--gold-2);opacity:.85;max-height:2.2em;overflow:hidden}
+.mon .ability{font-size:8px;line-height:1.2;color:var(--gold-2);opacity:.85;max-height:0;overflow:hidden}
 .mon:hover .ability{max-height:none}
 .mon.atk-anim{animation:lunge .45s ease}
 .mon.hit-anim,.hero-circle.hit-anim img{animation:hitflash .4s ease}
 @keyframes lunge{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-10px) scale(1.12)}65%{transform:translateY(3px) scale(1.02)}100%{transform:translateY(0) scale(1)}}
 @keyframes hitflash{0%{filter:brightness(1)}25%{filter:brightness(2.4) saturate(2);transform:translateX(-4px)}55%{transform:translateX(4px)}100%{filter:brightness(1);transform:translateX(0)}}
-.hand{display:flex;gap:6px;overflow-x:auto;overflow-y:visible;padding:30px 2px 4px;justify-content:center}
-.card{flex:none;width:92px;border:2px solid #333;border-radius:10px 10px 14px 14px;padding:4px;background:#171a21;cursor:pointer;text-align:center;position:relative;
+.hand{display:flex;gap:6px;overflow-x:auto;overflow-y:visible;padding:14px 2px 2px;justify-content:center;flex:none}
+.card{flex:none;width:clamp(56px,10vh,86px);border:2px solid #333;border-radius:10px 10px 14px 14px;padding:3px;background:#171a21;cursor:pointer;text-align:center;position:relative;
   transition:transform .15s,box-shadow .15s,z-index 0s;transform-origin:50% 100%}
 .card:not(.off):hover{transform:translateY(-6px) scale(1.7);z-index:15;box-shadow:0 10px 30px #000}
 .card.on{border-color:var(--gold-2);box-shadow:0 0 0 2px var(--gold-2);transform:translateY(-6px)}
@@ -79,12 +87,21 @@ p{margin:4px 0}
 .card img{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;object-position:50% 12%}
 .card-icon{width:100%;aspect-ratio:3/4;border-radius:6px;background:#0c0e13;display:grid;place-items:center;font-size:22px}
 .card .cost{position:absolute;top:-8px;left:-8px;width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7fc4ff,var(--t0) 70%);color:#06203f;font-weight:900;display:grid;place-items:center;font-size:14px;box-shadow:0 0 0 2px #000}
-.card .name{font-size:10px;font-weight:700;margin-top:4px;line-height:1.1;min-height:2.2em}
-.card .txt{font-size:9px;opacity:.75;line-height:1.2;max-height:2.6em;overflow:hidden}
+.card .name{font-size:9.5px;font-weight:700;margin-top:3px;line-height:1.1;min-height:1.1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card:hover .name{white-space:normal}
+.card .txt{font-size:9px;opacity:.75;line-height:1.2;max-height:0;overflow:hidden}
 .card:hover .txt{max-height:none}
-.log{background:#0c0e13;border-radius:10px;padding:8px 10px;max-height:140px;overflow-y:auto;font-size:13px}
-.log p{margin:2px 0;opacity:.85}
-.status{text-align:center;font-weight:700;margin:8px 0}
+.status{text-align:center;font-weight:700;font-size:13px;margin:0;line-height:1.3}
+.hint{text-align:center;margin:0 0 2px;font-size:12px}
+/* Battle log: a slide-up drawer instead of a permanent block under the hand — that permanent block
+   was most of why the board needed scrolling to begin with. Toggled from the action bar. */
+.logdrawer{position:fixed;left:0;right:0;bottom:0;max-height:45vh;background:#0c0e13;border-top:1px solid #8a6a22;
+  border-radius:14px 14px 0 0;box-shadow:0 -10px 30px #000a;transform:translateY(100%);transition:transform .25s ease;z-index:30}
+.logdrawer.open{transform:translateY(0)}
+.logdrawer .loghead{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #222}
+.logdrawer .loghead b{font-size:13px}
+.log{padding:8px 12px;max-height:calc(45vh - 40px);overflow-y:auto;font-size:13px}
+.log p{margin:4px 0;opacity:.85}
 .over{position:fixed;inset:0;z-index:30;background:#000e;display:grid;place-items:center;text-align:center;padding:24px}
 .over h1{font-size:40px}
 .peek{position:fixed;inset:0;z-index:25;background:#000c;display:grid;place-items:center;padding:20px}
@@ -122,12 +139,13 @@ let g = null, names = ['Player 1', 'Player 2'], heroPick = [TCG_HEROES[0].id, TC
 let sel = null;          // {kind:'card', hi} or {kind:'mon', idx} or {kind:'power'} — what's "armed" to target
 let passFor = null;      // team that must tap "I'm ready" before seeing the board (hides the other's hand)
 let seenRound = 0;
-let vsCpu = false;       // team 1 is a bot (tcg-rules.js cpuTurn) — no pass screen, no hero pick for it
+let vsCpu = true;        // default to CPU on the setup screen — team 1 is a bot (tcg-rules.js cpuTurn)
 let cpuThinking = false; // true while a cpuStep() is scheduled, to block input
 let cpuCursor = null;    // last R.cpuStep() result, so placeCpuCursor() can point at what it just did
 let fxAttack = null;     // {kind:'atk'|'hit', team, idx} | {kind:'hit', hero:team} — one-shot attack animation
 let deckChoice = ['default', 'default'];  // 'default' or a SmalLab deck id, per team (team 1 ignored when vsCpu)
 let signinErr = '', signinBusy = false;
+let logOpen = false;     // battle log is a slide-up drawer, closed by default — see setBattleMode
 
 /* A signed-in player can bring one of their saved SmalLab decks instead of the shared default. There's
    no Arena deckbuilder yet (see TCG-MODE.md), so this is a mechanical conversion, not a real 1:1 port:
@@ -149,12 +167,17 @@ function resolvedDeck(t) {
 }
 
 function render() {
-  if (!g) return renderSetup();
-  if (passFor !== null) return renderPass();
-  if (g.winner !== null) return renderOver();
+  if (!g) { setBattleMode(false); return renderSetup(); }
+  if (passFor !== null) { setBattleMode(false); return renderPass(); }
+  if (g.winner !== null) { setBattleMode(false); return renderOver(); }
+  setBattleMode(true);
   renderBattle();
   if (vsCpu && g.turn === 1) placeCpuCursor();
 }
+/* The battle screen is a fixed no-scroll stage (see .battle-mode in the stylesheet); every other
+   screen is a normal scrolling page. Toggled on <body> rather than baked into main's CSS alone so
+   setup/pass/game-over never accidentally inherit the fixed height on a short screen. */
+function setBattleMode(on) { document.body.classList.toggle('battle-mode', on); }
 
 function renderSetup() {
   const opt = (t) => `<div class="hero-pick">${TCG_HEROES.map(h => `
@@ -282,23 +305,25 @@ function renderBattle() {
     : R.aliveField(g, me).some(u => R.canAttack(g, me, u.idx)) ? 'Tap a glowing monster, then an enemy, to attack.'
     : 'Nothing to play this turn &mdash; tap End turn.';
   app.innerHTML = `
-    <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}${watching ? ' <i class="cpu-tag">thinking&hellip;</i>' : ''}</span></div>
-    <div class="field" id="oppfield">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
-    <div class="status">Round ${g.round} &middot; <b>${esc(names[watching ? opp : me])}&rsquo;s turn</b></div>
-    <p class="muted" style="text-align:center">${hint}</p>
-    <div class="field" id="mefield">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
-    <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>
-      <div class="hero-controls">${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
-      <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${(canPower || powerOn) && !watching ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div></div>
-    <h2>Your hand</h2>
-    <div class="hand" id="myhand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
-    <h2>Battle log</h2>
-    <div class="log" id="log">${g.log.slice(-40).map(l => `<p>${l}</p>`).join('')}</div>
-    <div class="bar">
-      ${sel && targetsFor(me).some(x => x.kind === 'none') ? '<button class="btn sm gold" data-act="notarget">Target your hero</button>' : ''}
-      ${sel ? '<button class="btn sm" data-act="cancel">Cancel</button>' : ''}
-      <button class="btn gold" data-act="end" ${watching ? 'disabled' : ''}>End turn</button>
+    <div class="stage">
+      <div class="herorow opp">${heroCircle(g.hero[opp], opp)}<span class="hero-name">${esc(names[opp])}${watching ? ' <i class="cpu-tag">thinking&hellip;</i>' : ''}</span></div>
+      <div class="field" id="oppfield">${g.field[opp].map(u => monCard(u, opp, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters — attacks hit the hero.</p>'}</div>
+      <div><div class="status">Round ${g.round} &middot; <b>${esc(names[watching ? opp : me])}&rsquo;s turn</b></div>
+      <p class="hint muted">${hint}</p></div>
+      <div class="field" id="mefield">${g.field[me].map(u => monCard(u, me, viewer)).join('') || '<p class="muted" style="margin:auto">No monsters on your field yet.</p>'}</div>
+      <div class="herorow me">${heroCircle(g.hero[me], me)}<span class="hero-name">${esc(names[me])}</span>
+        <div class="hero-controls">${manaRow(me)}<span class="points">${g.points[me]}/${g.maxPoints[me]}</span>
+        <button class="btn sm ${powerOn ? 'gold' : ''}" data-act="power" ${(canPower || powerOn) && !watching ? '' : 'disabled'}>${esc(power.n)} (${power.cost})</button></div></div>
+      <div class="hand" id="myhand">${g.hand[me].map((id, hi) => handCard(id, hi, me)).join('') || '<p class="muted">Empty hand.</p>'}</div>
+      <div class="bar">
+        <button class="btn sm" data-act="togglelog">Log</button>
+        ${sel && targetsFor(me).some(x => x.kind === 'none') ? '<button class="btn sm gold" data-act="notarget">Target your hero</button>' : ''}
+        ${sel ? '<button class="btn sm" data-act="cancel">Cancel</button>' : ''}
+        <button class="btn gold" data-act="end" ${watching ? 'disabled' : ''}>End turn</button>
+      </div>
     </div>
+    <div class="logdrawer${logOpen ? ' open' : ''}"><div class="loghead"><b>Battle log</b><button class="btn sm" data-act="togglelog">Close</button></div>
+      <div class="log" id="log">${g.log.slice(-60).map(l => `<p>${l}</p>`).join('')}</div></div>
     <div id="cpucursor" class="cpu-cursor" hidden></div>
     ${g.peek && g.peek.team === me ? peekHtml() : ''}`;
   const log = document.getElementById('log'); if (log) log.scrollTop = log.scrollHeight;
@@ -415,6 +440,7 @@ app.addEventListener('click', e => {
     if (act === 'notarget') { if (sel) doTarget(null); return; }
     if (act === 'cancel') { sel = null; return render(); }
     if (act === 'peekclose') { g.peek = null; return render(); }
+    if (act === 'togglelog') { logOpen = !logOpen; return render(); }
     if (act === 'signout') { deckChoice = ['default', 'default']; ACC.signOut().then(render); return; }
     return;
   }
