@@ -66,7 +66,7 @@ function tauntUp(g, t) { return aliveField(g, t).some(u => u.taunt); }
 function attackTargets(g, t) {
   const foes = aliveField(g, 1 - t);
   const taunts = foes.filter(u => u.taunt);
-  const list = (taunts.length ? taunts : foes).map(u => ({ kind: 'monster', idx: u.idx }));
+  const list = (taunts.length ? taunts : foes).map(u => ({ kind: 'monster', team: 1 - t, idx: u.idx }));
   if (!foes.length) list.push({ kind: 'hero' });
   return list;
 }
@@ -107,13 +107,25 @@ function playCard(g, t, hi, target, sacIdx) {
   if (!canPlay(g, t, hi)) return false;
   const id = g.hand[t][hi], c = cardOf(id);
   if (isMonster(id)) {
-    if ((c.to === 'enemy' || c.to === 'friend') && (!target || target.kind !== 'monster')) return false;
+    /* Summoning a monster is never blocked by its battlecry's target — if the board doesn't offer a
+       legal one (e.g. an empty enemy field), the monster still enters play and the battlecry just
+       doesn't fire. A target the caller DID supply still has to be a live, legal one, though. */
+    if (target && target.kind === 'monster') {
+      const side = c.to === 'friend' ? g.field[t] : g.field[1 - t];
+      if (!side[target.idx] || side[target.idx].hp <= 0) return false;
+    }
     g.points[t] -= c.cost;
     g.hand[t].splice(hi, 1);
     g.field[t].push({ id, n: c.n, atk: c.atk, hp: c.hp, max: c.hp, taunt: !!c.taunt, sick: true, attacked: false, atkMod: 0, atkModOwner: null, atkModArmed: false, idx: g.field[t].length });
     reindex(g, t);
     log(g, heroName(g, t) + ' summons ' + c.n + (c.bc ? ' — ' + c.bc.replace(/^Battlecry: /, '') : '') + '.');
-    if (MONSTER_FX[id]) MONSTER_FX[id](g, t, target);
+    if (MONSTER_FX[id]) {
+      const bcTarget = target && target.kind === 'monster' ? target
+        : c.to === 'enemy' ? (aliveField(g, 1 - t).length ? bestEnemyTarget(g, t, 0) : null)
+        : c.to === 'friend' ? (aliveField(g, t).length ? { kind: 'monster', idx: aliveField(g, t)[0].idx } : null)
+        : null;
+      if (!c.to || c.to === 'none' || bcTarget) MONSTER_FX[id](g, t, bcTarget);
+    }
     cleanupField(g);
     return true;
   }
@@ -230,16 +242,8 @@ function cpuPlayCards(g, t) {
       const id = hand[hi];
       if (!canPlay(g, t, hi)) continue;
       if (MONSTER[id]) {
-        const m = MONSTER[id];
-        let ok;
-        if (m.to === 'enemy') {
-          const tgt = bestEnemyTarget(g, t, 3);
-          ok = tgt.kind === 'monster' && playCard(g, t, hi, tgt);
-        } else if (m.to === 'friend') {
-          const mine = aliveField(g, t);
-          ok = mine.length && playCard(g, t, hi, { kind: 'monster', idx: mine[0].idx });
-        } else ok = playCard(g, t, hi);
-        if (!ok) continue;
+        // Summoning never needs a target now — playCard auto-picks the battlecry's target itself.
+        playCard(g, t, hi);
         played = true; break;
       }
       const s = SPELL[id];

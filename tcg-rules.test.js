@@ -37,7 +37,7 @@ assert.ok(!R.canAttack(g, 0, 0), 'can\'t attack twice in one turn');
 // Taunt forces targeting: a taunt monster must be killed before the hero or anything else
 g.field[1] = [{ id: 'elephant-seal-knox', n: 'Elephant Seal Knox', atk: 3, hp: 25, max: 25, taunt: true, sick: false, attacked: false, atkMod: 0, idx: 0 },
   { id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 1 }];
-assert.deepStrictEqual(R.attackTargets(g, 0), [{ kind: 'monster', idx: 0 }], 'taunt is the only legal target');
+assert.deepStrictEqual(R.attackTargets(g, 0), [{ kind: 'monster', team: 1, idx: 0 }], 'taunt is the only legal target');
 
 // Fatigue: drawing from an empty deck costs 2 HP, not a card
 g.deck[0] = [];
@@ -95,16 +95,32 @@ for (let game = 0; game < 25; game++) {
 }
 console.log('25 CPU-vs-CPU games ran with no crash');
 
-// Battlecry: a damage-dealing monster (Field Researcher Knox) needs a target to be playable at all
+// Battlecry: summoning is never blocked by the lack of a target — empty enemy field, no target
+// passed, the monster still enters play, the battlecry just doesn't fire (nothing to hit).
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.hand[0] = ['field-researcher-knox'];
+assert.ok(R.playCard(g, 0, 0), 'a monster always summons, even with no legal battlecry target');
+assert.strictEqual(g.field[0].length, 1, 'it entered play');
+assert.strictEqual(g.hand[0].length, 0);
+
+// With an enemy on the board and no target explicitly chosen, the battlecry auto-picks one.
 g = R.newGame(null, null, fixed(0.9));
 g.points[0] = 5;
 g.hand[0] = ['field-researcher-knox'];
 g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
-assert.ok(!R.playCard(g, 0, 0), 'battlecry monster with an enemy target needs that target to play');
-assert.strictEqual(g.hand[0].length, 1, 'failed play leaves the card in hand');
-assert.ok(R.playCard(g, 0, 0, { kind: 'monster', idx: 0 }));
-assert.strictEqual(g.field[1][0].hp, 19, 'battlecry dealt its 2 damage on summon');
+assert.ok(R.playCard(g, 0, 0));
+assert.strictEqual(g.field[1][0].hp, 19, 'battlecry auto-targeted the only enemy and dealt its 2 damage');
 assert.strictEqual(g.field[0].length, 1, 'the monster itself is still on the field');
+
+// An explicitly-chosen, but invalid (dead/out of range), target is still rejected rather than
+// silently reinterpreted — this is the one case summoning SHOULD fail.
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.hand[0] = ['field-researcher-knox'];
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+assert.ok(!R.playCard(g, 0, 0, { kind: 'monster', idx: 7 }), 'a bogus explicit target still rejects the play');
+assert.strictEqual(g.hand[0].length, 1);
 
 // Battlecry: Harbour Seal Knox heals the hero, no target needed
 g = R.newGame(null, null, fixed(0.9));
@@ -130,5 +146,20 @@ g.turn = 1;
 R.attack(g, 1, 0, { kind: 'monster', idx: 0 });
 assert.deepStrictEqual(g.graveyard[0], ['beer-frog-knox']);
 assert.strictEqual(g.field[0].length, 0);
+
+// Regression: attackTargets() must include `team` on every monster target. The UI's click handler
+// validates a chosen target against this list with `x.team === t` (tcg.html), so a target missing
+// `team` silently fails every attack on an enemy monster forever, even though canAttack/attack()
+// themselves are fine — this is exactly what let the CPU attack (it calls R.attack directly, bypassing
+// the UI check) while the human player's clicks on an enemy monster never did anything.
+g = R.newGame(null, null, fixed(0.9));
+g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 4, hp: 20, max: 20, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+const targs = R.attackTargets(g, 0);
+assert.strictEqual(targs.length, 1);
+assert.strictEqual(targs[0].team, 1, 'monster targets must carry a team, or the UI can never match them');
+// Simulate the UI's exact validation predicate for clicking that target.
+const uiAccepts = targs.some(x => x.kind === 'monster' && x.team === 1 && x.idx === 0);
+assert.ok(uiAccepts, 'the UI click handler would accept this as a valid attack target');
 
 console.log('tcg rules OK');

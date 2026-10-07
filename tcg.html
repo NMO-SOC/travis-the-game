@@ -82,7 +82,7 @@ p{margin:4px 0}
 <script src="cards.js?v=20261006a"></script>
 <script src="account.js?v=20261006a"></script>
 <script src="tcg-cards.js?v=20261007a"></script>
-<script src="tcg-rules.js?v=20261007a"></script>
+<script src="tcg-rules.js?v=20261007c"></script>
 <script>
 'use strict';
 /* Travis: Arena — hotseat 2-player, one device, pass between turns. Online sync and a real
@@ -349,9 +349,9 @@ app.addEventListener('click', e => {
     if (!id || !R.canPlay(g, g.turn, hi)) return;
     const mon = R.MONSTER[id];
     if (mon) {
-      if (!mon.to || mon.to === 'none') { R.playCard(g, g.turn, hi); sel = null; return render(); }
-      sel = sel && sel.kind === 'card' && sel.hi === hi ? null : { kind: 'card', hi };
-      return render();
+      /* Summoning is never gated on a battlecry target — tcg-rules.js auto-picks one if the board
+         offers any, and just skips the battlecry otherwise. Tap, it's on the field. */
+      R.playCard(g, g.turn, hi); sel = null; return render();
     }
     const spell = R.SPELL[id];
     if (spell.to === 'none' && !spell.sac) { R.playCard(g, g.turn, hi, null); sel = null; return render(); }
