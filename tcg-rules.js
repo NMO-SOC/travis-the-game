@@ -26,7 +26,7 @@ function newGame(heroIds, decks, rng = Math.random) {
     rng, turn: 0, winner: null, round: 1, log: [], lastSpell: [null, null],
     hero: heroIds.map(id => ({ id, hp: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, max: (HERO[id] || HERO[TCG_HEROES[0].id]).hp, powerUsed: false })),
     points: [1, 1], maxPoints: [1, 1],
-    deck: [], hand: [[], []], field: [[], []], fatigue: [0, 0],
+    deck: [], hand: [[], []], field: [[], []], fatigue: [0, 0], graveyard: [[], []],
   };
   for (const t of [0, 1]) {
     g.deck[t] = shuffle(decks[t], rng);
@@ -92,6 +92,7 @@ function attack(g, t, fi, target) {
   u.attacked = true;
   if (target.kind === 'hero') { damageHero(g, 1 - t, atk); log(g, u.n + ' hits ' + heroName(g, 1 - t) + ' for ' + atk + '.'); }
   else { const e = g.field[1 - t][target.idx]; damageMonster(g, 1 - t, target.idx, atk); log(g, u.n + ' hits ' + e.n + ' for ' + atk + '.'); }
+  cleanupField(g);
   return true;
 }
 
@@ -106,11 +107,14 @@ function playCard(g, t, hi, target, sacIdx) {
   if (!canPlay(g, t, hi)) return false;
   const id = g.hand[t][hi], c = cardOf(id);
   if (isMonster(id)) {
+    if ((c.to === 'enemy' || c.to === 'friend') && (!target || target.kind !== 'monster')) return false;
     g.points[t] -= c.cost;
     g.hand[t].splice(hi, 1);
     g.field[t].push({ id, n: c.n, atk: c.atk, hp: c.hp, max: c.hp, taunt: !!c.taunt, sick: true, attacked: false, atkMod: 0, atkModOwner: null, atkModArmed: false, idx: g.field[t].length });
     reindex(g, t);
-    log(g, heroName(g, t) + ' summons ' + c.n + '.');
+    log(g, heroName(g, t) + ' summons ' + c.n + (c.bc ? ' — ' + c.bc.replace(/^Battlecry: /, '') : '') + '.');
+    if (MONSTER_FX[id]) MONSTER_FX[id](g, t, target);
+    cleanupField(g);
     return true;
   }
   const s = c;
@@ -129,11 +133,41 @@ function playCard(g, t, hi, target, sacIdx) {
   return true;
 }
 
-function cleanupField(g) { for (const t of [0, 1]) { g.field[t] = aliveField(g, t); reindex(g, t); } }
+function cleanupField(g) {
+  for (const t of [0, 1]) {
+    g.field[t].filter(u => u.hp <= 0).forEach(u => g.graveyard[t].push(u.id));
+    g.field[t] = aliveField(g, t);
+    reindex(g, t);
+  }
+}
 function reindex(g, t) { g.field[t].forEach((u, i) => { u.idx = i; }); }
 function weakest(g, t) { const f = aliveField(g, t); return f.length ? f.reduce((a, b) => a.hp <= b.hp ? a : b) : null; }
 function roll20(g) { return 1 + Math.floor(g.rng() * 20); }
 
+/* Battlecry effects — abilities tied to a specific monster, triggered the moment it's summoned (not
+   reusable, unlike a spell). Most monsters are vanilla stats; this is deliberately a short list, not
+   every card. Signature matches SPELL_FX: (g, t, target), target only present when card.to needs one. */
+const MONSTER_FX = {
+  'tadpole-knox': (g, t) => {
+    const gy = g.graveyard[t];
+    if (!gy.length) return;
+    let bi = 0, best = -1;
+    gy.forEach((id, i) => { const c = MONSTER[id]; if (c && c.cost > best) { best = c.cost; bi = i; } });
+    const id = gy.splice(bi, 1)[0];
+    if (g.hand[t].length < HAND_CAP) { g.hand[t].push(id); log(g, heroName(g, t) + ' returns ' + MONSTER[id].n + ' to hand.'); }
+  },
+  'field-researcher-knox': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 2),
+  'fire-drill-knox': (g, t) => draw(g, t, 1),
+  'harbour-seal-knox': (g, t) => damageHero(g, t, -3),
+  'yard-duty-knox': (g, t) => aliveField(g, 1 - t).forEach(u => damageMonster(g, 1 - t, u.idx, 1)),
+  'seal-whisperer-knox': (g, t, tgt) => { const u = g.field[t][tgt.idx]; if (u) { u.max += 3; u.hp += 3; } },
+  'mixtape-knox': (g, t, tgt) => damageMonster(g, 1 - t, tgt.idx, 3),
+  'emeritus-knox': (g, t, tgt) => {
+    damageMonster(g, 1 - t, tgt.idx, 4);
+    const self = g.field[t][g.field[t].length - 1];
+    if (self) damageMonster(g, t, self.idx, 2);
+  },
+};
 const SPELL_FX = {
   'food-fight': (g, t) => aliveField(g, 1 - t).forEach(u => damageMonster(g, 1 - t, u.idx, 2)),
   'clean-slate': g => [0, 1].forEach(t => g.field[t].forEach(u => { u.atkMod = 0; })),
@@ -195,7 +229,19 @@ function cpuPlayCards(g, t) {
     for (let hi = 0; hi < hand.length; hi++) {
       const id = hand[hi];
       if (!canPlay(g, t, hi)) continue;
-      if (MONSTER[id]) { playCard(g, t, hi); played = true; break; }
+      if (MONSTER[id]) {
+        const m = MONSTER[id];
+        let ok;
+        if (m.to === 'enemy') {
+          const tgt = bestEnemyTarget(g, t, 3);
+          ok = tgt.kind === 'monster' && playCard(g, t, hi, tgt);
+        } else if (m.to === 'friend') {
+          const mine = aliveField(g, t);
+          ok = mine.length && playCard(g, t, hi, { kind: 'monster', idx: mine[0].idx });
+        } else ok = playCard(g, t, hi);
+        if (!ok) continue;
+        played = true; break;
+      }
       const s = SPELL[id];
       if (s.to === 'enemy') {
         const dmg = s.id === 'detention-slip' ? 2 : s.id === 'written-up' ? 0 : s.id === 'faculty-meeting' ? 6 : s.id === 'science-fair-volcano' ? 8 : 0;

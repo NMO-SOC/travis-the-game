@@ -95,4 +95,40 @@ for (let game = 0; game < 25; game++) {
 }
 console.log('25 CPU-vs-CPU games ran with no crash');
 
+// Battlecry: a damage-dealing monster (Field Researcher Knox) needs a target to be playable at all
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.hand[0] = ['field-researcher-knox'];
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 4, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+assert.ok(!R.playCard(g, 0, 0), 'battlecry monster with an enemy target needs that target to play');
+assert.strictEqual(g.hand[0].length, 1, 'failed play leaves the card in hand');
+assert.ok(R.playCard(g, 0, 0, { kind: 'monster', idx: 0 }));
+assert.strictEqual(g.field[1][0].hp, 19, 'battlecry dealt its 2 damage on summon');
+assert.strictEqual(g.field[0].length, 1, 'the monster itself is still on the field');
+
+// Battlecry: Harbour Seal Knox heals the hero, no target needed
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5; g.hero[0].hp = 20;
+g.hand[0] = ['harbour-seal-knox'];
+assert.ok(R.playCard(g, 0, 0));
+assert.strictEqual(g.hero[0].hp, 23);
+
+// Battlecry: Tadpole Knox returns the strongest monster from the graveyard to hand
+g = R.newGame(null, null, fixed(0.9));
+g.points[0] = 5;
+g.graveyard[0] = ['beer-frog-knox', 'barbarian-knox']; // barbarian-knox (cost 6) is the "strongest"
+g.hand[0] = ['tadpole-knox'];
+assert.ok(R.playCard(g, 0, 0));
+assert.ok(g.hand[0].includes('barbarian-knox'), 'returned the strongest, not just the first, dead monster');
+assert.deepStrictEqual(g.graveyard[0], ['beer-frog-knox']);
+
+// Monsters that die go to the graveyard (feeding Tadpole Knox above)
+g = R.newGame(null, null, fixed(0.9));
+g.field[0] = [{ id: 'beer-frog-knox', n: 'Beer Frog Knox', atk: 4, hp: 20, max: 20, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+g.field[1] = [{ id: 'doctor-knox', n: 'Doctor Knox', atk: 99, hp: 21, max: 21, taunt: false, sick: false, attacked: false, atkMod: 0, idx: 0 }];
+g.turn = 1;
+R.attack(g, 1, 0, { kind: 'monster', idx: 0 });
+assert.deepStrictEqual(g.graveyard[0], ['beer-frog-knox']);
+assert.strictEqual(g.field[0].length, 0);
+
 console.log('tcg rules OK');

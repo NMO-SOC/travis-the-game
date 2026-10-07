@@ -24,9 +24,18 @@ Deliberately deferred, not forgotten:
 - **No online play.** Hotseat (pass the device) or Versus CPU only — no match codes/Supabase sync yet.
   The CPU is a simple greedy heuristic in `tcg-rules.js` (`cpuTurn`): no lookahead, plays whatever it
   can afford roughly best-first and attacks for lethal/biggest-threat. Not tuned for difficulty tiers.
-- **Monster Power text is flavor only in v1** — the adapted Travis Knox cards show their original
-  Power as card text but it isn't mechanically triggered on summon. Every mechanic in the brief instead
-  lives in the 14 hand-authored spell cards, which are fully implemented.
+- **Most monster Power text is still flavor only.** Per the later instruction ("abilities should not
+  be tied to the monsters, but to cards — some monsters will have abilities"), 8 of the 52 adapted
+  monsters got real Battlecry-style abilities instead (triggered the instant they're summoned, not
+  reusable) — Tadpole Knox, Field Researcher Knox, Fire Drill Knox, Harbour Seal Knox, Yard Duty Knox,
+  Seal Whisperer Knox, Mixtape Knox, Emeritus Knox — chosen to map cleanly onto their original SmalLab
+  Power text. Tadpole Knox's battlecry needed a graveyard (`g.graveyard[t]`, populated whenever a
+  monster dies in combat or from an effect) to "return the strongest monster that died this game." The
+  other 44 monsters remain vanilla stats; abilities otherwise live on cards (the 14 spells), as asked.
+- **Visual design follows Hearthstone conventions**: a circular hero portrait per side with an HP gem
+  overlapping its corner (the attack target once a field is empty), a diamond mana-crystal row for the
+  active player, and ATK/HP gems on minion cards instead of a stats line. Not a pixel-for-pixel clone —
+  Travis Knox art/palette throughout — but the board reads as the same genre at a glance.
 
 ## Core loop
 
